@@ -1,5 +1,5 @@
 # Project Name
-PROJECT := control
+PROJECT := reflex
 
 # Project Version
 VERSION := 20100801
@@ -8,7 +8,7 @@ VERSION := 20100801
 #BINFILES :=
 
 # Library files
-SHAREDLIBS := control
+SHAREDLIBS := reflex
 
 all: default
 
@@ -21,7 +21,7 @@ FFLAGS += -I/usr/include
 default: $(LIBFILES) $(BINFILES)
 
 
-$(call LINKLIB, control, control.o)
+$(call LINKLIB, reflex, control.o trajectory.o)
 
 .PHONY: default clean doc
 

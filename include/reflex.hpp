@@ -35,40 +35,50 @@
  *
  */
 
-#include <amino.h>
+#ifndef REFLEX_HPP
+#define REFLEX_HPP
+
+/** \file reflex.hpp */
 #include "reflex.h"
 
-/*
- * u = J^* * (  dx_r - k_p * (x - x_r) -  k_f * (F - F_r) )
- */
-void rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k, double *u ) {
-    double dx_u[6], x_e[6] ;
-    double *J_star = (double*)AA_ALLOCAL( ws->n_q * 6 );
+namespace reflex {
+    class Trajectory {
+    public:
+        Trajectory();
+        virtual ~Trajectory();
 
-    // find position error
-    aa_la_vsub( 3, ws->x, ws->x_r, x_e );
+        virtual int validate() = 0;
+        virtual int generate() = 0;
+    };
 
-    // find orientation error
-    {
-        double r_inv[4], r_e[4], axang[4];
-        aa_tf_qinv( ws->r, r_inv );        // r_inv = ws->r^{-1}
-        aa_tf_qmul( r_inv, ws->r_r, r_e ); // r_e = ws->r * r_inv
-        aa_tf_quat2axang( r_e, axang );    // axis-angle conversion
-        for( size_t i = 0; i < 3; i ++ )
-            x_e[3+i] = axang[i]*axang[3];  // x_e = axis*theta
-    }
+    class WorkspaceTrajectory : public Trajectory {
+    public:
+        WorkspaceTrajectory();
+        virtual ~WorkspaceTrajectory();
+        virtual int get_x( double x[3], double r[4], double t ) = 0;
+        virtual int get_dx( double dx[6], double t ) = 0;
+        virtual int get_ddx( double ddx[6], double t ) = 0;
+        virtual int add(const double x[3], const double r[4], double t) = 0;
+    };
 
-    // find workspace velocity
-    // dx_u = dx_r - k_p * x_e -  k_f * (F - F_r)
-    for(size_t i = 0; i < 6; i ++ ) {
-        dx_u[i] = ws->dx_r[i]
-            - k->p[i] * x_e[i]
-            - k->f[i] * (ws->F[i] - ws->F_r[i]);
-    }
-
-    // find jointspace velocity
-    aa_la_dpinv( 6, ws->n_q, k->dls, ws->J, J_star );
-    aa_la_mvmul( ws->n_q, 6, J_star, dx_u, u );
-
-    aa_frlocal( J_star, ws->n_q * 6);
+    class TrapvelWSTrajectory : public WorkspaceTrajectory {
+    public:
+        TrapvelWSTrajectory();
+        virtual ~TrapvelWSTrajectory();
+        virtual int validate();
+        virtual int generate();
+        virtual int get_x( double x[3], double r[4], double t );
+        virtual int get_dx( double dx[6], double t );
+        virtual int get_ddx( double ddx[6], double t );
+        virtual int add(const double x[3], const double r[4], double t) = 0;
+    protected:
+        double t_0;
+        double t_n;
+        double x_0[3];
+        double x_n[3];
+        double r_0[4];
+        double r_n[4];
+    };
 }
+
+#endif //REFLEX_H
