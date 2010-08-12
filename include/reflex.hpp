@@ -78,7 +78,7 @@ namespace reflex {
         double x_0[3], x_n[3];
         double r_0[4], r_n[4];
         double dx_max[3], ddx_max[3];
-        double t1[3], t2[3];
+        double tb;
         double dx_r[3], ddx_r[3];
     };
 }

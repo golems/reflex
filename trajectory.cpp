@@ -50,8 +50,7 @@ WorkspaceTrajectory::~WorkspaceTrajectory() {}
 static int trapvel_generate( size_t n, double t_f,
                              const double *x_i, const double *x_f,
                              const double *dx_max, const double *ddx_max,
-                             double *t1, double *t2,
-                             double *dx_r, double *ddx_r );
+                             double *tb, double *dx_r, double *ddx_r );
 
 void WorkspaceTrajectory::plot( double dt ) {
     (void)dt;
@@ -109,8 +108,9 @@ void WorkspaceTrajectory::plot( double dt ) {
 
         assert(g);
 
-        //fprintf(g, "set xlabel 'time (s)'\n");
-        //fprintf(g, "set ylabel 'pos (m)'\n");
+        fprintf(g, "set xlabel 'X'\n");
+        fprintf(g, "set ylabel 'Y'\n");
+        fprintf(g, "set zlabel 'Z'\n");
         fprintf(g, "set title 'Workspace Path'\n");
         fprintf(g, "splot '-' with points title 'Path'");
         fprintf(g, "\n");
@@ -150,40 +150,90 @@ int TrapvelWSTrajectory::generate() {
     int i = trapvel_generate( 3, this->t_n,
                               this->x_0, this->x_n,
                               this->dx_max, this->ddx_max,
-                              this->t1, this->t2,
-                              this->dx_r, this->ddx_r );
-    fprintf(stderr, "t1: %f\t%f\t%f\n", t1[0], t1[1], t1[2] );
-    fprintf(stderr, "t2: %f\t%f\t%f\n", t2[0], t2[1], t2[2] );
+                              &this->tb, this->dx_r, this->ddx_r );
+    fprintf(stderr, "tb: %f\n", tb );
     return i;
 }
+
+/* static int trapvel_generate( size_t n, double t_f,  */
+/*                              const double *x_i, const double *x_f,  */
+/*                              const double *dx_max, const double *ddx_max, */
+/*                              double *t1, double *t2,  */
+/*                              double *dx_r, double *ddx_r ) { */
+/*     double t3=t_f; */
+/*     for( size_t i = 0; i < n; i++ ) { */
+/*         double d = x_f[i] - x_i[i]; */
+/*         // try triangular profile */
+/*         t1[i] = t3/2; */
+/*         dx_r[i] = d / t1[i]; */
+/*         // check velocity */
+/*         if( abs(dx_r[i]) <= abs(dx_max[i]) ) { */
+/*             // triangle ok */
+/*             t2[i] = t1[i]; */
+/*             ddx_r[i] = dx_r[i] / t1[i]; */
+/*         } else { */
+/*             // trapezoid */
+/*             dx_r[i] = dx_max[i]; */
+/*             double tc = 2*d/dx_r[i] - t3; */
+/*             t1[i] = (t3-tc)/2; */
+/*             t2[i] = t3 - t1[i]; */
+/*             ddx_r[i] = dx_max[i]/t1[i]; */
+/*             // check acceleration */
+/*             if( abs(ddx_r[i]) > ddx_max[i] ) return -1; */
+/*         } */
+/*     } */
+/*     return 0; */
+/* } */
 
 static int trapvel_generate( size_t n, double t_f,
                              const double *x_i, const double *x_f,
                              const double *dx_max, const double *ddx_max,
-                             double *t1, double *t2,
-                             double *dx_r, double *ddx_r ) {
+                             double *ptb, double *dx_r, double *ddx_r ) {
     double t3=t_f;
+    double tb = t3/2;
+
+    double x[n];
+    aa_la_vsub(n, x_f, x_i, x);
+
+    // try triangular profile
+    int is_tri = 1;
     for( size_t i = 0; i < n; i++ ) {
-        double d = x_f[i] - x_i[i];
-        // try triangular profile
-        t1[i] = t3/2;
-        dx_r[i] = d / t1[i];
-        // check velocity
-        if( abs(dx_r[i]) <= abs(dx_max[i]) ) {
-            // triangle ok
-            t2[i] = t1[i];
-            ddx_r[i] = dx_r[i] / t1[i];
-        } else {
-            // trapezoid
-            dx_r[i] = dx_max[i];
-            double tc = 2*d/dx_r[i] - t3;
-            t1[i] = (t3-tc)/2;
-            t2[i] = t3 - t1[i];
-            ddx_r[i] = dx_max[i]/t1[i];
-            // check acceleration
-            if( abs(ddx_r[i]) > ddx_max[i] ) return -1;
+        dx_r[i] = x[i] / tb;
+        // check for velocity limit
+        if( abs(dx_r[i]) > abs(dx_max[i]) ) {
+            is_tri = 0;
+            break;
+        }
+        // check for acceleration limit
+        ddx_r[i] = dx_r[i] / tb;
+        if( abs(ddx_r[i]) > abs(ddx_max[i]) )
+            return -1;
+    }
+    if( is_tri ) {
+        fprintf(stderr, "tri\n");
+        *ptb = tb;
+        return 0;
+    }
+    fprintf(stderr, "trap\n");
+
+    // needs to be trapezoid
+    // find longest acceptable blend time
+    for( size_t i = 0; i < n; i++ ) {
+        double t = t3 - x[i]/dx_max[i];
+        tb = AA_MIN(tb,t);
+    }
+    // calc dx, ddx
+    double t2 = t3 - tb;
+    for( size_t i = 0; i < n; i++ ) {
+        dx_r[i] = x[i]/t2;
+        ddx_r[i] = dx_r[i]/tb;
+        // check a
+        if( abs(ddx_r[i]) > abs(ddx_max[i]) ||
+            abs(dx_r[i])  > abs(dx_max[i]) ) {
+            return -1;
         }
     }
+    *ptb = tb;
     return 0;
 }
 
@@ -198,14 +248,15 @@ int TrapvelWSTrajectory::get_x( double t, double x[3], double r[4]) {
         aa_fcpy(x, this->x_n, 3 );
         return 0;
     }
+    double t1 = tb, t2 = t_n-tb;
     //normal
     for( size_t i = 0; i < 3; i ++ ) {
-        if( t < t1[i] ) {
+        if( t < t1 ) {
             double tt = t - t_0;
             x[i] = x_0[i] + 0.5 * ddx_r[i] * tt * tt;
-        } else if (t < t2[i] ) {
-            double tt = t - t1[i];
-            x[i] = x_0[0] + 0.5*dx_r[i]*t1[i] + dx_r[i]*tt;
+        } else if (t < t2 ) {
+            double tt = t - t1;
+            x[i] = x_0[0] + 0.5*dx_r[i]*t1 + dx_r[i]*tt;
         } else if (t < t_n ) {
             double tt = t_n - t;
             x[i] = x_n[i] - .5*ddx_r[i]*tt*tt;
