@@ -18,10 +18,16 @@ include /usr/share/make-common/common.1.mk
 CFLAGS += --std=gnu99 -O2
 FFLAGS += -I/usr/include
 
-default: $(LIBFILES) $(BINFILES)
+default: $(LIBFILES) $(BINFILES) test
+
+test: rfx_test
 
 
 $(call LINKLIB, reflex, control.o trajectory.o)
+
+
+rfx_test: rfx_test.o libreflex.so
+	g++ -o $@ rfx_test.o -L. -lamino -lreflex
 
 .PHONY: default clean doc
 
@@ -29,6 +35,6 @@ doc:
 	doxygen
 
 clean:
-	rm -fr *.o $(BINFILES) $(LIBFILES) $(BUILDDIR)/*.o .dep debian *.deb *.lzma
+	rm -fr *.o $(BINFILES) $(LIBFILES) $(BUILDDIR)/*.o .dep debian *.deb *.lzma rfx_test
 
 
