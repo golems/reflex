@@ -56,7 +56,7 @@ void WorkspaceTrajectory::plot( double dt ) {
     (void)dt;
 
     size_t n = (size_t) ( (this->t_n - this->t_0)/dt );
-    double X[n][3];
+    double X[n*6];
     double T[n];
     size_t i;
 
@@ -65,42 +65,26 @@ void WorkspaceTrajectory::plot( double dt ) {
         double t;
         for( i = 0, t = this->t_0; t< this->t_n && i < n; i++, t+=dt ) {
             T[i] = t;
+            double *Xp = X+i*6;
             double r[4];
-            this->get_x(t, X[i], r );
+            this->get_x(t, Xp, r );
+            aa_tf_quat2rotvec( r, Xp + 3 );
+            printf("%f\t%f\t%f\t%f\t%f\t%f\t\n",
+                   Xp[0], Xp[1], Xp[2], Xp[3], Xp[4], Xp[5]);
+
+
         }
     }
 
     { // plot workspace position
-        int r;
-        FILE *g = popen("gnuplot -persist", "w");
+        aa_plot_opts_t opts;
+        opts.title="Position";
+        opts.ylabel="position";
+        opts.xlabel="time";
+        opts.axis_label = (const char*[]){"x", "y", "z", "r_x", "r_y", "r_z"};
+        aa_plot_row_series( 6, n, T, X,
+                            & opts );
 
-        assert(g);
-
-        fprintf(g, "set xlabel 'time (s)'\n");
-        fprintf(g, "set ylabel 'pos (m)'\n");
-        fprintf(g, "set title 'Workspace Positions'\n");
-        fprintf(g, "plot '-' with lines title 'WS X'");
-        fprintf(g, ", '-' with lines title 'WS Y'");
-        fprintf(g, ", '-' with lines title 'WS Z'");
-        fprintf(g, "\n");
-        // print X
-        for(i = 0; i < n; i++ ) {
-            fprintf(g, "%f %f\n", T[i], X[i][0] );
-        }
-        fprintf(g, "e\n");
-        // print Y
-        for(i = 0; i < n; i++ ) {
-            fprintf(g, "%f %f\n", T[i], X[i][1] );
-        }
-        fprintf(g, "e\n");
-        // print Z
-        for(i = 0; i < n; i++ ) {
-            fprintf(g, "%f %f\n", T[i], X[i][2] );
-        }
-        fprintf(g, "e\n");
-        fflush(g);
-        r = pclose(g);
-        assert( -1 != r );
     }
     { // 3-d plot workspace position
         int r;
@@ -116,7 +100,9 @@ void WorkspaceTrajectory::plot( double dt ) {
         fprintf(g, "\n");
         for(i = 0; i < n; i++ ) {
             fprintf(g, "%f %f %f\n",
-                    X[i][0], X[i][1], X[i][2] );
+                    AA_MATREF(X,6,0,i),
+                    AA_MATREF(X,6,1,i),
+                    AA_MATREF(X,6,2,i) );
         }
         fprintf(g, "e\n");
         fflush(g);
@@ -129,25 +115,33 @@ TrapvelWSTrajectory::TrapvelWSTrajectory()
 {
     t_0 = 0;
     t_n = 0;
-    aa_fset(x_0,0,3);
-    aa_fset(x_n,0,3);
-    aa_fset(r_0,0,4);
-    aa_fset(r_n,0,4);
+    AA_ZERO_AR(x_0);
+    AA_ZERO_AR(x_n);
 
-    aa_fset(dx_max,1.0,3);
-    aa_fset(ddx_max,1.0,3);
+    AA_SET_AR(dx_max, 1.0);
+    AA_SET_AR(ddx_max, 1.0);
 }
 
 TrapvelWSTrajectory::~TrapvelWSTrajectory()
 {}
 
 int TrapvelWSTrajectory::validate() {
+    // sanity checks
+    if( ! aa_feq( this->t_0, 0, 0) ) return -1;
+    if( this->tb <= 0 ) return -1;
+    if( this->t_n < this->tb ) return -1;
+    for( size_t i = 0; i < 6; i ++ ) {
+        if( ! aa_feq( this->tb * ddx_r[i], dx_r[i], .001 ) ) {
+            return -1;
+        }
+    }
+    // ok
     return 0;
 }
 
 
 int TrapvelWSTrajectory::generate() {
-    int i = trapvel_generate( 3, this->t_n,
+    int i = trapvel_generate( 6, this->t_n,
                               this->x_0, this->x_n,
                               this->dx_max, this->ddx_max,
                               &this->tb, this->dx_r, this->ddx_r );
@@ -238,56 +232,79 @@ static int trapvel_generate( size_t n, double t_f,
 }
 
 int TrapvelWSTrajectory::get_x( double t, double x[3], double r[4]) {
-    // before t0
+    double *xp, xps[6];  // temp storage
+
     if( t < this->t_0 ) {
-        aa_fcpy(x, this->x_0, 3 );
-        return 0;
+        // before t0
+        xp = this->x_0;
     }
-    // after t1
-    if( t > this->t_n ) {
-        aa_fcpy(x, this->x_n, 3 );
-        return 0;
-    }
-    double t1 = tb, t2 = t_n-tb;
-    //normal
-    for( size_t i = 0; i < 3; i ++ ) {
-        if( t < t1 ) {
-            double tt = t - t_0;
-            x[i] = x_0[i] + 0.5 * ddx_r[i] * tt * tt;
-        } else if (t < t2 ) {
-            double tt = t - t1;
-            x[i] = x_0[0] + 0.5*dx_r[i]*t1 + dx_r[i]*tt;
-        } else if (t < t_n ) {
-            double tt = t_n - t;
-            x[i] = x_n[i] - .5*ddx_r[i]*tt*tt;
-        } else {
-            assert(0);
+    else if( t > this->t_n ) {
+        // after t1
+        xp = this->x_n;
+    } else {
+        //normal
+        xp = xps;
+        double t1 = tb, t2 = t_n-tb;
+        for( size_t i = 0; i < 6; i ++ ) {
+            if( t < t1 ) {
+                double tt = t - t_0;
+                xp[i] = x_0[i] + 0.5 * ddx_r[i] * tt * tt;
+            } else if (t < t2 ) {
+                double tt = t - t1;
+                xp[i] = x_0[0] + 0.5*dx_r[i]*t1 + dx_r[i]*tt;
+            } else if (t < t_n ) {
+                double tt = t_n - t;
+                xp[i] = x_n[i] - .5*ddx_r[i]*tt*tt;
+            } else {
+                assert(0);
+            }
         }
     }
-    aa_fset( r, 0, 4 );
+
+    // convert back to vector+quaternion form
+    aa_fcpy( x, xp, 3 );
+    aa_tf_rotvec2quat(xp+3, r);
     return 0;
 }
 
 int TrapvelWSTrajectory::get_dx( double t, double dx[6]) {
-    (void)t;
-    aa_fset( dx, 0, 6 );
+    if( t < this->t_0 || t > this->t_n ) {
+        aa_fset( dx, 0, 6 );
+    } else if( t <= this->t_0 + this->tb ) {
+        // accelerating blend
+        aa_la_smul( 6, t - this->t_0, ddx_r, dx );
+    } else if (t <= this->t_n - this->tb ) {
+        // constant velocity
+        aa_fcpy( dx, dx_r, 6 );
+    } else if (t <= this->t_n ) {
+        // deccelerating blend
+        double t2 = this->t_n - this->tb;
+        aa_la_smul( 6, -(t-t2), ddx_r, dx ); // amount of decellertion
+        aa_la_vinc(6, dx_r, dx );  // steady state velocity
+    } else {
+        // bogus
+        assert(0);
+    }
     return 0;
 }
 
 int TrapvelWSTrajectory::get_ddx( double t, double ddx[6]) {
-    (void)t;
-    aa_fset( ddx, 0, 6 );
+    if( t < this->t_0 || t > this->t_n ) {
+        aa_fset( ddx, 0, 6 );
+    } else {
+
+    }
     return 0;
 }
 
 int TrapvelWSTrajectory::add( double t, const double x[3], const double r[4]) {
     if( aa_feq(t,0,0) ) {
         aa_fcpy( this->x_0, x, 3 );
-        aa_fcpy( this->r_0, r, 3 );
+        aa_tf_quat2rotvec( r, this->x_0+3 );
     } else if (t > 0) {
         this->t_n = t;
         aa_fcpy( this->x_n, x, 3 );
-        aa_fcpy( this->r_n, r, 3 );
+        aa_tf_quat2rotvec( r, this->x_n+3 );
     } else {
         return 1;
     }
