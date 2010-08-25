@@ -24,10 +24,9 @@ test: rfx_test
 
 
 $(call LINKLIB, reflex, control.o trajectory.o)
+$(call LINKBIN, rfx_test, rfx_test.o trajectory.o control.o, amino stdc++ )
 
 
-rfx_test: rfx_test.o libreflex.so
-	g++ -o $@ rfx_test.o -L. -lamino -lreflex
 
 .PHONY: default clean doc
 

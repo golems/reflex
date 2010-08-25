@@ -64,10 +64,10 @@ namespace reflex {
         void plot(double dt);
     };
 
-    class TrapvelWSTrajectory : public WorkspaceTrajectory {
+    class TrapvelWS : public WorkspaceTrajectory {
     public:
-        TrapvelWSTrajectory();
-        virtual ~TrapvelWSTrajectory();
+        TrapvelWS();
+        virtual ~TrapvelWS();
         virtual int validate();
         virtual int generate();
         virtual int get_x( double t, double x[3], double r[4] );
