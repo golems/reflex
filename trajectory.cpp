@@ -56,15 +56,20 @@ void WorkspaceTrajectory::plot( double dt ) {
     (void)dt;
 
     size_t n = (size_t) ( (this->t_n - this->t_0)/dt );
-    double X[n*6];
-    double dX[n*6];
-    double ddX[n*6];
-    double T[n];
-    size_t i;
+    double T[n]; // time
+    // matrices for points in the trajectory.
+    // each column is a point.
+    // the rows are the time series for each axis.
+    double X[n*6];     // pos
+    double dX[n*6];    // vel
+    double sdX[n*6];   // integrated vel (pos)
+    double ddX[n*6];   // acc
+    double sddX[n*6];  // integrated acc (vel)
 
     // compute positions
     {
         double t;
+        size_t i;
         for( i = 0, t = this->t_0; t< this->t_n && i < n; i++, t+=dt ) {
             T[i] = t;
             double *Xp = X+i*6;
@@ -73,8 +78,21 @@ void WorkspaceTrajectory::plot( double dt ) {
             aa_tf_quat2rotvec( r, Xp + 3 );
             this->get_dx(t, dX+6*i );
             this->get_ddx(t, ddX+6*i );
+        }
+    }
+    // integrate
+    {
+        aa_fzero( sdX, 6 );
+        aa_fzero( sddX, 6 );
 
-
+        for( size_t i = 1; i < n; i ++ ) {
+            size_t j = 6*i;
+            size_t k = 6*(i-1);
+            // using basic euler-integration
+            // vel
+            aa_la_axpy3( 6, dt, dX+k, sdX+k,  sdX+j );
+            // acc
+            aa_la_axpy3( 6, dt, ddX+k, sdX+k, sddX+j );
         }
     }
 
@@ -98,6 +116,16 @@ void WorkspaceTrajectory::plot( double dt ) {
                             & opts );
 
     }
+    { // plot integrated workspace velocity
+        aa_plot_opts_t opts;
+        opts.title="Integrated Velocity (Position)";
+        opts.ylabel="position";
+        opts.xlabel="time";
+        opts.axis_label = (const char*[]){"x", "y", "z", "r_x", "r_y", "r_z"};
+        aa_plot_row_series( 6, n, T, sdX,
+                            & opts );
+
+    }
     { // plot workspace acceleration
         aa_plot_opts_t opts;
         opts.title="Acceleration";
@@ -105,6 +133,16 @@ void WorkspaceTrajectory::plot( double dt ) {
         opts.xlabel="time";
         opts.axis_label = (const char*[]){"ddx", "ddy", "ddz", "ddr_x", "ddr_y", "ddr_z"};
         aa_plot_row_series( 6, n, T, ddX,
+                            & opts );
+
+    }
+    { // plot workspace velocity
+        aa_plot_opts_t opts;
+        opts.title="Integrated Acceleration (Velocity)";
+        opts.ylabel="velocity";
+        opts.xlabel="time";
+        opts.axis_label = (const char*[]){"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        aa_plot_row_series( 6, n, T, sddX,
                             & opts );
 
     }
@@ -120,7 +158,7 @@ void WorkspaceTrajectory::plot( double dt ) {
         fprintf(g, "set title 'Workspace Path'\n");
         fprintf(g, "splot '-' with points title 'Path'");
         fprintf(g, "\n");
-        for(i = 0; i < n; i++ ) {
+        for(size_t i = 0; i < n; i++ ) {
             fprintf(g, "%f %f %f\n",
                     AA_MATREF(X,6,0,i),
                     AA_MATREF(X,6,1,i),
@@ -167,7 +205,7 @@ int TrapvelWS::generate() {
                               this->x_0, this->x_n,
                               this->dx_max, this->ddx_max,
                               &this->tb, this->dx_r, this->ddx_r );
-    fprintf(stderr, "tb: %f\n", tb );
+    //fprintf(stderr, "tb: %f\n", tb );
     return i;
 }
 
@@ -207,11 +245,11 @@ static int trapvel_generate( size_t n, double t_f,
                              double *ptb, double *dx_r, double *ddx_r ) {
     double t3=t_f;
     double tb = t3/2;
-    fprintf(stderr, "t3: %f\n", t3 );
+    //fprintf(stderr, "t3: %f\n", t3 );
 
     double x[n];
     aa_la_vsub(n, x_f, x_i, x);
-    aa_dump_vec(stderr, x, 6 );
+    //aa_dump_vec(stderr, x, 6 );
 
     // try triangular profile
     int is_tri = 1;
@@ -228,11 +266,11 @@ static int trapvel_generate( size_t n, double t_f,
             return -1;
     }
     if( is_tri ) {
-        fprintf(stderr, "tri\n");
+        //fprintf(stderr, "tri\n");
         *ptb = tb;
         return 0;
     }
-    fprintf(stderr, "trap\n");
+    //fprintf(stderr, "trap\n");
 
     // needs to be trapezoid
     // find longest acceptable blend time
@@ -240,7 +278,7 @@ static int trapvel_generate( size_t n, double t_f,
         double t = t3 - x[i]/dx_max[i];
         tb = AA_MIN(tb,t);
     }
-    fprintf(stderr, "found tb: %f\n", tb );
+    //fprintf(stderr, "found tb: %f\n", tb );
     // calc dx, ddx
     double t2 = t3 - tb;
     for( size_t i = 0; i < n; i++ ) {
@@ -350,6 +388,6 @@ int TrapvelWS::add( double t, const double x[3], const double r[4]) {
     assert( aa_isfok(0) );
     for( size_t i = 0; i < 6; i++ )
         assert( aa_isfok( xp[i] ) );
-    aa_dump_vec( stderr, xp, 6 );
+    //aa_dump_vec( stderr, xp, 6 );
     return 0;
 }
