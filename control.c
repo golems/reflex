@@ -64,12 +64,10 @@ void rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k
 
     // find orientation error
     {
-        double r_inv[4], r_e[4], axang[4];
-        aa_tf_qinv( ws->r, r_inv );        // r_inv = ws->r^{-1}
-        aa_tf_qmul( r_inv, ws->r_r, r_e ); // r_e = ws->r * r_inv
-        aa_tf_quat2axang( r_e, axang );    // axis-angle conversion
-        for( size_t i = 0; i < 3; i ++ )
-            x_e[3+i] = axang[i]*axang[3];  // x_e = axis*theta
+        double r_inv[4], r_e[4];
+        aa_tf_qinv( ws->r_r, r_inv );      // r_inv = ws->r_r^{-1}
+        aa_tf_qmul( r_inv, ws->r, r_e );   // r_e = r_inv * ws->r
+        aa_tf_quat2rotvec_near( r_e, AA_FAR(0,0,0), x_e+3 );    // axis-angle conversion
     }
 
     // find workspace velocity

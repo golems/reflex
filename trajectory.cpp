@@ -84,6 +84,9 @@ int TrapvelWS::validate() {
 
 
 int TrapvelWS::generate() {
+    double rv[3];
+    aa_fcpy(rv, this->x_n+3, 3);
+    aa_tf_rotvec_near( rv, this->x_0+3, this->x_n+3 );
     int i = trapvel_generate( 6, this->t_n,
                               this->x_0, this->x_n,
                               this->dx_max, this->ddx_max,
