@@ -171,6 +171,157 @@ void WorkspaceTrajectory::plot( double dt ) {
     }
 }
 
+void WorkspaceTrajectory::jacobian_plot( double dt,
+                                         size_t m, const double *q0,
+                                         void fkfun(const double *q,
+                                                    double R[9], double v[3] ),
+                                         void jfun(const double *q, double *J) ) {
+    size_t n = (size_t) ( (this->t_n - this->t_0)/dt );
+    double Q[m*n], dQ[m*n], T[n], X0[6*n], dX0[6*n], X[6*n], dX[6*n];
+    AA_ZERO_AR(Q);
+    AA_ZERO_AR(dQ);
+    AA_ZERO_AR(T);
+    AA_ZERO_AR(X0);
+    AA_ZERO_AR(dX0);
+    AA_ZERO_AR(X);
+    AA_ZERO_AR(dX);
+    // compute joint path
+    {
+        double t;
+        size_t i;
+        aa_fcpy(Q, q0, m);
+        for( i = 0, t = t_0; i < n-1; i ++, t+=dt ) {
+            double J[6*m];
+            size_t j = m*i, k = m*(i+1);
+            T[i] = t;
+            // get joint velocities
+            jfun(Q+j, J);  // compute jacobian
+            this->get_dx(t, dX0 + 6*i);
+            aa_la_dls( 6, m, .001, J, dX0 + 6*i, dQ+j );  // compute dq
+            // integrate
+            aa_la_axpy3( m, dt, dQ+j, Q+j, Q+k );
+            // original position
+            double rq[4];
+            this->get_x(t,X0+6*i, rq);
+            aa_tf_quat2rotvec( rq, X0 + 6*i + 3 );
+        }
+    }
+    // compute end-effector path
+    {
+        for( size_t i = 0; i < n; i++ ) {
+            double J[6*m];
+            double R[9], v[3];
+            size_t iq = m*i;
+            size_t ix = 6*i;
+            // fk
+            fkfun( Q+iq, R, v );
+            aa_fcpy( X+ix, v, 3 );
+            aa_tf_rotmat2rotvec( R, X+ix+3 );
+            // back out workspace velocity
+            jfun(Q+iq, J);  // compute jacobian
+            aa_la_mvmul( 6, m, J, dQ+iq, dX+ix );
+        }
+    }
+
+    // plot workspace velocity
+    {
+        aa_plot_opts_t opts;
+        opts.title="WS Velocity: Trajectory";
+        opts.ylabel="velocity";
+        opts.xlabel="time";
+        opts.axis_label = (const char*[]){"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        aa_plot_row_series( 6, n, T, dX0,
+                            & opts );
+    }
+
+    // plot joint position
+    {
+        aa_plot_opts_t opts;
+        opts.title="JS Positions: Velocity Integral";
+        opts.ylabel="position";
+        opts.xlabel="time";
+        char *axes[m];
+        for( size_t i = 0; i < m; i ++ ) {
+            axes[i] = (char*)alloca(16);
+            snprintf(axes[i], 16, "q_%i",  i );
+        }
+        opts.axis_label = (const char**)axes;
+        aa_plot_row_series( m, n - 1 , T, Q, //FIXME: last position entry is broken
+                            & opts );
+    }
+
+    // plot joint velocity
+    {
+        aa_plot_opts_t opts;
+        opts.title="Joint Velocity: J^* dx";
+        opts.ylabel="velocity";
+        opts.xlabel="time";
+        char *axes[m];
+        for( size_t i = 0; i < m; i ++ ) {
+            axes[i] = (char*)alloca(16);
+            snprintf(axes[i], 16, "dq_%i",  i );
+        }
+        opts.axis_label = (const char**)axes;
+        aa_plot_row_series( m, n, T, dQ,
+                            & opts );
+    }
+    { // plot workspace position
+        aa_plot_opts_t opts;
+        opts.title="WS Position: Trajectory";
+        opts.ylabel="position";
+        opts.xlabel="time";
+        opts.axis_label = (const char*[]){"x", "y", "z", "r_x", "r_y", "r_z"};
+        aa_plot_row_series( 6, n - 1, T, X0,
+                            & opts );
+
+    }
+    { // plot workspace position
+        aa_plot_opts_t opts;
+        opts.title="WS Position: FK";
+        opts.ylabel="position";
+        opts.xlabel="time";
+        opts.axis_label = (const char*[]){"x", "y", "z", "r_x", "r_y", "r_z"};
+        aa_plot_row_series( 6, n - 1, T, X,
+                            & opts );
+
+    }
+    { // plot workspace velocity
+        aa_plot_opts_t opts;
+        opts.title="Workspace Velocity: dx = J dq";
+        opts.ylabel="velocity";
+        opts.xlabel="time";
+        opts.axis_label = (const char*[]){"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        aa_plot_row_series( 6, n, T, dX,
+                            & opts );
+
+    }
+    { // 3-d plot workspace position
+        int r;
+        FILE *g = popen("gnuplot -persist", "w");
+
+        assert(g);
+
+        fprintf(g, "set xlabel 'X'\n");
+        fprintf(g, "set ylabel 'Y'\n");
+        fprintf(g, "set zlabel 'Z'\n");
+        fprintf(g, "set title 'Workspace Path: FK'\n");
+        fprintf(g, "splot '-' with points title 'Path'");
+        fprintf(g, "\n");
+        for(size_t i = 0; i < n-1; i++ ) {
+            fprintf(g, "%f %f %f\n",
+                    AA_MATREF(X,6,0,i),
+                    AA_MATREF(X,6,1,i),
+                    AA_MATREF(X,6,2,i) );
+        }
+        fprintf(g, "e\n");
+        fflush(g);
+        r = pclose(g);
+        assert( -1 != r );
+    }
+
+}
+
+
 TrapvelWS::TrapvelWS()
 {
     t_0 = 0;

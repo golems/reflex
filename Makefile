@@ -24,7 +24,7 @@ test: rfx_test
 
 
 $(call LINKLIB, reflex, control.o trajectory.o)
-$(call LINKBIN, rfx_test, rfx_test.o trajectory.o control.o, amino stdc++ )
+$(call LINKBIN, rfx_test, rfx_test.o trajectory.o control.o, amino stdc++ schkin)
 
 
 

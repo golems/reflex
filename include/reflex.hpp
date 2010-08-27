@@ -62,6 +62,11 @@ namespace reflex {
         virtual int get_ddx( double t, double ddx[6]) = 0;
         virtual int add(double t, const double x[3], const double r[4] ) = 0;
         void plot(double dt);
+        void jacobian_plot(double dt,
+                           size_t n, const double *q0,
+                           void fkfun(const double *q, double R[9], double v[3] ),
+                           void jfun(const double *q, double *J)
+            );
     };
 
     class TrapvelWS : public WorkspaceTrajectory {
