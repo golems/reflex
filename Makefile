@@ -22,9 +22,10 @@ default: $(LIBFILES) $(BINFILES) test
 
 test: rfx_test
 
+OBJS := control.o trajectory.o trajectory_plot.o
 
-$(call LINKLIB, reflex, control.o trajectory.o)
-$(call LINKBIN, rfx_test, rfx_test.o trajectory.o control.o, amino stdc++ schkin)
+$(call LINKLIB, reflex, $(OBJS))
+$(call LINKBIN, rfx_test, rfx_test.o $(OBJS), amino stdc++ schkin)
 
 
 

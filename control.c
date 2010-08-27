@@ -38,12 +38,26 @@
 #include <amino.h>
 #include "reflex.h"
 
+
+void rfx_ctrl_ws_init( rfx_ctrl_ws_t *g, size_t n ) {
+    g->n_q = n;
+    g->q = AA_NEW0_AR( double, n );
+    g->dq = AA_NEW0_AR( double, n );
+    g->J = AA_NEW0_AR( double, n*6 );
+}
+
+void rfx_ctrl_ws_destroy( rfx_ctrl_ws_t *g ) {
+    free(g->q);
+    free(g->dq);
+    free(g->J);
+}
+
 /*
  * u = J^* * (  dx_r - k_p * (x - x_r) -  k_f * (F - F_r) )
  */
 void rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k, double *u ) {
     double dx_u[6], x_e[6] ;
-    double *J_star = (double*)AA_ALLOCAL( ws->n_q * 6 );
+    double J_star[ws->n_q*6];
 
     // find position error
     aa_la_vsub( 3, ws->x, ws->x_r, x_e );
@@ -70,5 +84,4 @@ void rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k
     aa_la_dpinv( 6, ws->n_q, k->dls, ws->J, J_star );
     aa_la_mvmul( ws->n_q, 6, J_star, dx_u, u );
 
-    aa_frlocal( J_star, ws->n_q * 6);
 }

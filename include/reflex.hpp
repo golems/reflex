@@ -65,7 +65,14 @@ namespace reflex {
         void jacobian_plot(double dt,
                            size_t n, const double *q0,
                            void fkfun(const double *q, double R[9], double v[3] ),
-                           void jfun(const double *q, double *J)
+                           void jfun(const double *q, double *J),
+                           double k_dls
+            );
+        void wsctrl_plot(double dt,
+                         size_t n, const double *q0,
+                         void fkfun(const double *q, double R[9], double v[3] ),
+                         void jfun(const double *q, double *J),
+                         double k_dls, double k_p[6]
             );
     };
 
