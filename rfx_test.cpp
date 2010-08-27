@@ -61,7 +61,7 @@ void ws() {
 
     // final ws pos
     double v1[3], rq1[4] = {0,0,0,1};
-    //aa_fcpy(rq1, rq0, 4);
+    aa_fcpy(rq1, rq0, 4);
     aa_fcpy(v1, v0, 3);
     v1[2] += .3;
     v1[0] -= .1;
@@ -79,9 +79,9 @@ void ws() {
     i = T.validate();
     printf("trapvel validity: %d\n", i );
     double kp[6];
-    //aa_fset(kp,1,3);
-    //aa_fset(kp+3,0.5,3);
-    AA_SET_AR(kp, 3);
+    aa_fset(kp,3,3);
+    aa_fset(kp+3,1,3);
+    //AA_SET_AR(kp, I);
     if( 0 == i )
         T.wsctrl_plot(.005, 7, q0, schkin_lwa3_fk, schkin_lwa3_jacobian, .001,
                       kp);

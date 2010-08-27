@@ -64,9 +64,8 @@ void rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k
 
     // find orientation error
     {
-        double r_inv[4], r_e[4];
-        aa_tf_qinv( ws->r_r, r_inv );      // r_inv = ws->r_r^{-1}
-        aa_tf_qmul( r_inv, ws->r, r_e );   // r_e = r_inv * ws->r
+        double r_e[4];
+        aa_tf_qrel(ws->r, ws->r_r, r_e);
         aa_tf_quat2rotvec_near( r_e, AA_FAR(0,0,0), x_e+3 );    // axis-angle conversion
     }
 
