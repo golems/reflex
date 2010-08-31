@@ -70,10 +70,15 @@ typedef struct {
     double r[4];     ///< actual workspace orientation quaternion
     double F[6];     ///< actual workspace forces
     // reference
+    double *q_r;   ///< reference confguration position
+    double *dq_r;   ///< reference confguration velocity
     double x_r[3];   ///< reference workspace position
     double r_r[4];   ///< reference workspace orientation quaternion
     double dx_r[6];  ///< reference workspace velocity
     double F_r[6];    ///< reference workspace forces
+    // limits
+    double F_max; // maximum linear force magnitude (<=0 to ignore)
+    double M_max; // maximum moment moment magnitude (<=0 to ignore)
 } rfx_ctrl_ws_t;
 
 AA_API void rfx_ctrl_ws_init( rfx_ctrl_ws_t *g, size_t n );
@@ -82,11 +87,16 @@ AA_API void rfx_ctrl_ws_destroy( rfx_ctrl_ws_t *g );
 /** Gains for linear workspace control.
  */
 typedef struct {
+    size_t n_q;
     double p[6]; ///< position error gains
+    double *q;   ///< configuration error gains
     //double v[6]; ///< velocity error gains
     double f[6]; ///< force error gains
     double dls;  ///< damped least squares k
 } rfx_ctrl_ws_lin_k_t;
+
+AA_API void rfx_ctrl_ws_lin_k_init( rfx_ctrl_ws_lin_k_t *k, size_t n_q );
+AA_API void rfx_ctrl_ws_lin_k_destroy( rfx_ctrl_ws_lin_k_t *k );
 
 /** Linear Workspace Control.
  *

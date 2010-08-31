@@ -80,7 +80,7 @@ void ws() {
     printf("trapvel validity: %d\n", i );
     double kp[6];
     aa_fset(kp,3,3);
-    aa_fset(kp+3,1,3);
+    aa_fset(kp+3,1,1);
     //AA_SET_AR(kp, I);
     if( 0 == i )
         T.wsctrl_plot(.005, 7, q0, schkin_lwa3_fk, schkin_lwa3_jacobian, .001,
