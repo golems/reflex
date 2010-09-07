@@ -21,7 +21,7 @@ void jacobian() {
 
     // initial ws pos
     double R0[9], v0[3], rq0[4];
-    schkin_lwa3_fk(q0, R0, v0);
+    schkin_lwa3_fk(q0, NULL, NULL, NULL, NULL, R0, v0);
     aa_tf_rotmat2quat(R0, rq0);
 
     // final ws pos
@@ -43,8 +43,8 @@ void jacobian() {
     printf("trapvel generation: %d\n", i );
     i = T.validate();
     printf("trapvel validity: %d\n", i );
-    if( 0 == i )
-        T.jacobian_plot(.005, 7, q0, schkin_lwa3_fk, schkin_lwa3_jacobian, .001);
+    //if( 0 == i )
+        //T.jacobian_plot(.005, 7, q0, schkin_lwa3_fk, schkin_lwa3_jacobian, .001);
 
 }
 
@@ -56,7 +56,7 @@ void ws() {
 
     // initial ws pos
     double R0[9], v0[3], rq0[4];
-    schkin_lwa3_fk(q0, R0, v0);
+    schkin_lwa3_fk(q0, NULL, NULL, NULL, NULL, R0, v0);
     aa_tf_rotmat2quat(R0, rq0);
 
     // final ws pos
@@ -82,9 +82,9 @@ void ws() {
     aa_fset(kp,3,3);
     aa_fset(kp+3,1,1);
     //AA_SET_AR(kp, I);
-    if( 0 == i )
-        T.wsctrl_plot(.005, 7, q0, schkin_lwa3_fk, schkin_lwa3_jacobian, .001,
-                      kp);
+    //if( 0 == i )
+        //T.wsctrl_plot(.005, 7, q0, schkin_lwa3_fk, schkin_lwa3_jacobian, .001,
+                      //kp);
 
 }
 

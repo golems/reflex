@@ -53,6 +53,30 @@
  * k: gain
 */
 
+// FIXME: controller should return these codes
+typedef enum {
+    RFX_OK = 0,
+    RFX_INVAL,
+    RFX_LIMIT_POSITION,
+    RFX_LIMIT_POSITION_ERROR,
+    RFX_LIMIT_FORCE,
+    RFX_LIMIT_MOMENT,
+    RFX_LIMIT_FORCE_ERROR,
+    RFX_LIMIT_MOMENT_ERROR,
+    RFX_LIMIT_CONFIGURATION,
+    RFX_LIMIT_CONFIGURATION_ERROR
+} rfx_status_t;
+
+AA_API const char* rfx_status_string(rfx_status_t i);
+
+#define RFX_PERROR(s, r) {                                              \
+        rfx_status_t _rfx_$_perror_r = r;                               \
+        const char *_rfx_$_perror_s = s;                                \
+        fprintf(stderr, "%s: %s (%d)\n",                                \
+                _rfx_$_perror_s ? _rfx_$_perror_s : "",                 \
+                rfx_status_string(_rfx_$_perror_r), _rfx_$_perror_r);   \
+    }
+
 /************************/
 /* Workspace Controller */
 /************************/
@@ -70,16 +94,26 @@ typedef struct {
     double r[4];     ///< actual workspace orientation quaternion
     double F[6];     ///< actual workspace forces
     // reference
-    double *q_r;   ///< reference confguration position
-    double *dq_r;   ///< reference confguration velocity
+    double *q_r;     ///< reference confguration position
+    double *dq_r;    ///< reference confguration velocity
     double x_r[3];   ///< reference workspace position
     double r_r[4];   ///< reference workspace orientation quaternion
     double dx_r[6];  ///< reference workspace velocity
-    double F_r[6];    ///< reference workspace forces
+    double F_r[6];   ///< reference workspace forces
     // limits
-    double F_max; // maximum linear force magnitude (<=0 to ignore)
-    double M_max; // maximum moment moment magnitude (<=0 to ignore)
-} rfx_ctrl_ws_t;
+    double F_max;    ///< maximum linear force magnitude (<=0 to ignore)
+    double M_max;    ///< maximum moment magnitude (<=0 to ignore)
+    double e_q_max;  ///< maximum joint error (<=0 to ignore)
+    double e_x_max;  ///< maximum workspace error (<=0 to ignore)
+    double e_F_max;  ///< maximum linear force error (<=0 to ignore)
+    double e_M_max;  ///< maximum moment error (<=0 to ignore)
+    double *q_min;   ///< minimum joint values  (always checked)
+    double *q_max;   ///< maximum joint values (always checked)
+    double x_min[3]; ///< minimum workspace position (always checked)
+    double x_max[3]; ///< maximum workspace position (always checked)
+} rfx_ctrl_t;
+
+typedef rfx_ctrl_t rfx_ctrl_ws_t;
 
 AA_API void rfx_ctrl_ws_init( rfx_ctrl_ws_t *g, size_t n );
 AA_API void rfx_ctrl_ws_destroy( rfx_ctrl_ws_t *g );
@@ -111,7 +145,7 @@ AA_API void rfx_ctrl_ws_lin_k_destroy( rfx_ctrl_ws_lin_k_t *k );
  * \param k The gains
  * \param u The configuration velocity to command, \f$ u \in \Re^{n_q} \f$
  */
-AA_API void rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k,  double *u );
+AA_API rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k,  double *u );
 
 
 
@@ -133,6 +167,9 @@ AA_API void rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin
 /*  * u = k * (x-x_r) + k*(dx-dx_r) */
 /*  *\/ */
 /* void ctrl_pd( const ctrl_pd_t *A, size_t n_u, double *u ); */
+
+
+
 
 
 #endif //REFLEX_H

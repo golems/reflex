@@ -38,16 +38,32 @@
 #include <amino.h>
 #include "reflex.h"
 
+const char* rfx_status_string(rfx_status_t i) {
+    switch(i) {
+    case RFX_OK: return "OK";
+    case RFX_INVAL: return "INVAL";
+    case RFX_LIMIT_POSITION: return "LIMIT_POSITION";
+    case RFX_LIMIT_POSITION_ERROR: return "LIMIT_POSITION_ERROR";
+    case RFX_LIMIT_FORCE: return "LIMIT_FORCE";
+    case RFX_LIMIT_MOMENT: return "LIMIT_MOMENT";
+    case RFX_LIMIT_FORCE_ERROR: return "LIMIT_FORCE_ERROR";
+    case RFX_LIMIT_MOMENT_ERROR: return "LIMIT_MOMENT_ERROR";
+    case RFX_LIMIT_CONFIGURATION: return "LIMIT_CONFIGURATION";
+    case RFX_LIMIT_CONFIGURATION_ERROR: return "LIMIT_CONFIGURATION_ERROR";
+    }
+    return "unknown";
+}
 
 void rfx_ctrl_ws_init( rfx_ctrl_ws_t *g, size_t n ) {
+    memset( g, 0, sizeof(*g) );
     g->n_q = n;
     g->q = AA_NEW0_AR( double, n );
     g->dq = AA_NEW0_AR( double, n );
     g->J = AA_NEW0_AR( double, n*6 );
     g->q_r = AA_NEW0_AR( double, n );
     g->dq_r = AA_NEW0_AR( double, n );
-    g->F_max = 0;
-    g->M_max = 0;
+    g->q_min = AA_NEW0_AR( double, n );
+    g->q_max = AA_NEW0_AR( double, n );
 }
 
 void rfx_ctrl_ws_destroy( rfx_ctrl_ws_t *g ) {
@@ -56,6 +72,8 @@ void rfx_ctrl_ws_destroy( rfx_ctrl_ws_t *g ) {
     free(g->J);
     free(g->q_r);
     free(g->dq_r);
+    free(g->q_min);
+    free(g->q_max);
 }
 
 AA_API void rfx_ctrl_ws_lin_k_init( rfx_ctrl_ws_lin_k_t *k, size_t n_q  ) {
@@ -66,10 +84,49 @@ AA_API void rfx_ctrl_ws_lin_k_destroy( rfx_ctrl_ws_lin_k_t *k ) {
     free(k->q);
 }
 
+static int check_limit( const rfx_ctrl_t *g ) {
+    // F_max
+    if( (g->F_max > 0) &&
+        (aa_la_dot( 3, g->F, g->F ) > g->F_max*g->F_max) )
+        return RFX_LIMIT_FORCE;
+    // M_max
+    if( (g->M_max > 0) &&
+        (aa_la_dot( 3, g->F+3, g->F+3 ) > g->M_max*g->M_max) )
+        return RFX_LIMIT_MOMENT;
+    // q_min, q_max
+    for( size_t i = 0; i < g->n_q; i++ ) {
+        if( (g->q[i] < g->q_min[i]) || (g->q[i] > g->q_max[i] ) )
+            return RFX_LIMIT_CONFIGURATION;
+    }
+    // x_min, x_max
+    for( size_t i = 0; i < 3; i++ ) {
+        if( (g->x[i] < g->x_min[i]) || (g->x[i] > g->x_max[i] ) )
+            return RFX_LIMIT_POSITION;
+    }
+    // e_q_max
+    if( (g->e_q_max > 0) &&
+        ( aa_la_ssd(g->n_q, g->q, g->q_r) > g->e_q_max * g->e_q_max ) )
+        return RFX_LIMIT_CONFIGURATION_ERROR;
+    // e_x_max
+    if( (g->e_x_max > 0) &&
+        ( aa_la_ssd(3, g->x, g->x_r) > g->e_x_max * g->e_x_max ) )
+        return RFX_LIMIT_POSITION_ERROR;
+    // e_F_max
+    if( (g->e_F_max > 0) &&
+        ( aa_la_ssd(3, g->F, g->F_r) > g->e_F_max * g->e_F_max ) )
+        return RFX_LIMIT_FORCE_ERROR;;
+    // e_M_max
+    if( (g->e_M_max > 0) &&
+        ( aa_la_ssd(3, g->F+3, g->F_r+3) > g->e_M_max * g->e_M_max ) )
+        return RFX_LIMIT_MOMENT_ERROR;
+
+    return RFX_OK;
+}
+
 /*
  * u = J^* * (  dx_r - k_p * (x - x_r) -  k_f * (F - F_r) )
  */
-void rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k, double *u ) {
+rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k, double *u ) {
     double dx_u[6], x_e[6] ;
     double dq_r[ws->n_q];
 
@@ -77,14 +134,13 @@ void rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k
 
     // check force limits
     {
-        double FF = aa_la_dot( 3, ws->F, ws->F );
-        double MM = aa_la_dot( 3, ws->F+3, ws->F+3 );
-        if( ( ws->F_max > 0 && FF > ws->F_max*ws->F_max ) ||
-            ( ws->M_max > 0 && MM > ws->M_max*ws->M_max ) ) {
+        int r = check_limit( ws );
+        if( RFX_OK != r ) {
             aa_fzero( u, ws->n_q );
-            return;
+            return r;
         }
     }
+
 
     // find position error
     aa_la_vsub( 3, ws->x, ws->x_r, x_e );
@@ -110,4 +166,5 @@ void rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k
     // find jointspace velocity
     aa_la_dlsnp( 6, ws->n_q, k->dls, ws->J, dx_u, dq_r, u );
 
+    return RFX_OK;
 }
