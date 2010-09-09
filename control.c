@@ -84,11 +84,16 @@ AA_API void rfx_ctrl_ws_lin_k_destroy( rfx_ctrl_ws_lin_k_t *k ) {
     free(k->q);
 }
 
-static int check_limit( const rfx_ctrl_t *g ) {
+// FIXME: check directions for all limits
+// FIXME: add hard limits
+static int check_limit( const rfx_ctrl_t *g, const double dx[3] ) {
     // F_max
-    if( (g->F_max > 0) &&
-        (aa_la_dot( 3, g->F, g->F ) > g->F_max*g->F_max) )
+    if( (g->F_max > 0) /* has limit */ &&
+        (aa_la_dot( 3, g->F, g->F ) > g->F_max*g->F_max) /* magnitude check */ &&
+        0 < aa_la_dot( 3, g->F, dx ) /*direction check*/ )
+    {
         return RFX_LIMIT_FORCE;
+    }
     // M_max
     if( (g->M_max > 0) &&
         (aa_la_dot( 3, g->F+3, g->F+3 ) > g->M_max*g->M_max) )
@@ -134,7 +139,7 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
 
     // check force limits
     {
-        int r = check_limit( ws );
+        int r = check_limit( ws, ws->dx_r );
         if( RFX_OK != r ) {
             aa_fzero( u, ws->n_q );
             return r;
