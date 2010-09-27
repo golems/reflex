@@ -277,3 +277,56 @@ int TrapvelWS::add( double t, const double x[3], const double r[4]) {
     //aa_dump_vec( stderr, xp, 6 );
     return 0;
 }
+
+
+/*
+ParaBlendWS::ParaBlendWS()
+{
+    t_0 = 0;
+    t_n = 0;
+    aa_fzero( this->ddx, 6 );
+}
+
+ParaBlendWS::~ParaBlendWS()
+{}
+
+
+int ParaBlendWS::validate() {
+    return 0;
+}
+
+int ParaBlendWS::generate() {
+
+    for(  std::map< double, T >::iterator itr = this->points.begin();
+          itr != this->points.end();
+          itr++ ) {
+        fprintf(stderr, "%f: ", itr->first );
+        aa_dump_vec(stderr, itr->second.x, 6 );
+    }
+    return 0;
+}
+
+int ParaBlendWS::get_x(double t, double x[3], double r[4]) {
+    return 0;
+}
+
+int ParaBlendWS::get_dx(double t, double x[6]) {
+    return 0;
+}
+
+int ParaBlendWS::get_ddx(double t, double x[6]) {
+    return 0;
+}
+
+int ParaBlendWS::add(double t, const double x[3], const double r[4]) {
+    double (&X)[6] = this->points[t].x;
+    aa_fcpy(X,x,3);
+    aa_tf_quat2rotvec( r, X+3 );
+    return 0;
+}
+
+void ParaBlendWS::set_ddx(double _ddx[6]) {
+    aa_fcpy(this->ddx, _ddx, 6 );
+}
+
+*/

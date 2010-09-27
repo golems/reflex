@@ -92,6 +92,28 @@ namespace reflex {
         double tb;
         double dx_r[6], ddx_r[6];
     };
+
+    class ParaBlendWS : public WorkspaceTrajectory {
+    public:
+        ParaBlendWS();
+        virtual ~ParaBlendWS();
+        virtual int validate();
+        virtual int generate();
+        virtual int get_x( double t, double x[3], double r[4] );
+        virtual int get_dx( double t, double dx[6] );
+        virtual int get_ddx( double t, double ddx[6] );
+        virtual int add(double t, const double x[3], const double r[4] );
+        int add(double t, double tk, const double x[3], const double r[4] );
+
+
+    protected:
+        struct T {
+            double x[6];
+            double tk;
+        };
+        double tk;
+        std::map < double, T> points;
+    };
 }
 
 #endif //REFLEX_H

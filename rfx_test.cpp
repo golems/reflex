@@ -87,12 +87,23 @@ void ws() {
                       //kp);
 
 }
+/*
+void parablend() {
+    reflex::ParaBlendWS T;
+    T.add( 0, AA_FAR(0,0,0), AA_TF_QUAT_IDENT );
+    T.add( 1, AA_FAR(.2,.2,.2), AA_TF_QUAT_IDENT );
+    T.add( 2, AA_FAR(.4,.4,.4), AA_TF_QUAT_IDENT );
+    T.generate();
+}
+*/
 
 int main( int argc, char **argv ) {
     (void) argc;
     (void) argv;
     //trapvel();
     //jacobian();
-    ws();
+    //ws();
+    //parablend();
     return 0;
+
 }
