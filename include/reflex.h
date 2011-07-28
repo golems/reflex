@@ -155,22 +155,33 @@ typedef struct {
     size_t n_x;
     size_t n_u;
     size_t n_z;
-    double *A;   ///< process model
-    double *B;   ///< input model
-    double *C;   ///< measurement model
-    double *V;   ///< process noise
+    double *A;   ///< process model,       n_x * n_x
+    double *B;   ///< input model,         n_x * n_u
+    double *C;   ///< measurement model,   n_z * n_x
+
+    double *x;   ///< state estimate,      n_x
+    double *z;   ///< measurement,         n_z
+    double *u;   ///< computed input,      n_u
+
+    double *V;   ///< process noise,
     double *W;   ///< measurement noise
-    double *Q;   ///< state cost
-    double *R;   ///< input cost
+    double *Q;   ///< state cost           n_x * n_x
+    double *R;   ///< input cost           n_u * n_u
 
-    double *x;   ///< state estimate
-    double *z;   ///< measurement
-    double *u;   ///< computed input
-} rfx_clqg_t;
+    double *K;   ///< optimal feedback gain   n_x * n_z
+    double *L;   ///< optimal control gain    n_u * n_x
 
-AA_API void rfx_clqg_init( rfx_clqg_t *lqg, size_t n_x, size_t n_u, size_t n_z );
-AA_API void rfx_clqg_destroy( rfx_clqg_t *lqg, size_t n_x, size_t n_u, size_t n_z );
-AA_API void rfc_clqg_apply( rfx_clqg_t *lqg );
+    aa_region_t *reg;
+} rfx_lqg_t;
+
+AA_API void rfx_lqg_init( rfx_lqg_t *lqg, size_t n_x, size_t n_u, size_t n_z,
+                          aa_region_t *reg );
+AA_API void rfx_lqg_destroy( rfx_lqg_t *lqg );
+
+/** Compute optimal observation gain using the Kalman-Bucy method. */
+AA_API void rfx_lqg_kb_gain( rfx_lqg_t *lqg );
+
+AA_API void rfc_lqg_apply( rfx_lqg_t *lqg );
 
 
 AA_API void rfx_lqg_observe_(
@@ -206,15 +217,5 @@ AA_API void rfx_lqg_observe(
 /*  *\/ */
 /* void ctrl_pd( const ctrl_pd_t *A, size_t n_u, double *u ); */
 
-
-/*************************/
-/* LQG Filter/Controller */
-/*************************/
-
-typedef struct {
-    size_t n_x;
-    size_t n_z;
-    size_t n_u;
-} rfx_lqg_t;
 
 #endif //REFLEX_H
