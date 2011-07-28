@@ -147,6 +147,31 @@ AA_API void rfx_ctrl_ws_lin_k_destroy( rfx_ctrl_ws_lin_k_t *k );
  */
 AA_API rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k,  double *u );
 
+/****************************************/
+/* Linear Quadratic Gaussian Controller */
+/****************************************/
+
+typedef struct {
+    size_t n_x;
+    size_t n_u;
+    size_t n_z;
+    double *A;   ///< process model
+    double *B;   ///< input model
+    double *C;   ///< measurement model
+    double *V;   ///< process noise
+    double *W;   ///< measurement noise
+    double *R;   ///< state error cost
+    double *Q;   ///< input cost
+
+    double *x;   ///< state estimate
+    double *z;   ///< measurement
+    double *u;   ///< computed input
+} rfx_clqg_t;
+
+AA_API void rfx_clqg_init( rfx_clqg_t *lqg, size_t n_x, size_t n_u, size_t n_z );
+AA_API void rfx_clqg_destroy( rfx_clqg_t *lqg, size_t n_x, size_t n_u, size_t n_z );
+AA_API void rfc_clqg_apply( rfx_clqg_t *lqg );
+
 
 
 /**************************/

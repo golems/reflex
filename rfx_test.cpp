@@ -1,7 +1,7 @@
 #include <amino.h>
-#include <schkin.h>
+//#include <schkin.h>
 #include "reflex.hpp"
-
+/*
 void trapvel() {
     reflex::TrapvelWS T;
     T.add( 0, (double[3]){0,0,0}, (double[4]){0,0,0,1} );
@@ -87,6 +87,7 @@ void ws() {
                       //kp);
 
 }
+*/
 /*
 void parablend() {
     reflex::ParaBlendWS T;

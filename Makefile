@@ -25,7 +25,7 @@ test: rfx_test
 OBJS := control.o trajectory.o trajectory_plot.o
 
 $(call LINKLIB, reflex, $(OBJS))
-$(call LINKBIN, rfx_test, rfx_test.o $(OBJS), amino stdc++ schkin)
+$(call LINKBIN, rfx_test, rfx_test.o $(OBJS), amino stdc++ )
 
 
 

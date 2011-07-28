@@ -173,3 +173,45 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
 
     return RFX_OK;
 }
+
+/*******
+ * LQG *
+ *******/
+
+AA_API void rfx_clqg_init( rfx_clqg_t *lqg, size_t n_x, size_t n_u, size_t n_z );
+AA_API void rfx_clqg_destroy( rfx_clqg_t *lqg, size_t n_x, size_t n_u, size_t n_z );
+
+AA_API void rfx_clqg_observe_euler( rfx_clqg_t *lqg, double dt, aa_region_t *reg ) {
+    // --- calculate kalman gain ---
+    // dP = A*P + P*A' - P*C'*W^{-1}*C*P + V
+    // solve ARE with dP = 0, result is P
+
+    double *Ct = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_x*lqg->n_z);
+    aa_la_transpose2( lqg->n_z, lqg->n_x, lqg->C, Ct );
+    double *P = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_x*lqg->n_x);
+    aa_la_care_laub( lqg->n_x, lqg->n_u, lqg->n_z,
+                     lqg->A, lqg->B, Ct, P, reg );
+    // K = P * C' * W^{-1}  :  (nx*nx) * (nx*nz) * (nz*nz)
+    double *Winv = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_z*lqg->n_z);
+    memcpy(Winv, lqg->W, sizeof(double)*lqg->n_z*lqg->n_z);
+    aa_la_inv( lqg->n_z, Winv);
+    double *K = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_x*lqg->n_z);
+    // K := C' * W^{-1}
+
+    // --- predict from previous input ---
+    double *dx = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_x);
+    // dx = A*x + B*u + K * ( z - C*xh )
+
+    // x = x + dx * dt
+    aa_la_axpy( lqg->n_x, dt, dx, lqg->x );
+}
+
+//AA_API void rfx_clqg_ctrl( rfx_clqg_t *lqg, double dt, aa_region_t *reg ) {
+    // compute optimal gain
+    //  -dS = A'*S + S*A - S*B*R^{-1}*B' + Q
+    // solve ARE, result is S
+    // L = R^{-1} * B' * S
+
+    // compute current input
+    // u = -Lx
+//}
