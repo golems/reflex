@@ -16,16 +16,18 @@ include /usr/share/make-common/common.1.mk
 
 #CFLAGS += -O0 -Wno-conversion
 CFLAGS += --std=gnu99 -O2
-FFLAGS += -I/usr/include
+FFLAGS += -I/usr/include -O2
 
-default: $(LIBFILES) $(BINFILES) test
+default: $(LIBFILES) $(BINFILES) test lqgtest
 
-test: rfx_test
+test: rfx_test lqgtest
+	./lqgtest
 
-OBJS := control.o trajectory.o trajectory_plot.o
+OBJS := control.o trajectory.o trajectory_plot.o lqg.o
 
 $(call LINKLIB, reflex, $(OBJS))
 $(call LINKBIN, rfx_test, rfx_test.o $(OBJS), amino stdc++ )
+$(call LINKBIN, lqgtest, lqgtest.o $(OBJS), amino stdc++ )
 
 
 

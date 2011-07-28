@@ -183,35 +183,82 @@ AA_API void rfx_clqg_destroy( rfx_clqg_t *lqg, size_t n_x, size_t n_u, size_t n_
 
 AA_API void rfx_clqg_observe_euler( rfx_clqg_t *lqg, double dt, aa_region_t *reg ) {
     // --- calculate kalman gain ---
+
     // dP = A*P + P*A' - P*C'*W^{-1}*C*P + V
     // solve ARE with dP = 0, result is P
-
     double *Ct = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_x*lqg->n_z);
     aa_la_transpose2( lqg->n_z, lqg->n_x, lqg->C, Ct );
     double *P = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_x*lqg->n_x);
     aa_la_care_laub( lqg->n_x, lqg->n_u, lqg->n_z,
                      lqg->A, lqg->B, Ct, P, reg );
     // K = P * C' * W^{-1}  :  (nx*nx) * (nx*nz) * (nz*nz)
+    double *PCt = (double*)aa_region_alloc( reg, sizeof(double)*lqg->n_x*lqg->n_z );
+    // PCt := P * C'
+    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasTrans,
+                (int)lqg->n_x, (int)lqg->n_z, (int)lqg->n_x,
+                1.0, P, (int)lqg->n_x, lqg->C, (int)lqg->n_z,
+                0.0, PCt, (int)lqg->n_x);
+    // K := PCt * W^{-1}
+    double *K = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_x*lqg->n_z);
     double *Winv = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_z*lqg->n_z);
     memcpy(Winv, lqg->W, sizeof(double)*lqg->n_z*lqg->n_z);
     aa_la_inv( lqg->n_z, Winv);
-    double *K = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_x*lqg->n_z);
-    // K := C' * W^{-1}
+    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans,
+                (int)lqg->n_x, (int)lqg->n_z, (int)lqg->n_z,
+                1.0, PCt, (int)lqg->n_x, Winv, (int)lqg->n_z,
+                0.0, K, (int)lqg->n_x);
+
 
     // --- predict from previous input ---
-    double *dx = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_x);
     // dx = A*x + B*u + K * ( z - C*xh )
+    double *dx = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_x);
+    // zz := z
+    //double *zz = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_z);
+
 
     // x = x + dx * dt
     aa_la_axpy( lqg->n_x, dt, dx, lqg->x );
+    aa_region_pop(reg, Ct );
 }
 
 //AA_API void rfx_clqg_ctrl( rfx_clqg_t *lqg, double dt, aa_region_t *reg ) {
     // compute optimal gain
     //  -dS = A'*S + S*A - S*B*R^{-1}*B' + Q
     // solve ARE, result is S
-    // L = R^{-1} * B' * S
+    // L = R^{-1} * B' * S  : (nu*nu) * (nu*nx) * (nx*nx)
 
     // compute current input
     // u = -Lx
 //}
+
+
+AA_API void rfx_lqg_observe
+( size_t n_x, size_t n_u, size_t n_z,
+  const double *A, const double *B, const double *C,
+  const double *x, const double *u, const double *z,
+  const double *K,
+  double *dx, double *zwork )
+{
+    //zwork := z
+    memcpy(zwork, z, sizeof(double)*n_z);
+    // zz := -C*x + zz
+    cblas_dgemv( CblasColMajor, CblasNoTrans,
+                 (int)n_z, (int)n_x,
+                 -1.0, C, (int)n_z,
+                 x, 1, 1.0, zwork, 1 );
+    // dx := K * zwork
+    cblas_dgemv( CblasColMajor, CblasNoTrans,
+                 (int)n_x, (int)n_z,
+                 1.0, K, (int)n_x,
+                 zwork, 1, 0.0, dx, 1 );
+    // dx := B*u + dx
+    cblas_dgemv( CblasColMajor, CblasNoTrans,
+                 (int)n_x, (int)n_u,
+                 1.0, B, (int)n_x,
+                 u, 1, 1.0, dx, 1 );
+    // dx := A*x + dx
+    cblas_dgemv( CblasColMajor, CblasNoTrans,
+                 (int)n_x, (int)n_x,
+                 1.0, A, (int)n_x,
+                 x, 1, 1.0, dx, 1 );
+}

@@ -160,8 +160,8 @@ typedef struct {
     double *C;   ///< measurement model
     double *V;   ///< process noise
     double *W;   ///< measurement noise
-    double *R;   ///< state error cost
-    double *Q;   ///< input cost
+    double *Q;   ///< state cost
+    double *R;   ///< input cost
 
     double *x;   ///< state estimate
     double *z;   ///< measurement
@@ -173,6 +173,19 @@ AA_API void rfx_clqg_destroy( rfx_clqg_t *lqg, size_t n_x, size_t n_u, size_t n_
 AA_API void rfc_clqg_apply( rfx_clqg_t *lqg );
 
 
+AA_API void rfx_lqg_observe_(
+    const int *n_x, const int *n_u, const int *n_z,
+    double *A, double *B, double *C,
+    double *x, double *u, double *z,
+    double *K, double *dx, double *zwork );
+
+/** dx = Ax + Bu + K(z-Cx) */
+AA_API void rfx_lqg_observe(
+    size_t n_x, size_t n_u, size_t n_z,
+    const double *A, const double *B, const double *C,
+    const double *x, const double *u, const double *z,
+    const double *K,
+    double *dx, double *zwork );
 
 /**************************/
 /* A Simple PD Controller */
@@ -194,7 +207,14 @@ AA_API void rfc_clqg_apply( rfx_clqg_t *lqg );
 /* void ctrl_pd( const ctrl_pd_t *A, size_t n_u, double *u ); */
 
 
+/*************************/
+/* LQG Filter/Controller */
+/*************************/
 
-
+typedef struct {
+    size_t n_x;
+    size_t n_z;
+    size_t n_u;
+} rfx_lqg_t;
 
 #endif //REFLEX_H
