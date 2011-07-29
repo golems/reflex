@@ -64,6 +64,8 @@ void rfx_ctrl_ws_init( rfx_ctrl_ws_t *g, size_t n ) {
     g->dq_r = AA_NEW0_AR( double, n );
     g->q_min = AA_NEW0_AR( double, n );
     g->q_max = AA_NEW0_AR( double, n );
+    aa_fcpy( g->r, AA_TF_QUAT_IDENT, 4 );
+    aa_fcpy( g->r_r, AA_TF_QUAT_IDENT, 4 );
 }
 
 void rfx_ctrl_ws_destroy( rfx_ctrl_ws_t *g ) {
