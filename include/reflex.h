@@ -39,6 +39,65 @@
 #define REFLEX_H
 /** \file reflex.h */
 
+
+/** \mainpage
+ *
+ * \section wsctrl Workspace Control HOWTO
+ *
+ * -# Initialization
+ *    -# get a \ref rfx_ctrl_t struct
+ *    -# call \ref rfx_ctrl_ws_init
+ *    -# get a \ref rfx_ctrl_ws_lin_k_t struct
+ *    -# call \ref rfx_ctrl_ws_lin_k_init
+ *    -# Set gains the the rfx_ctrl_ws_lin_k_t
+ *    -# Set limits the the rfx_ctrl_t
+ * -# At each time step (probably do this at 1kHz)
+ *    -# Update the position q, velocity dq, and Jacobian J in the rfx_ctrl_t
+ *    -# Update the reference q_r, x_r, etc in the rfx_ctrl_t
+ *    -# Compute desired velocities with \ref rfx_ctrl_ws_lin_vfwd
+ *    -# Send the velocities to your arm
+ * -# Finalization
+ *    -# Call \ref rfx_ctrl_ws_destroy
+ *    -# Call \ref rfx_ctrl_ws_lin_k_destroy
+ *
+ * \author Neil T. Dantam
+ * \author Developed at the Georgia Tech Humanoid Robotics Lab
+ * \author Under Direction of Professor Mike Stilman
+ *
+ * \section License
+ *
+ * Copyright (c) 2010-2011, Georgia Tech Research Corporation.
+ * All rights reserved.
+ *
+ *   Redistribution and use in source and binary forms, with or
+ *   without modification, are permitted provided that the following
+ *   conditions are met:
+ *
+ *   - Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ *   - Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+ *   CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+ *   INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ *   DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ *   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+ *   USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ *   AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *   POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
+
 // Symbol:
 /*
  * q: configuration
@@ -115,7 +174,9 @@ typedef struct {
 
 typedef rfx_ctrl_t rfx_ctrl_ws_t;
 
+/// initialize workspace controller
 AA_API void rfx_ctrl_ws_init( rfx_ctrl_ws_t *g, size_t n );
+/// destroy workspace controller
 AA_API void rfx_ctrl_ws_destroy( rfx_ctrl_ws_t *g );
 
 /** Gains for linear workspace control.
@@ -129,12 +190,17 @@ typedef struct {
     double dls;  ///< damped least squares k
 } rfx_ctrl_ws_lin_k_t;
 
+/// initialize
 AA_API void rfx_ctrl_ws_lin_k_init( rfx_ctrl_ws_lin_k_t *k, size_t n_q );
+/// destroy
 AA_API void rfx_ctrl_ws_lin_k_destroy( rfx_ctrl_ws_lin_k_t *k );
 
 /** Linear Workspace Control.
  *
  * \f[ u = J^*  (  \dot{x}_r - k_p(x - x_r) -  k_f(F - F_r) ) \f]
+ *
+ * Uses the singularity robust damped-least squares Jacobian inverse to
+ * control an arm in workspace.
  *
  * The position error for orientation, \f$ \omega \in \Re^3 \f$, is calculated
  * from the axis-angle form of the relative orientation:
