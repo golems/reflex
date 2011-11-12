@@ -82,7 +82,7 @@ void kf() {
     lqg.B = (double[]){0,1};
     lqg.C = (double[]){1,0};
 
-    lqg.P = (double[]){1,0,0,1};
+    lqg.P = (double*)alloca(sizeof(double)*4);
     lqg.V = (double[]){1,0,0,1};
     lqg.W = (double[]){1};
 
@@ -96,6 +96,7 @@ void kf() {
     memcpy(lqg.x, (double[]){1,0}, sizeof(double)*lqg.n_x);
     memcpy(lqg.u, (double[]){2}, sizeof(double)*lqg.n_u);
     memcpy(lqg.z, (double[]){1.1}, sizeof(double)*lqg.n_z);
+    memcpy(lqg.P, (double[]){1,0,0,1}, sizeof(double)*lqg.n_x*lqg.n_x);
     rfx_lqg_kf_predict(&lqg);
     assert( aa_veq( 2, lqg.x, (double[]){0,1}, .001 ) );
     assert( aa_veq( 4, lqg.P, (double[]){2,0,0,2}, .001 ) );
@@ -105,11 +106,59 @@ void kf() {
     assert( aa_veq( 2, lqg.K, (double[]){.666667,0}, .001 ) );
     assert( aa_veq( 2, lqg.x, (double[]){.733333,1}, .001 ) );
     assert( aa_veq( 4, lqg.P, (double[]){.666667,0,0,2}, .001 ) );
+
+
+    // spring sequence test
+    memcpy(lqg.x, (double[]){0,0}, sizeof(double)*lqg.n_x);
+    memcpy(lqg.u, (double[]){0}, sizeof(double)*lqg.n_u);
+    memcpy(lqg.z, (double[]){0}, sizeof(double)*lqg.n_z);
+    memcpy(lqg.P, (double[]){1e0,0,0,1e0}, sizeof(double)*lqg.n_x*lqg.n_x);
+    lqg.A = (double[]){0,-1,1,-.5};
+
+    lqg.W = (double[]){1};
+    lqg.V = (double[]){1,0,0,1};
+
+    FILE *f_tx0 = fopen("tru_x0.dat","w");
+    FILE *f_tx1 = fopen("tru_x1.dat","w");
+    FILE *f_fx0 = fopen("filt_x0.dat","w");
+    FILE *f_fx1 = fopen("filt_x1.dat","w");
+    //FILE *f_nx0 = fopen("x0.dat","w");
+    //FILE *f_nx1 = fopen("x1.dat","w");
+
+
+
+    aa_sys_affine_t sys = {.n = 2, .A = lqg.A, .D = (double[]){0,0}};
+    double x1[2] = {1,0}, x0[2];
+    double dt=.05;
+    lqg.A = (double*)alloca(sizeof(double)*4);
+    memcpy(lqg.A, sys.A, 4*sizeof(double));
+    aa_la_scal(4, dt, lqg.A);
+    lqg.A[0] += 1;
+    lqg.A[3] += 1;
+    for( double t = 0; t < 20; t+=dt ) {
+        memcpy(x0, x1, sizeof(x1));
+        aa_rk4_step( 2, (aa_sys_fun*)aa_sys_affine, &sys,
+                     t, dt,
+                     x0, x1 );
+        rfx_lqg_kf_predict(&lqg);
+        lqg.z[0] = x1[0];
+        rfx_lqg_kf_correct(&lqg);
+        fprintf(f_fx0, "%f %f\n", t, lqg.x[0]);
+        fprintf(f_fx1, "%f %f\n", t, lqg.x[1]);
+        fprintf(f_tx0, "%f %f\n", t, x1[0]);
+        fprintf(f_tx1, "%f %f\n", t, x1[1]);
+    }
+    fclose(f_tx0);
+    fclose(f_tx1);
+    fclose(f_fx0);
+    fclose(f_fx1);
 }
 
 int main( int argc, char **argv ) {
     (void)argc;
     (void)argv;
+
+    srand((unsigned int)time(NULL)); // might break in 2038
 
 
     {
