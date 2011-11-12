@@ -227,23 +227,23 @@ typedef struct {
     size_t n_u;  ///< input size
     size_t n_z;  ///< output size
 
-    double *x;   ///< state estimate,         n_x
-    double *u;   ///< computed input,         n_u
-    double *z;   ///< measurement,            n_z
+    double *x;   ///< state estimate,         vector size n_x
+    double *u;   ///< computed input,         vector size n_u
+    double *z;   ///< measurement,            vector size n_z
 
-    double *A;   ///< process model,          n_x * n_x
-    double *B;   ///< input model,            n_x * n_u
-    double *C;   ///< measurement model,      n_z * n_x
+    double *A;   ///< process model,          matrix size n_x * n_x, column-major
+    double *B;   ///< input model,            matrix size n_x * n_u, column-major
+    double *C;   ///< measurement model,      matrix size n_z * n_x, column-major
 
-    double *P;   ///< covariance,             n_x * n_x
-    double *V;   ///< process noise,          n_x * n_x
-    double *W;   ///< measurement noise,      n_z * n_z
+    double *P;   ///< covariance,             matrix size n_x * n_x, column-major
+    double *V;   ///< process noise,          matrix size n_x * n_x, column-major
+    double *W;   ///< measurement noise,      matrix size n_z * n_z, column-major
 
-    double *Q;   ///< state cost,             n_x * n_x
-    double *R;   ///< input cost,             n_u * n_u
+    double *Q;   ///< state cost,             matrix size n_x * n_x, column-major
+    double *R;   ///< input cost,             matrix size n_u * n_u, column-major
 
-    double *K;   ///< optimal feedback gain,  n_x * n_z
-    double *L;   ///< optimal control gain,   n_u * n_x
+    double *K;   ///< optimal feedback gain,  matrix size n_x * n_z, column-major
+    double *L;   ///< optimal control gain,   matrix size n_u * n_x, column-major
 
     aa_region_t *reg;
 } rfx_lqg_t;
@@ -272,8 +272,50 @@ AA_API void rfx_lqg_observe(
     const double *K,
     double *dx, double *zwork );
 
-
+/** Discrete time Kalman filter predict step.
+ *
+ * \f[  x = Ax + Bu \f]
+ * \f[ P = A  P  A^T + V \f]
+ *
+ * \pre
+ *   - lqg.n_x contains the state-space size
+ *   - lqg.n_u contains the input-space size
+ *   - lqg.A contains the process model matrix, size n_x*n_x
+ *   - lqg.B contains the input model matrix, size n_x*n_u
+ *   - lqg.V contains the process noise model matrix, size n_x*n_x
+ *   - lqg.P contains the covariance matrix, size n_x*n_x
+ *   - lqg.x contains prior state vector, size n_x
+ *   - lqg.u contains input vector, size n_x
+ *   - The stack can grow by at least an additional sizeof(double)*n_x*n_x bytes.
+ *
+ * \post
+ *   - lqg.x overwritten with the predicted state vector
+ *   - lqg.P overwritten with the updated covariance matrix
+ */
 AA_API void rfx_lqg_kf_predict( rfx_lqg_t *lqg );
+
+/** Discrete time Kalman filter correct step.
+ *
+ * \f[ K = P  C^T  (C  P  C^T + W)^{-1} \f]
+ * \f[ x = x + K  (z - Cx) \f]
+ * \f[ P = (I - KC)  P \f]
+ *
+ * \pre
+ *   - lqg.n_x contains the state-space size
+ *   - lqg.n_u contains the input-space size
+ *   - lqg.C contains the measurement model
+ *   - lqg.P contains the covariance matrix, size n_x*n_x
+ *   - lqg.W contains the measurement noise model, size n_z*n_z
+ *   - lqg.x contains the predicted state vector, size n_x
+ *   - lqg.z contains the measurement vector, size n_z
+ *   - lqg.K is an n_x*n_z matrix
+ *   - The stack can grow by at least an additional sizeof(double) * MAX( 2*n_x*n_x, n_z*n_z + n_z*n_x ) bytes.
+ *
+ * \post
+ *   - lqg.x overwritten with the corrected state vector
+ *   - lqg.K overwritten with the Kalman gain matrix
+ *   - lqg.P overwritten with the updated covariance matrix
+ */
 AA_API void rfx_lqg_kf_correct( rfx_lqg_t *lqg );
 
 /**************************/

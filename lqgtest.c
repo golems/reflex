@@ -115,11 +115,12 @@ void kf() {
     memcpy(lqg.P, (double[]){1e0,0,0,1e0}, sizeof(double)*lqg.n_x*lqg.n_x);
     lqg.A = (double[]){0,-1,1,-.5};
 
-    lqg.W = (double[]){1};
+    lqg.W = (double[]){10};
     lqg.V = (double[]){1,0,0,1};
 
     FILE *f_tx0 = fopen("tru_x0.dat","w");
     FILE *f_tx1 = fopen("tru_x1.dat","w");
+    FILE *f_zx0 = fopen("sens_x0.dat","w");
     FILE *f_fx0 = fopen("filt_x0.dat","w");
     FILE *f_fx1 = fopen("filt_x1.dat","w");
     //FILE *f_nx0 = fopen("x0.dat","w");
@@ -128,8 +129,8 @@ void kf() {
 
 
     aa_sys_affine_t sys = {.n = 2, .A = lqg.A, .D = (double[]){0,0}};
-    double x1[2] = {1,0}, x0[2];
-    double dt=.05;
+    double x1[2] = {.87,-.125}, x0[2];
+    double dt=.025;
     lqg.A = (double*)alloca(sizeof(double)*4);
     memcpy(lqg.A, sys.A, 4*sizeof(double));
     aa_la_scal(4, dt, lqg.A);
@@ -137,20 +138,25 @@ void kf() {
     lqg.A[3] += 1;
     for( double t = 0; t < 20; t+=dt ) {
         memcpy(x0, x1, sizeof(x1));
+        double zg[2];
+        aa_box_muller( aa_frand(), aa_frand(), &zg[0], &zg[1] );
         aa_rk4_step( 2, (aa_sys_fun*)aa_sys_affine, &sys,
                      t, dt,
                      x0, x1 );
+        x1[0] += aa_z2x( zg[0], 0, .01 );
         rfx_lqg_kf_predict(&lqg);
-        lqg.z[0] = x1[0];
+        lqg.z[0] = x1[0] + aa_z2x( zg[1], 0, .02 );
         rfx_lqg_kf_correct(&lqg);
         fprintf(f_fx0, "%f %f\n", t, lqg.x[0]);
         fprintf(f_fx1, "%f %f\n", t, lqg.x[1]);
+        fprintf(f_zx0, "%f %f\n", t, lqg.z[0]);
         fprintf(f_tx0, "%f %f\n", t, x1[0]);
         fprintf(f_tx1, "%f %f\n", t, x1[1]);
     }
     fclose(f_tx0);
     fclose(f_tx1);
     fclose(f_fx0);
+    fclose(f_zx0);
     fclose(f_fx1);
 }
 

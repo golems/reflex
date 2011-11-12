@@ -252,7 +252,7 @@ AA_API void rfx_lqg_kf_predict( rfx_lqg_t *lqg ) {
                      lqg->P, m,
                      0.0, T, m );
         // P := (A*P) * A**T + V
-        memcpy( lqg->P, lqg->V, lqg->n_x*lqg->n_x );
+        memcpy( lqg->P, lqg->V, sizeof(T) );
         cblas_dgemm( CblasColMajor, CblasNoTrans, CblasTrans,
                      m, m, m,
                      1.0, T, m,
