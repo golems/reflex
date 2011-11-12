@@ -223,24 +223,27 @@ AA_API rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctr
 /****************************************/
 
 typedef struct {
-    size_t n_x;
-    size_t n_u;
-    size_t n_z;
-    double *A;   ///< process model,       n_x * n_x
-    double *B;   ///< input model,         n_x * n_u
-    double *C;   ///< measurement model,   n_z * n_x
+    size_t n_x;  ///< state size
+    size_t n_u;  ///< input size
+    size_t n_z;  ///< output size
 
-    double *x;   ///< state estimate,      n_x
-    double *z;   ///< measurement,         n_z
-    double *u;   ///< computed input,      n_u
+    double *x;   ///< state estimate,         n_x
+    double *u;   ///< computed input,         n_u
+    double *z;   ///< measurement,            n_z
 
-    double *V;   ///< process noise,
-    double *W;   ///< measurement noise
-    double *Q;   ///< state cost           n_x * n_x
-    double *R;   ///< input cost           n_u * n_u
+    double *A;   ///< process model,          n_x * n_x
+    double *B;   ///< input model,            n_x * n_u
+    double *C;   ///< measurement model,      n_z * n_x
 
-    double *K;   ///< optimal feedback gain   n_x * n_z
-    double *L;   ///< optimal control gain    n_u * n_x
+    double *P;   ///< covariance,             n_x * n_x
+    double *V;   ///< process noise,          n_x * n_x
+    double *W;   ///< measurement noise,      n_z * n_z
+
+    double *Q;   ///< state cost,             n_x * n_x
+    double *R;   ///< input cost,             n_u * n_u
+
+    double *K;   ///< optimal feedback gain,  n_x * n_z
+    double *L;   ///< optimal control gain,   n_u * n_x
 
     aa_region_t *reg;
 } rfx_lqg_t;
@@ -268,6 +271,10 @@ AA_API void rfx_lqg_observe(
     const double *x, const double *u, const double *z,
     const double *K,
     double *dx, double *zwork );
+
+
+AA_API void rfx_lqg_kf_predict( rfx_lqg_t *lqg );
+AA_API void rfx_lqg_kf_correct( rfx_lqg_t *lqg );
 
 /**************************/
 /* A Simple PD Controller */
