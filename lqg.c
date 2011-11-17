@@ -47,8 +47,7 @@
 
 
 
-AA_API void rfx_lqg_init( rfx_lqg_t *lqg, size_t n_x, size_t n_u, size_t n_z,
-                          aa_region_t *reg ) {
+AA_API void rfx_lqg_init( rfx_lqg_t *lqg, size_t n_x, size_t n_u, size_t n_z ) {
     memset( lqg, 0, sizeof(lqg) );
     lqg->n_x = n_x;
     lqg->n_u = n_u;
@@ -72,7 +71,6 @@ AA_API void rfx_lqg_init( rfx_lqg_t *lqg, size_t n_x, size_t n_u, size_t n_z,
     lqg->K = AA_NEW0_AR( double, lqg->n_u * lqg->n_x );
     lqg->L = AA_NEW0_AR( double, lqg->n_x * lqg->n_z );
 
-    lqg->reg = reg;
 }
 AA_API void rfx_lqg_destroy( rfx_lqg_t *lqg ) {
 
@@ -224,38 +222,76 @@ AA_API void rfx_lqg_kf_correct( rfx_lqg_t *lqg ) {
                      1.0, KC, (int)lqg->n_x,
                      PT, (int)lqg->n_x,
                      0.0, lqg->P, (int)lqg->n_x );
-
-
     }
 
 }
 
 // kalman-bucy gain
-AA_API void rfx_lqg_kb_gain( rfx_lqg_t *lqg ) {
-    // dP = A*P + P*A' - P*C'*W^{-1}*C*P + V
-    // solve ARE with dP = 0, result is P
-    double *Ct = (double*)aa_region_alloc(lqg->reg, sizeof(double)*lqg->n_x*lqg->n_z);
-    aa_la_transpose2( lqg->n_z, lqg->n_x, lqg->C, Ct );
-    double *P = (double*)aa_region_alloc(lqg->reg, sizeof(double)*lqg->n_x*lqg->n_x);
-    aa_la_care_laub( lqg->n_x, lqg->n_u, lqg->n_z,
-                     lqg->A, lqg->B, Ct, P );
-    // K = P * C' * W^{-1}  :  (nx*nx) * (nx*nz) * (nz*nz)
-    double *PCt = (double*)aa_region_alloc(lqg->reg, sizeof(double)*lqg->n_x*lqg->n_z );
-    // PCt := P * C'
-    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasTrans,
-                (int)lqg->n_x, (int)lqg->n_z, (int)lqg->n_x,
-                1.0, P, (int)lqg->n_x, lqg->C, (int)lqg->n_z,
-                0.0, PCt, (int)lqg->n_x);
-    // K := PCt * W^{-1}
-    double *Winv = (double*)aa_region_alloc(lqg->reg, sizeof(double)*lqg->n_z*lqg->n_z);
-    memcpy(Winv, lqg->W, sizeof(double)*lqg->n_z*lqg->n_z);
-    aa_la_inv( lqg->n_z, Winv);
-    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans,
-                (int)lqg->n_x, (int)lqg->n_z, (int)lqg->n_z,
-                1.0, PCt, (int)lqg->n_x, Winv, (int)lqg->n_z,
-                0.0, lqg->K, (int)lqg->n_x);
+void rfx_lqg_kbf_gain( rfx_lqg_t *lqg ) {
 
-    aa_region_pop(lqg->reg, Ct );
+    // dP = A*P + P*A' - P*C'*W^{-1}*C*P + V
+    // K = P * C' * W^{-1}
+
+    double Winv[lqg->n_z*lqg->n_z];
+    memcpy(Winv, lqg->W, sizeof(Winv));
+    aa_la_inv( lqg->n_z, Winv);
+
+    double ric_A[lqg->n_x*lqg->n_x];
+    aa_la_transpose2(lqg->n_x, lqg->n_x, lqg->A, ric_A );
+
+    double ric_B[lqg->n_x*lqg->n_x];
+
+    // ric_B := C' * W^{-1} * C
+    matmul3( lqg->n_x, lqg->n_x, lqg->n_z, lqg->n_z,
+             CblasTrans, CblasNoTrans, CblasNoTrans,
+             lqg->C, lqg->n_x,
+             Winv, lqg->n_z,
+             lqg->C, lqg->n_z,
+             0.0, ric_B, lqg->n_x );
+
+
+    // solve ARE with dP = 0, result is P
+    aa_la_care_laub( lqg->n_x, lqg->n_x, lqg->n_x,
+                     ric_A, ric_B, lqg->V, lqg->P );
+
+    // K = P * C' * W^{-1}
+    matmul3( lqg->n_x, lqg->n_z, lqg->n_x, lqg->n_z,
+             CblasNoTrans, CblasTrans, CblasNoTrans,
+             lqg->P, lqg->n_x,
+             lqg->C, lqg->n_x,
+             Winv, lqg->n_z,
+             0.0, lqg->K, lqg->n_x );
+
+}
+
+void rfx_lqg_kbf_step1( rfx_lqg_t *lqg, double dt ) {
+    // dx = A*x + B*u + K(z-Cx)
+    double dx[lqg->n_x];
+
+    // dx := A*x + B*u
+    aa_lsim_dstep( lqg->n_x, lqg->n_u,
+                   lqg->A, lqg->B,
+                   lqg->x, lqg->u,
+                   dx );
+    // dx := K * (z - C*x) + dx
+    {
+        // T := z - C*x
+        double T[lqg->n_z];
+        memcpy(T, lqg->z, sizeof(T));
+        cblas_dgemv( CblasColMajor, CblasNoTrans,
+                     (int)lqg->n_z, (int)lqg->n_x,
+                     -1.0, lqg->C, (int)lqg->n_z,
+                     lqg->x, 1,
+                     1.0, T, 1 );
+        cblas_dgemv( CblasColMajor, CblasNoTrans,
+                     (int)lqg->n_x, (int)lqg->n_z,
+                     1.0, lqg->K, (int)lqg->n_x,
+                     T, 1,
+                     1.0, lqg->x, 1 );
+    }
+
+    // x := dt*dx + x
+    cblas_daxpy( (int)lqg->n_x, dt, dx, 1, lqg->x, 1 );
 }
 
 //AA_API void rfx_lqg_observe_euler( rfx_lqg_t *lqg, double dt, aa_region_t *reg ) {

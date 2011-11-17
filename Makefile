@@ -26,8 +26,8 @@ test: rfx_test lqgtest
 OBJS := control.o trajectory.o trajectory_plot.o lqg.o
 
 $(call LINKLIB, reflex, $(OBJS))
-$(call LINKBIN, rfx_test, rfx_test.o $(OBJS), amino stdc++ blas lapack)
-$(call LINKBIN, lqgtest, lqgtest.o $(OBJS), amino stdc++ blas lapack)
+$(call LINKBIN, rfx_test, rfx_test.o $(OBJS), amino stdc++ blas lapack rt)
+$(call LINKBIN, lqgtest, lqgtest.o $(OBJS), amino stdc++ blas lapack rt)
 
 
 
