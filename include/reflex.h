@@ -45,7 +45,22 @@
 /** \file reflex.h */
 
 
-/** \mainpage
+/** \mainpage Reflex: Real-Time Control
+ *
+ * \section feature Features
+ *
+ * - Robot Arms
+ *   - Workspace (Cartesian) Control
+ *     - Damped-Least squares Jacobian Inverse with Nullspace Projection
+ *   - Trapezoidal velocity profiles in workspace
+ * - Linear Quadratic Gaussian \ref rfx_lqg_t
+ *   - Solutions to Algebraic Riccati Equation
+ *   - Discrete Time Kalman Filter,
+ *     - \ref rfx_lqg_kf_predict
+ *     - \ref rfx_lqg_kf_correct
+ *   - Kalman-Bucy (continuous time) Filter
+ *     - \ref rfx_lqg_kbf_gain
+ *     - \ref rfx_lqg_kbf_step1, \ref rfx_lqg_kbf_step4
  *
  * \section wsctrl Workspace Control HOWTO
  *
@@ -254,7 +269,7 @@ AA_API void rfx_lqg_init( rfx_lqg_t *lqg, size_t n_x, size_t n_u, size_t n_z );
 /** Free members of the LQG struct. */
 AA_API void rfx_lqg_destroy( rfx_lqg_t *lqg );
 
-/** Compute optimal observation gain using the Kalman-Bucy method.
+/** Kalman-Bucy optimal gain.
  *
  * \f[ \dot{P} = AP + PA^T - PC^TW^{-1}CP + V = 0 \f]
  * \f[ K \leftarrow PC^TW^{-1} \f]
@@ -268,10 +283,8 @@ AA_API void rfx_lqg_destroy( rfx_lqg_t *lqg );
  *   - lqg.C contains the measurement model matrix, size n_z*n_x
  *   - lqg.V contains the process noise model matrix, size n_x*n_x
  *   - lqg.W contains the measurement noise model matrix, size n_z*n_z
- *   - lqg.P contains space for the covariance matrix, size n_x*n_x
  *   - lqg.K contains space for the kalman gain matrix, size n_x*n_z
  * \post
- *   - lqg.P overwritten with the covariance matrix
  *   - lqg.K overwritten with the kalman gain
  */
 AA_API void rfx_lqg_kbf_gain( rfx_lqg_t *lqg );
@@ -297,13 +310,25 @@ AA_API void rfx_lqg_kbf_gain( rfx_lqg_t *lqg );
  */
 AA_API void rfx_lqg_kbf_step1( rfx_lqg_t *lqg, double dt );
 
-/** dx = Ax + Bu + K(z-Cx) */
-AA_API void rfx_lqg_observe(
-    size_t n_x, size_t n_u, size_t n_z,
-    const double *A, const double *B, const double *C,
-    const double *x, const double *u, const double *z,
-    const double *K,
-    double *dx, double *zwork );
+/** Kalman-Bucy filter, Runge-Kutta-4  integrate
+ *
+ * \f[ \dot{x} = Ax + Bu + K(z-Cx) \f]
+ *
+ * \pre
+ *   - lqg.n_x contains the state-space size
+ *   - lqg.n_u contains the input-space size
+ *   - lqg.n_z contains the state-space size
+ *   - lqg.A contains the process model matrix, size n_x*n_x
+ *   - lqg.B contains the input model matrix, size n_x*n_u
+ *   - lqg.C contains the measurement model matrix, size n_z*n_x
+ *   - lqg.K contains the kalman gain matrix, size n_x*n_z
+ *   - lqg.x contains the prior state vector, size n_x
+ *   - lqg.u contains the current input vector, size n_u
+ *   - lqg.z contains the current measurement vector, size n_z
+ * \post
+ *   - lqg.x overwritten with the next state vector
+ */
+AA_API void rfx_lqg_kbf_step4( rfx_lqg_t *lqg, double dt );
 
 /** Discrete time Kalman filter predict step.
  *
@@ -351,6 +376,15 @@ AA_API void rfx_lqg_kf_predict( rfx_lqg_t *lqg );
  */
 AA_API void rfx_lqg_kf_correct( rfx_lqg_t *lqg );
 
+
+AA_API void rfx_lqg_lqr_gain( rfx_lqg_t *lqg );
+
+AA_API void rfx_lqg_lqr_ctrl( rfx_lqg_t *lqg );
+
+AA_API void rfx_lqg_sys( const void *lqg,
+                         double t, const double *AA_RESTRICT x,
+                         double *AA_RESTRICT dx );
+
 /**************************/
 /* A Simple PD Controller */
 /* /\**************************\/ */
@@ -369,6 +403,7 @@ AA_API void rfx_lqg_kf_correct( rfx_lqg_t *lqg );
 /*  * u = k * (x-x_r) + k*(dx-dx_r) */
 /*  *\/ */
 /* void ctrl_pd( const ctrl_pd_t *A, size_t n_u, double *u ); */
+
 
 
 #endif //REFLEX_H

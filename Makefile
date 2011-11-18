@@ -20,14 +20,16 @@ FFLAGS += -I/usr/include -O2 -fPIC
 
 default: $(LIBFILES) $(BINFILES) test lqgtest
 
-test: rfx_test lqgtest
+test: rfx_test lqgtest cartpend
 	./lqgtest
+	./cartpend
 
 OBJS := control.o trajectory.o trajectory_plot.o lqg.o
 
 $(call LINKLIB, reflex, $(OBJS))
 $(call LINKBIN, rfx_test, rfx_test.o $(OBJS), amino stdc++ blas lapack rt)
 $(call LINKBIN, lqgtest, lqgtest.o $(OBJS), amino stdc++ blas lapack rt)
+$(call LINKBIN, cartpend, cartpend.o $(OBJS), amino stdc++ blas lapack rt)
 
 
 

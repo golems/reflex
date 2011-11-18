@@ -82,8 +82,10 @@ void init_lqg(rfx_lqg_t *lqg) {
 void kf() {
     rfx_lqg_t kf_lqg;
     rfx_lqg_t kbf_lqg;
+    rfx_lqg_t sys_lqg;
     init_lqg( &kf_lqg );
     init_lqg( &kbf_lqg );
+    init_lqg( &sys_lqg );
 
     // spring sequence test
     memcpy(kf_lqg.x, (double[]){0,0}, sizeof(double)*kf_lqg.n_x);
@@ -99,10 +101,10 @@ void kf() {
     FILE *f_kbfx1 = fopen("kbf_x1.dat","w");
 
 
-    aa_sys_affine_t sys = {.n = 2, .A = kbf_lqg.A, .D = (double[]){0,0}};
-    double x1[2] = {.87,-.125}, x0[2];
+    sys_lqg.x[0]=.87;
+    sys_lqg.x[1]=-0.125;
 
-    double dt=.1;
+    double dt=.01;
 
     // euler approximation for the discrete kalman filter
     aa_la_scal(4, dt, kf_lqg.A);
@@ -113,36 +115,40 @@ void kf() {
     rfx_lqg_kbf_gain(&kbf_lqg);
 
     for( double t = 0; t < 20; t+=dt ) {
-        // integrate
-        memcpy(x0, x1, sizeof(x1));
-        aa_rk4_step( 2, (aa_sys_fun*)aa_sys_affine, &sys,
-                     t, dt,
-                     x0, x1 );
         // get some noise
-        double zg[2];
+        double zg[4];
         aa_box_muller( aa_frand(), aa_frand(), &zg[0], &zg[1] );
+        aa_box_muller( aa_frand(), aa_frand(), &zg[2], &zg[3] );
+
+        // integrate simulation
+        double x1[sys_lqg.n_x];
+        aa_rk4_step( sys_lqg.n_x, rfx_lqg_sys, &sys_lqg,
+                     t, dt,
+                     sys_lqg.x, x1 );
 
         // process noise
-        x1[0] += aa_z2x( zg[0], 0, .005 );
+        sys_lqg.x[0] = x1[0] + aa_z2x( zg[0], 0, .002 );
+        sys_lqg.x[1] = x1[1] + aa_z2x( zg[1], 0, .008 );
 
         // measurement noise
-        kf_lqg.z[0] = x1[0] + aa_z2x( zg[1], 0, .02 );
-        kbf_lqg.z[0] = x1[0] + aa_z2x( zg[1], 0, .02 );
+        kf_lqg.z[0] = sys_lqg.x[0] + aa_z2x( zg[2], 0, .02 );
+        kbf_lqg.z[0] = sys_lqg.x[0] + aa_z2x( zg[2], 0, .02 );
 
         // discrete kf
         rfx_lqg_kf_predict(&kf_lqg);
         rfx_lqg_kf_correct(&kf_lqg);
 
-        // discrete kf
-        rfx_lqg_kbf_step1(&kbf_lqg, dt);
+        // kalman-bucy
+        rfx_lqg_kbf_step4(&kbf_lqg, dt);
 
+        // output
         fprintf(f_kfx0, "%f %f\n", t, kf_lqg.x[0]);
         fprintf(f_kfx1, "%f %f\n", t, kf_lqg.x[1]);
         fprintf(f_kbfx0, "%f %f\n", t, kbf_lqg.x[0]);
         fprintf(f_kbfx1, "%f %f\n", t, kbf_lqg.x[1]);
         fprintf(f_z0, "%f %f\n", t, kf_lqg.z[0]);
-        fprintf(f_tx0, "%f %f\n", t, x1[0]);
-        fprintf(f_tx1, "%f %f\n", t, x1[1]);
+        fprintf(f_tx0, "%f %f\n", t, sys_lqg.x[0]);
+        fprintf(f_tx1, "%f %f\n", t, sys_lqg.x[1]);
     }
     fclose(f_tx0);
     fclose(f_tx1);
@@ -158,7 +164,6 @@ void kbf() {
 
     // test gain
     rfx_lqg_kbf_gain(&lqg);
-    assert( aa_veq( 4, lqg.P, (double[]){1,0,0,1}, .001 ) );
     assert( aa_veq( 2, lqg.K, (double[]){1,0}, .001 ) );
 
     /* memcpy(lqg.P, (double[]){1,0,0,1}, sizeof(double)*lqg.n_x*lqg.n_x); */
@@ -230,22 +235,6 @@ int main( int argc, char **argv ) {
     (void)argv;
 
     srand((unsigned int)time(NULL)); // might break in 2038
-
-
-    {
-    double A[] = {1,2,3,4};
-    double B[] = {1,2};
-    double C[] = {2,1,2,1};
-    double u[] = {5};
-    double x[] = {4,2};
-    double z[] = {8,2};
-    double K[] = {8,2,1,8};
-    double dx[2], zwork[2];
-
-    rfx_lqg_observe(2,1,2, A,B,C, x,u,z, K, dx, zwork);
-
-    assert( aa_veq( 2, dx, AA_FAR(-21,-14), .00001 ) );
-    }
 
     //spring();
     kf();

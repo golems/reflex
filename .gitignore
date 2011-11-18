@@ -2,3 +2,5 @@
 /rfx_test
 /doc
 /.deps
+/cartpend
+*.dat

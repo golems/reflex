@@ -68,8 +68,8 @@ AA_API void rfx_lqg_init( rfx_lqg_t *lqg, size_t n_x, size_t n_u, size_t n_z ) {
     lqg->Q = AA_NEW0_AR( double, lqg->n_x * lqg->n_x );
     lqg->R = AA_NEW0_AR( double, lqg->n_u * lqg->n_u );
 
-    lqg->K = AA_NEW0_AR( double, lqg->n_u * lqg->n_x );
-    lqg->L = AA_NEW0_AR( double, lqg->n_x * lqg->n_z );
+    lqg->K = AA_NEW0_AR( double, lqg->n_z * lqg->n_x );
+    lqg->L = AA_NEW0_AR( double, lqg->n_u * lqg->n_x );
 
 }
 AA_API void rfx_lqg_destroy( rfx_lqg_t *lqg ) {
@@ -110,26 +110,41 @@ static inline void matmul3( size_t m, size_t n, size_t k, size_t p,
                             const double *A, size_t lda,
                             const double *B, size_t ldb,
                             const double *C, size_t ldc,
-                            double beta, double *X, size_t ldx)
-{
-    int mi = (int)m;
-    int ni = (int)n;
-    int ki = (int)k;
-    int pi = (int)p;
+                            double beta, double *X, size_t ldx) {
     double T[m*p];
     // T := A*B
     cblas_dgemm( CblasColMajor, transA, transB,
-                 mi, pi, ki,
+                 (int)m, (int)p, (int)k,
                  1.0, A, (int)lda,
                  B, (int)ldb,
-                 0.0, T, mi );
+                 0.0, T, (int)m );
 
     // X := (A*B) * C + beta*X
     cblas_dgemm( CblasColMajor, CblasNoTrans, transC,
-                 mi, ni, pi,
-                 1.0, T, mi,
+                 (int)m, (int)n, (int)p,
+                 1.0, T, (int)m,
                  C, (int)ldc,
                  beta, X, (int)ldx );
+}
+
+static void kf_innovate( rfx_lqg_t *lqg, double *xh ) {
+
+    // xh = x + K * (z - C*x)
+
+    // T := z - C*x
+    double T[lqg->n_z];
+    memcpy(T, lqg->z, sizeof(T));
+    cblas_dgemv( CblasColMajor, CblasNoTrans,
+                 (int)lqg->n_z, (int)lqg->n_x,
+                 -1.0, lqg->C, (int)lqg->n_z,
+                 lqg->x, 1,
+                 1.0, T, 1 );
+    // xh = K * (z - C*x) + xh
+    cblas_dgemv( CblasColMajor, CblasNoTrans,
+                 (int)lqg->n_x, (int)lqg->n_z,
+                 1.0, lqg->K, (int)lqg->n_x,
+                 T, 1,
+                 1.0, xh, 1 );
 }
 
 AA_API void rfx_lqg_kf_predict( rfx_lqg_t *lqg ) {
@@ -173,7 +188,7 @@ AA_API void rfx_lqg_kf_correct( rfx_lqg_t *lqg ) {
                  CblasNoTrans, CblasNoTrans, CblasTrans,
                  lqg->C, lqg->n_z,
                  lqg->P, lqg->n_x,
-                 lqg->C, lqg->n_x,
+                 lqg->C, lqg->n_z,
                  1.0, Kp, lqg->n_z );
         aa_la_inv(lqg->n_z, Kp);
 
@@ -181,27 +196,12 @@ AA_API void rfx_lqg_kf_correct( rfx_lqg_t *lqg ) {
         matmul3( lqg->n_x, lqg->n_z, lqg->n_x, lqg->n_z,
                  CblasNoTrans, CblasTrans, CblasNoTrans,
                  lqg->P, lqg->n_x,
-                 lqg->C, lqg->n_x,
+                 lqg->C, lqg->n_z,
                  Kp, lqg->n_z,
                  0.0, lqg->K, lqg->n_x );
     }
     // x = x + K * (z - C*x)
-    {
-        // T := z - C*x
-        double T[lqg->n_z];
-        memcpy(T, lqg->z, sizeof(T));
-        cblas_dgemv( CblasColMajor, CblasNoTrans,
-                     (int)lqg->n_z, (int)lqg->n_x,
-                     -1.0, lqg->C, (int)lqg->n_z,
-                     lqg->x, 1,
-                     1.0, T, 1 );
-        // x = K * (z - C*x) + x
-        cblas_dgemv( CblasColMajor, CblasNoTrans,
-                     (int)lqg->n_x, (int)lqg->n_z,
-                     1.0, lqg->K, (int)lqg->n_x,
-                     T, 1,
-                     1.0, lqg->x, 1 );
-    }
+    kf_innovate( lqg, lqg->x );
 
     // P = (I - K*C) * P
     {
@@ -228,70 +228,133 @@ AA_API void rfx_lqg_kf_correct( rfx_lqg_t *lqg ) {
 
 // kalman-bucy gain
 void rfx_lqg_kbf_gain( rfx_lqg_t *lqg ) {
-
     // dP = A*P + P*A' - P*C'*W^{-1}*C*P + V
     // K = P * C' * W^{-1}
+
+    double ric_X[lqg->n_x*lqg->n_x];
 
     double Winv[lqg->n_z*lqg->n_z];
     memcpy(Winv, lqg->W, sizeof(Winv));
     aa_la_inv( lqg->n_z, Winv);
 
-    double ric_A[lqg->n_x*lqg->n_x];
-    aa_la_transpose2(lqg->n_x, lqg->n_x, lqg->A, ric_A );
+    {
+        double ric_B[lqg->n_x*lqg->n_x];
 
-    double ric_B[lqg->n_x*lqg->n_x];
+        // ric_B := C' * W^{-1} * C
+        matmul3( lqg->n_x, lqg->n_x, lqg->n_z, lqg->n_z,
+                 CblasTrans, CblasNoTrans, CblasNoTrans,
+                 lqg->C, lqg->n_z,
+                 Winv, lqg->n_z,
+                 lqg->C, lqg->n_z,
+                 0.0, ric_B, lqg->n_x );
 
-    // ric_B := C' * W^{-1} * C
-    matmul3( lqg->n_x, lqg->n_x, lqg->n_z, lqg->n_z,
-             CblasTrans, CblasNoTrans, CblasNoTrans,
-             lqg->C, lqg->n_x,
-             Winv, lqg->n_z,
-             lqg->C, lqg->n_z,
-             0.0, ric_B, lqg->n_x );
+        double ric_A[lqg->n_x*lqg->n_x];
+        aa_la_transpose2(lqg->n_x, lqg->n_x, lqg->A, ric_A );
 
+        // solve ARE with dP = 0, result is P
 
-    // solve ARE with dP = 0, result is P
-    aa_la_care_laub( lqg->n_x, lqg->n_x, lqg->n_x,
-                     ric_A, ric_B, lqg->V, lqg->P );
+        aa_la_care_laub( lqg->n_x, lqg->n_x, lqg->n_x,
+                         ric_A, ric_B, lqg->V, ric_X );
+    }
 
     // K = P * C' * W^{-1}
     matmul3( lqg->n_x, lqg->n_z, lqg->n_x, lqg->n_z,
              CblasNoTrans, CblasTrans, CblasNoTrans,
-             lqg->P, lqg->n_x,
-             lqg->C, lqg->n_x,
+             ric_X, lqg->n_x,
+             lqg->C, lqg->n_z,
              Winv, lqg->n_z,
              0.0, lqg->K, lqg->n_x );
 
 }
 
-void rfx_lqg_kbf_step1( rfx_lqg_t *lqg, double dt ) {
+void rfx_lqg_lqr_gain( rfx_lqg_t *lqg ) {
+    // A'*S + S*A - S*B*R^{-1}*B'*S + Q = 0
+
+    double Rinv[lqg->n_u*lqg->n_u];
+    memcpy(Rinv, lqg->R, sizeof(Rinv));
+    aa_la_inv( lqg->n_u, Rinv);
+
+    double S[lqg->n_x*lqg->n_x];
+    {
+        double ric_B[lqg->n_x*lqg->n_x];
+
+        // ric_B := B * R^{-1} * B'
+        matmul3( lqg->n_x, lqg->n_x, lqg->n_u, lqg->n_u,
+                 CblasNoTrans, CblasNoTrans, CblasTrans,
+                 lqg->B, lqg->n_x,
+                 Rinv, lqg->n_u,
+                 lqg->B, lqg->n_x,
+                 0.0, ric_B, lqg->n_x );
+
+        // solve ARE with dS = 0, result is S
+        aa_la_care_laub( lqg->n_x, lqg->n_x, lqg->n_x,
+                         lqg->A, ric_B, lqg->Q, S );
+    }
+
+    // L = R^{-1}*B'*S
+    matmul3( lqg->n_u, lqg->n_x, lqg->n_u, lqg->n_x,
+             CblasNoTrans, CblasTrans, CblasNoTrans,
+             Rinv, lqg->n_u,
+             lqg->B, lqg->n_x,
+             S, lqg->n_x,
+             0.0, lqg->L, lqg->n_u );
+}
+
+
+static void kbf_step_fun( const void *cx,
+                          double t, const double *restrict x,
+                          double *restrict dx ) {
     // dx = A*x + B*u + K(z-Cx)
-    double dx[lqg->n_x];
+    (void)t;
+    rfx_lqg_t *lqg = (rfx_lqg_t*)cx;
 
     // dx := A*x + B*u
     aa_lsim_dstep( lqg->n_x, lqg->n_u,
                    lqg->A, lqg->B,
-                   lqg->x, lqg->u,
+                   x, lqg->u,
                    dx );
     // dx := K * (z - C*x) + dx
-    {
-        // T := z - C*x
-        double T[lqg->n_z];
-        memcpy(T, lqg->z, sizeof(T));
-        cblas_dgemv( CblasColMajor, CblasNoTrans,
-                     (int)lqg->n_z, (int)lqg->n_x,
-                     -1.0, lqg->C, (int)lqg->n_z,
-                     lqg->x, 1,
-                     1.0, T, 1 );
-        cblas_dgemv( CblasColMajor, CblasNoTrans,
-                     (int)lqg->n_x, (int)lqg->n_z,
-                     1.0, lqg->K, (int)lqg->n_x,
-                     T, 1,
-                     1.0, lqg->x, 1 );
-    }
+    kf_innovate( lqg, dx );
+}
+
+
+void rfx_lqg_kbf_step1( rfx_lqg_t *lqg, double dt ) {
+    // dx = A*x + B*u + K(z-Cx)
+    double dx[lqg->n_x];
+    kbf_step_fun( lqg, 0, lqg->x, dx );
 
     // x := dt*dx + x
     cblas_daxpy( (int)lqg->n_x, dt, dx, 1, lqg->x, 1 );
+}
+
+
+void rfx_lqg_kbf_step4( rfx_lqg_t *lqg, double dt ) {
+    double x1[lqg->n_x];
+    // runge-kutta 4
+    aa_rk4_step( lqg->n_x, kbf_step_fun, lqg,
+                 0, dt, lqg->x, x1 );
+    memcpy( lqg->x, x1, sizeof(x1) );
+}
+
+
+
+AA_API void rfx_lqg_lqr_ctrl( rfx_lqg_t *lqg ) {
+    cblas_dgemv( CblasColMajor, CblasNoTrans,
+                 (int)lqg->n_u, (int)lqg->n_x,
+                 -1.0, lqg->L, (int)lqg->n_u,
+                 lqg->x, 1,
+                 0.0, lqg->u, 1 );
+}
+
+void rfx_lqg_sys( const void *cx,
+                  double t, const double *restrict x,
+                  double *restrict dx ) {
+    rfx_lqg_t * lqg = (rfx_lqg_t*)cx;
+    (void)t;
+    aa_lsim_dstep( lqg->n_x, lqg->n_u,
+                   lqg->A, lqg->B,
+                   x, lqg->u,
+                   dx );
 }
 
 //AA_API void rfx_lqg_observe_euler( rfx_lqg_t *lqg, double dt, aa_region_t *reg ) {
@@ -318,35 +381,3 @@ void rfx_lqg_kbf_step1( rfx_lqg_t *lqg, double dt ) {
     // compute current input
     // u = -Lx
 //}
-
-
-AA_API void rfx_lqg_observe
-( size_t n_x, size_t n_u, size_t n_z,
-  const double *A, const double *B, const double *C,
-  const double *x, const double *u, const double *z,
-  const double *K,
-  double *dx, double *zwork )
-{
-    //zwork := z
-    aa_fcpy(zwork, z, n_z);
-    // zz := -C*x + zz
-    cblas_dgemv( CblasColMajor, CblasNoTrans,
-                 (int)n_z, (int)n_x,
-                 -1.0, C, (int)n_z,
-                 x, 1, 1.0, zwork, 1 );
-    // dx := K * zwork
-    cblas_dgemv( CblasColMajor, CblasNoTrans,
-                 (int)n_x, (int)n_z,
-                 1.0, K, (int)n_x,
-                 zwork, 1, 0.0, dx, 1 );
-    // dx := B*u + dx
-    cblas_dgemv( CblasColMajor, CblasNoTrans,
-                 (int)n_x, (int)n_u,
-                 1.0, B, (int)n_x,
-                 u, 1, 1.0, dx, 1 );
-    // dx := A*x + dx
-    cblas_dgemv( CblasColMajor, CblasNoTrans,
-                 (int)n_x, (int)n_x,
-                 1.0, A, (int)n_x,
-                 x, 1, 1.0, dx, 1 );
-}
