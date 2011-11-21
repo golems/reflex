@@ -1,0 +1,20 @@
+************
+* OVERVIEW *
+************
+
+Reflex is a package for Real-Time control.  It includes the following:
+
+- Workspace (Cartesian) Control for Robot Arms
+- Linear Quadratic Gaussian Control and Estimation
+  - Compute optimal Kalman/LQR gains
+  - Discrete Kalman Filter
+  - Continuous Kalman-Bucy Filter
+  - LQR Controller
+
+***********
+* Example *
+***********
+
+See the file cartpend.c for an example of how to do LQG filtering and
+control.
+
