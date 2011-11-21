@@ -20,9 +20,8 @@ FFLAGS += -I/usr/include -O2 -fPIC
 
 default: $(LIBFILES) $(BINFILES) test lqgtest
 
-test: rfx_test lqgtest cartpend
+test: rfx_test lqgtest cartpend cp.eps
 	./lqgtest
-	./cartpend
 
 OBJS := control.o trajectory.o trajectory_plot.o lqg.o
 
@@ -31,6 +30,9 @@ $(call LINKBIN, rfx_test, rfx_test.o $(OBJS), amino stdc++ blas lapack rt)
 $(call LINKBIN, lqgtest, lqgtest.o $(OBJS), amino stdc++ blas lapack rt)
 $(call LINKBIN, cartpend, cartpend.o $(OBJS), amino stdc++ blas lapack rt)
 
+cp.eps: cartpend cartpend.gnuplot
+	./cartpend
+	gnuplot ./cartpend.gnuplot
 
 
 .PHONY: default clean doc

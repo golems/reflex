@@ -331,8 +331,8 @@ void rfx_lqg_kbf_step1( rfx_lqg_t *lqg, double dt ) {
 void rfx_lqg_kbf_step4( rfx_lqg_t *lqg, double dt ) {
     double x1[lqg->n_x];
     // runge-kutta 4
-    aa_rk4_step( lqg->n_x, kbf_step_fun, lqg,
-                 0, dt, lqg->x, x1 );
+    aa_odestep_rk4( lqg->n_x, kbf_step_fun, lqg,
+                    0, dt, lqg->x, x1 );
     memcpy( lqg->x, x1, sizeof(x1) );
 }
 

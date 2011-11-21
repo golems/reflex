@@ -56,9 +56,9 @@ void spring()  {
     double dt=.1;
     for( double t = 0; t < 10; t+=dt ) {
         memcpy(x0, x1, sizeof(x1));
-        aa_rk4_step( 2, (aa_sys_fun*)aa_sys_affine, &sys,
-                     t, dt,
-                     x0, x1 );
+        aa_odestep_rk4( 2, (aa_sys_fun*)aa_sys_affine, &sys,
+                        t, dt,
+                        x0, x1 );
         fprintf(f_x0, "%f %f\n", t, x1[0]);
         fprintf(f_x1, "%f %f\n", t, x1[1]);
     }
@@ -122,9 +122,9 @@ void kf() {
 
         // integrate simulation
         double x1[sys_lqg.n_x];
-        aa_rk4_step( sys_lqg.n_x, rfx_lqg_sys, &sys_lqg,
-                     t, dt,
-                     sys_lqg.x, x1 );
+        aa_odestep_rk4( sys_lqg.n_x, rfx_lqg_sys, &sys_lqg,
+                        t, dt,
+                        sys_lqg.x, x1 );
 
         // process noise
         sys_lqg.x[0] = x1[0] + aa_z2x( zg[0], 0, .002 );

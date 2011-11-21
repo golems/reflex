@@ -41,6 +41,7 @@
  */
 
 #include <amino.h>
+#include <inttypes.h>
 #include "reflex.h"
 
 
@@ -62,32 +63,9 @@
 
 
 
-
-void spring()  {
-    FILE *f_x0 = fopen("x0.dat","w");
-    FILE *f_x1 = fopen("x1.dat","w");
-    //FILE *f_nx0 = fopen("x0.dat","w");
-    //FILE *f_nx1 = fopen("x1.dat","w");
-
-    double A[4] = {0, -1, 1, 0};
-    aa_sys_affine_t sys = {.n = 2, .A = A, .D = (double[]){0,0}};
-    double x1[2] = {0,1}, x0[2];
-    double dt=.1;
-    for( double t = 0; t < 10; t+=dt ) {
-        memcpy(x0, x1, sizeof(x1));
-        aa_rk4_step( 2, (aa_sys_fun*)aa_sys_affine, &sys,
-                     t, dt,
-                     x0, x1 );
-        fprintf(f_x0, "%f %f\n", t, x1[0]);
-        fprintf(f_x1, "%f %f\n", t, x1[1]);
-    }
-    fclose(f_x0);
-    fclose(f_x1);
-}
-
-
 void init_lqg(rfx_lqg_t *lqg) {
     rfx_lqg_init(lqg, 4, 1, 2 );
+    // define some parameters
     const double M = .5;       // car mass
     const double m = 0.2;      // pendulum mass
     const double b = 0.1;      // cart friction
@@ -95,28 +73,72 @@ void init_lqg(rfx_lqg_t *lqg) {
     const double l = 0.3;      // length to pendulum CoM
     const double i = 0.006;    // moment of interia of pendulum
 
+    // denominator
     double p = i*(M+m)+M*m*l*l;
+
+    // A: Process Model
     aa_la_transpose2( 4, 4,
-                      AA_FAR( 0, 1,               0,             0,
-                              0, -(i+m*l*l)*b/p, (m*m*g*l*l)/p,  0,
-                              0, 0,               0,             1,
-                              0, -(m*l*b)/p,      m*g*l*(M+m)/p, 0 ),
+                      (double[]){ 0, 1,               0,             0,
+                                  0, -(i+m*l*l)*b/p, (m*m*g*l*l)/p,  0,
+                                  0, 0,               0,             1,
+                                  0, -(m*l*b)/p,      m*g*l*(M+m)/p, 0 },
                       lqg->A );
 
+    // B: Input Model
     memcpy( lqg->B,
-            AA_FAR( 0, (i+m*l*l)/p, 0, m*l/p ),
+            (double[]){ 0, (i+m*l*l)/p, 0, m*l/p },
             sizeof(double)*4 );
 
+    // C: Measurement Model
     aa_la_transpose2( 4, 2,
-                      AA_FAR( 1, 0, 0, 0,
-                              0, 0, 1, 0),
+                      (double[]){ 1, 0, 0, 0,
+                                  0, 0, 1, 0},
                       lqg->C );
 
+    // Covariance, Noise, Cost as identity matrices
     aa_la_ident( lqg->n_x, lqg->P );
     aa_la_ident( lqg->n_x, lqg->V );
     aa_la_ident( lqg->n_x, lqg->Q );
     aa_la_ident( lqg->n_z, lqg->W );
     aa_la_ident( lqg->n_u, lqg->R );
+}
+
+
+void print_matrices( rfx_lqg_t *lqg ) {
+    printf("A\n");
+    printf("----\n");
+    aa_dump_mat(stdout, lqg->A, lqg->n_x,lqg->n_x);
+    printf("B\n");
+    printf("----\n");
+    aa_dump_mat(stdout, lqg->B, lqg->n_x,lqg->n_u);
+    printf("C\n");
+    printf("----\n");
+
+    aa_dump_mat(stdout, lqg->C, lqg->n_z,lqg->n_x);
+    printf("P\n");
+    printf("----\n");
+    aa_dump_mat(stdout, lqg->P, lqg->n_x,lqg->n_x);
+    printf("V\n");
+    printf("----\n");
+    aa_dump_mat(stdout, lqg->V, lqg->n_x,lqg->n_x);
+    printf("Q\n");
+    printf("----\n");
+    aa_dump_mat(stdout, lqg->Q, lqg->n_x,lqg->n_x);
+    printf("W\n");
+    printf("----\n");
+    aa_dump_mat(stdout, lqg->W, lqg->n_z,lqg->n_z);
+    printf("R\n");
+    printf("----\n");
+    aa_dump_mat(stdout, lqg->R, lqg->n_u,lqg->n_u);
+
+    printf("L\n");
+    printf("----\n");
+    aa_dump_mat(stdout, lqg->L, lqg->n_u,lqg->n_x);
+
+
+    printf("K\n");
+    printf("----\n");
+    aa_dump_mat(stdout, lqg->K, lqg->n_x,lqg->n_z);
 }
 
 int main( int argc, char **argv ) {
@@ -125,103 +147,81 @@ int main( int argc, char **argv ) {
 
     srand((unsigned int)time(NULL)); // might break in 2038
 
-    rfx_lqg_t sys; // simulated system
-    rfx_lqg_t lqg; // controller and observer
-
+    /* --- controller and observer --- */
+    rfx_lqg_t lqg;
     init_lqg(&lqg);
-    init_lqg(&sys);
 
-    printf("A\n");
-    printf("----\n");
-    aa_dump_mat(stdout, lqg.A, lqg.n_x,lqg.n_x);
-    printf("B\n");
-    printf("----\n");
-    aa_dump_mat(stdout, lqg.B, lqg.n_x,lqg.n_u);
-    printf("C\n");
-    printf("----\n");
-    aa_dump_mat(stdout, lqg.C, lqg.n_z,lqg.n_x);
-    printf("P\n");
-    printf("----\n");
-    aa_dump_mat(stdout, lqg.P, lqg.n_x,lqg.n_x);
-    printf("V\n");
-    printf("----\n");
-    aa_dump_mat(stdout, lqg.V, lqg.n_x,lqg.n_x);
-    printf("Q\n");
-    printf("----\n");
-    aa_dump_mat(stdout, lqg.Q, lqg.n_x,lqg.n_x);
-    printf("W\n");
-    printf("----\n");
-    aa_dump_mat(stdout, lqg.W, lqg.n_z,lqg.n_z);
-    printf("R\n");
-    printf("----\n");
-    aa_dump_mat(stdout, lqg.R, lqg.n_u,lqg.n_u);
-
-
-    //aa_tick("lqr: ",NULL);
+    /* --- compute optimal gains --- */
+    // Control LQR gain
+    aa_tick("lqr: ",NULL);
     rfx_lqg_lqr_gain( &lqg );
-    //aa_tock();
+    aa_tock();
 
-
-    //aa_tick("kbf: ",NULL);
+    // Estimation Kalman-Bucy gain
+    aa_tick("kbf: ",NULL);
     rfx_lqg_kbf_gain( &lqg );
-    //aa_tock();
+    aa_tock();
 
-    printf("L\n");
-    printf("----\n");
-    aa_dump_mat(stdout, lqg.L, lqg.n_u,lqg.n_x);
-
-
-    printf("K\n");
-    printf("----\n");
-    aa_dump_mat(stdout, lqg.K, lqg.n_x,lqg.n_z);
-
+    // check the the LQR gain is what we expect
     assert( aa_veq(4, lqg.L,
                    AA_FAR( -1.0000,  -2.0408,  20.3672,   3.9302),
                    .001) );
 
 
+    /* open output files */
     FILE *f_x[4];
+    FILE *f_xh[4];
     for( size_t i = 0; i < 4; i ++ ) {
         char buf[64];
-        sprintf(buf, "cp_x%d.dat", i);
+        sprintf(buf, "cp_x%"PRIuPTR".dat", i);
         f_x[i] = fopen(buf, "w");
+        sprintf(buf, "cp_xh%"PRIuPTR".dat", i);
+        f_xh[i] = fopen(buf, "w");
     }
     FILE *f_u = fopen("cp_u.dat", "w");
 
-    double dt=.01;
-    sys.x[2] = .1;
+    /* initial conditions */
+    double x[4] = {0.1,0,0.0,0};
 
+    // Step Size
+    double dt=.010;
 
-    for( double t = 0; t < 5; t+=dt ) {
+    /* --- Simulation and Control Loop --- */
+    for( double t = 0; t < 10; t+=dt ) {
         // simulate
-        double x1[sys.n_x];
-        aa_rk4_step( sys.n_x, rfx_lqg_sys, &sys,
-                     t, dt,
-                     sys.x, x1 );
-        memcpy(sys.x, x1, sizeof(x1));
+        {
+            double x1[lqg.n_x];
+            aa_lsim_rk4step( lqg.n_x, lqg.n_u,
+                             dt, lqg.A, lqg.B,
+                             x, lqg.u, x1 );
+            memcpy(x, x1, sizeof(x1));
+        }
 
         // measure
         cblas_dgemv( CblasColMajor, CblasNoTrans,
                      (int)lqg.n_z, (int)lqg.n_x,
                      1.0, lqg.C, (int)lqg.n_z,
-                     sys.x, 1,
+                     x, 1,
                      0.0, lqg.z, 1 );
-        // observe
+
+        // estimate
         rfx_lqg_kbf_step4(&lqg, dt);
 
         // control
         rfx_lqg_lqr_ctrl( &lqg );
-        memcpy( sys.u, lqg.u, sizeof(double)*lqg.n_u );
 
         // output
         for( size_t i = 0; i < 4; i ++ ) {
-            fprintf(f_x[i], "%f %f\n", t, sys.x[i]);
+            fprintf(f_x[i], "%f %f\n", t, x[i]);
+            fprintf(f_xh[i], "%f %f\n", t, lqg.x[i]);
         }
-        fprintf(f_u, "%f %f\n", t, sys.u[0]);
+        fprintf(f_u, "%f %f\n", t, lqg.u[0]);
     }
 
+    /* close output files */
     for( size_t i = 0; i < 4; i ++ ) {
         fclose(f_x[i]);
+        fclose(f_xh[i]);
     }
     fclose(f_u);
 }
