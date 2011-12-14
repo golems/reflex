@@ -11,6 +11,22 @@ Reflex is a package for Real-Time control.  It includes the following:
   - Continuous Kalman-Bucy Filter
   - LQR Controller
 
+
+****************
+* INSTALLATION *
+****************
+
+./configure && make && make install
+
+See the INSTALL file for details.
+
+****************
+* Dependencies *
+****************
+
+- amino: https://github.com/golems/amino
+- BLAS/LAPACK
+
 ***********
 * Example *
 ***********
