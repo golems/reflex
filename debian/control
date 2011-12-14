@@ -1,0 +1,21 @@
+Source: reflex
+Priority: extra
+Maintainer: Neil Dantam <ntd@gatech.edu>
+Build-Depends: debhelper (>= 7), autotools-dev, libamino-dev
+Standards-Version: 3.9.1
+Section: libs
+Homepage: http://github.com/golems/reflex
+
+Package: libreflex-dev
+Section: libdevel
+Architecture: any
+Depends: libreflex0 (= ${binary:Version}), ${misc:Depends}
+Description: Robotics utility library
+ Reflex is a package for Real-Time control.
+
+Package: libreflex0
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libamino0
+Description: Robotics utility library
+ Reflex is a package for Real-Time control.

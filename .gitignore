@@ -30,3 +30,12 @@
 *.lo
 *.tar.gz
 /cp.eps
+/debian/files
+/debian/tmp
+/debian/libreflex0
+/debian/libreflex-dev
+/debian/*.debhelper
+/debian/*.log
+/debian/*.substvars
+/doxygen-doc
+/texput.log
