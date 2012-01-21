@@ -117,8 +117,8 @@ void kf() {
     for( double t = 0; t < 20; t+=dt ) {
         // get some noise
         double zg[4];
-        aa_box_muller( aa_frand(), aa_frand(), &zg[0], &zg[1] );
-        aa_box_muller( aa_frand(), aa_frand(), &zg[2], &zg[3] );
+        aa_stat_box_muller( aa_frand(), aa_frand(), &zg[0], &zg[1] );
+        aa_stat_box_muller( aa_frand(), aa_frand(), &zg[2], &zg[3] );
 
         // integrate simulation
         double x1[sys_lqg.n_x];
@@ -127,12 +127,12 @@ void kf() {
                         sys_lqg.x, x1 );
 
         // process noise
-        sys_lqg.x[0] = x1[0] + aa_z2x( zg[0], 0, .002 );
-        sys_lqg.x[1] = x1[1] + aa_z2x( zg[1], 0, .008 );
+        sys_lqg.x[0] = x1[0] + aa_stat_z2x( zg[0], 0, .002 );
+        sys_lqg.x[1] = x1[1] + aa_stat_z2x( zg[1], 0, .008 );
 
         // measurement noise
-        kf_lqg.z[0] = sys_lqg.x[0] + aa_z2x( zg[2], 0, .02 );
-        kbf_lqg.z[0] = sys_lqg.x[0] + aa_z2x( zg[2], 0, .02 );
+        kf_lqg.z[0] = sys_lqg.x[0] + aa_stat_z2x( zg[2], 0, .02 );
+        kbf_lqg.z[0] = sys_lqg.x[0] + aa_stat_z2x( zg[2], 0, .02 );
 
         // discrete kf
         rfx_lqg_kf_predict(&kf_lqg);
