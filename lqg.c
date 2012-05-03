@@ -357,22 +357,22 @@ void rfx_lqg_sys( const void *cx,
                    dx );
 }
 
-//AA_API void rfx_lqg_observe_euler( rfx_lqg_t *lqg, double dt, aa_region_t *reg ) {
+//AA_API void rfx_lqg_observe_euler( rfx_lqg_t *lqg, double dt, aa_mem_region_t *reg ) {
     // --- calculate kalman gain ---
 
 
     // --- predict from previous input ---
     // dx = A*x + B*u + K * ( z - C*xh )
-    //double *dx = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_x);
+    //double *dx = (double*)aa_mem_region_alloc(reg, sizeof(double)*lqg->n_x);
     // zz := z
-    //double *zz = (double*)aa_region_alloc(reg, sizeof(double)*lqg->n_z);
+    //double *zz = (double*)aa_mem_region_alloc(reg, sizeof(double)*lqg->n_z);
 
 
     // x = x + dx * dt
     //aa_la_axpy( lqg->n_x, dt, dx, lqg->x );
 //}
 
-//AA_API void rfx_lqg_ctrl( rfx_lqg_t *lqg, double dt, aa_region_t *reg ) {
+//AA_API void rfx_lqg_ctrl( rfx_lqg_t *lqg, double dt, aa_mem_region_t *reg ) {
     // compute optimal gain
     //  -dS = A'*S + S*A - S*B*R^{-1}*B' + Q
     // solve ARE, result is S

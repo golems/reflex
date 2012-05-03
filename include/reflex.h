@@ -260,7 +260,7 @@ typedef struct {
     double *K;   ///< optimal feedback gain,  matrix size n_x * n_z, column-major
     double *L;   ///< optimal control gain,   matrix size n_u * n_x, column-major
 
-    aa_region_t *reg;
+    aa_mem_region_t *reg;
 } rfx_lqg_t;
 
 
