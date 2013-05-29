@@ -87,10 +87,12 @@ namespace reflex {
         virtual int get_ddx( double t, double ddx[6] );
         virtual int add(double t, const double x[3], const double r[4] );
     protected:
-        double x_0[6], x_n[6];
-        double dx_max[6], ddx_max[6];
-        double tb;
-        double dx_r[6], ddx_r[6];
+        rfx_trajq_trapvel_t traj;
+        aa_mem_region_t reg;
+        /* double x_0[6], x_n[6]; */
+        /* double dx_max[6], ddx_max[6]; */
+        /* double tb; */
+        /* double dx_r[6], ddx_r[6]; */
     };
 
     class ParaBlendWS : public WorkspaceTrajectory {

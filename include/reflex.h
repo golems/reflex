@@ -132,6 +132,10 @@
  * k: gain
 */
 
+#ifdef __cplusplus
+extern "C" {
+#endif //__cplusplus
+
 // FIXME: controller should return these codes
 typedef enum {
     RFX_OK = 0,
@@ -405,5 +409,78 @@ AA_API void rfx_lqg_sys( const void *lqg,
 /* void ctrl_pd( const ctrl_pd_t *A, size_t n_u, double *u ); */
 
 
+/****************/
+/* Trajectories */
+/****************/
+
+
+struct rfx_trajq_vtab {
+    int (*generate)(void *cx);
+    int (*get_q)(void *cx, double t, double *q);
+    int (*get_dq)(void *cx, double t, double *dq);
+    int (*get_ddq)(void *cx, double t, double *ddq);
+};
+
+struct rfx_trajx_vtab {
+    /*int (*add)(void *cx, size_t i, double t, double q[3], double r[4]);*/
+    int (*generate)(void *cx);
+    int (*get_x)(void *cx, double t, double x, double r[4]);
+    int (*get_dx)(void *cx, double t, double dx[6]);
+    int (*get_ddx)(void *cx, double t, double ddx[6]);
+};
+
+
+struct rfx_trajq {
+    struct rfx_trajq_vtab *vtab;
+    aa_mem_region_t *reg;
+    size_t n_q;
+    size_t n_t;
+
+    double *T; ///< Array of times
+    double *Q; ///< Matrix of points
+};
+
+/* Initialize struct, performing future alloctions out of reg */
+void rfx_trajq_init( struct rfx_trajq *cx, aa_mem_region_t *reg, size_t n_q, size_t n_t );
+/* Release all memory allocated for cx following its initilization */
+void rfx_trajq_destroy( struct rfx_trajq *cx );
+
+static inline int rfx_trajq_get_q( struct rfx_trajq *cx, double t, double *q) {
+    return cx->vtab->get_q( cx, t, q );
+}
+
+/* Add point q to trajectory.
+ * q is copied to cx's internally managed memory */
+void rfx_trajq_add( struct rfx_trajq *cx, size_t i, double t, double *q );
+
+void rfx_trajq_plot( struct rfx_trajq *cx, double dt );
+
+static inline int rfx_trajq_get_dq( struct rfx_trajq *cx, double t, double *dq) {
+    return cx->vtab->get_dq( cx, t, dq );
+}
+
+static inline int rfx_trajq_get_ddq( struct rfx_trajq *cx, double t, double *ddq) {
+    return cx->vtab->get_ddq( cx, t, ddq );
+}
+
+static inline int rfx_trajq_generate( struct rfx_trajq *cx ) {
+    return cx->vtab->generate( cx );
+}
+
+
+typedef struct rfx_trajq_trapvel {
+    struct rfx_trajq traj;
+    double *dq_max;   ///< max velocity (specified)
+    double *ddq_max;  ///< max accelerations (specified)
+    double t_b;       ///< blend time
+    double *dq_r;     ///< reference velocity (generated)
+    double *ddq_r;    ///< reference acceleration (generated)
+} rfx_trajq_trapvel_t;
+
+void rfx_trajq_trapvel_init( struct rfx_trajq_trapvel *cx, aa_mem_region_t *reg, size_t n_q );
+
+#ifdef __cplusplus
+}
+#endif //__cplusplus
 
 #endif //REFLEX_H

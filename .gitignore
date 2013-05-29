@@ -40,3 +40,6 @@
 /doxygen-doc
 /texput.log
 /Makefile
+/plot_test
+/compile
+.dirstamp
