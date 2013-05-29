@@ -39,3 +39,4 @@
 /debian/*.substvars
 /doxygen-doc
 /texput.log
+/Makefile

@@ -1,3 +1,9 @@
+reflex (0.20120504) unstable; urgency=low
+
+  * New version
+
+ -- Neil Dantam <ntd@gatech.edu>  Fri, 04 May 2011 21:21:00 -0400
+
 reflex (0.20110914) unstable; urgency=low
 
   * Initial Release.

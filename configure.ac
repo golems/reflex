@@ -2,9 +2,9 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.65])
-AC_INIT([reflex], [0.20110914], [ntd@gatech.edu])
+AC_INIT([reflex], [0.20120504], [ntd@gatech.edu])
 AM_INIT_AUTOMAKE
-AC_CONFIG_SRCDIR([lqg.c])
+AC_CONFIG_SRCDIR([include/reflex.h])
 AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
@@ -43,17 +43,27 @@ AX_CFLAGS_WARN_ALL
 
 dnl APPEND_FLAG( [FLAG] )
 dnl Check if FLAG is supported, and if so, add it
-AC_DEFUN([APPEND_FLAG],
-         [AX_CHECK_COMPILER_FLAGS([$1], [CFLAGS="$1 $CFLAGS"])])
 
-APPEND_FLAG([-Wextra])
-APPEND_FLAG([-Wconversion])
-APPEND_FLAG([-Wpointer-arith])
-APPEND_FLAG([-Wfloat-equal])
-APPEND_FLAG([-Wshadow])
-APPEND_FLAG([-Wwrite-strings])
-APPEND_FLAG([-Wc++-compat])
+m4_ifdef([AX_CHECK_COMPILE_FLAG],
+         [AC_DEFUN([APPEND_CFLAG],
+                   [AX_CHECK_COMPILE_FLAG([$1], [CFLAGS="$1 $CFLAGS"])])
+          AC_DEFUN([APPEND_FCFLAG],
+                   [AX_CHECK_COMPILE_FLAG([$1], [FCFLAGS="$1 $FCFLAGS"])])])
 
+m4_ifdef([AX_CHECK_COMPILER_FLAGS],
+         [AC_DEFUN([APPEND_CFLAG],
+                   [AX_CHECK_COMPILER_FLAGS([$1], [CFLAGS="$1 $CFLAGS"])])
+          AC_DEFUN([APPEND_FCFLAG],
+                   [AX_CHECK_COMPILER_FLAGS([$1], [FCFLAGS="$1 $FCFLAGS"])])])
+
+
+APPEND_CFLAG([-Wextra])
+APPEND_CFLAG([-Wconversion])
+APPEND_CFLAG([-Wpointer-arith])
+APPEND_CFLAG([-Wfloat-equal])
+APPEND_CFLAG([-Wshadow])
+APPEND_CFLAG([-Wwrite-strings])
+APPEND_CFLAG([-Wc++-compat])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

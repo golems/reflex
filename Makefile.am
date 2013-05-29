@@ -12,13 +12,13 @@ lib_LTLIBRARIES = libreflex.la
 
 noinst_PROGRAMS = lqgtest cartpend
 
-cartpend_SOURCES = cartpend.c
+cartpend_SOURCES = src/cartpend.c
 cartpend_LDADD = libreflex.la
 
-lqgtest_SOURCES = lqgtest.c
+lqgtest_SOURCES = src/lqgtest.c
 lqgtest_LDADD = libreflex.la
 
-libreflex_la_SOURCES = control.c trajectory.cpp trajectory_plot.cpp lqg.c
+libreflex_la_SOURCES = src/control.c src/trajectory.cpp src/trajectory_plot.cpp src/lqg.c
 
 clean-local:
 	-rm -rf debian/tmp debian/files debian/libreflex? debian/libreflex-dev debian/*.log debian/*.substvars texput.log debian/*.debhelper
