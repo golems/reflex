@@ -94,7 +94,8 @@ void WorkspaceTrajectory::plot( double dt ) {
         opts.title="Position";
         opts.ylabel="position";
         opts.xlabel="time";
-        opts.axis_label = (const char*[]){"x", "y", "z", "r_x", "r_y", "r_z"};
+        static const char *c[] = {"x", "y", "z", "r_x", "r_y", "r_z"};
+        opts.axis_label = c;
         aa_plot_row_series( 6, n, T, X,
                             & opts );
 
@@ -104,7 +105,8 @@ void WorkspaceTrajectory::plot( double dt ) {
         opts.title="Velocity";
         opts.ylabel="velocity";
         opts.xlabel="time";
-        opts.axis_label = (const char*[]){"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        static const char *c[] = {"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        opts.axis_label = c;
         aa_plot_row_series( 6, n, T, dX,
                             & opts );
 
@@ -114,7 +116,8 @@ void WorkspaceTrajectory::plot( double dt ) {
         opts.title="Integrated Velocity (Position)";
         opts.ylabel="position";
         opts.xlabel="time";
-        opts.axis_label = (const char*[]){"x", "y", "z", "r_x", "r_y", "r_z"};
+        static const char * c[] = {"x", "y", "z", "r_x", "r_y", "r_z"};
+        opts.axis_label = c;
         aa_plot_row_series( 6, n, T, sdX,
                             & opts );
 
@@ -124,7 +127,8 @@ void WorkspaceTrajectory::plot( double dt ) {
         opts.title="Acceleration";
         opts.ylabel="acceleration";
         opts.xlabel="time";
-        opts.axis_label = (const char*[]){"ddx", "ddy", "ddz", "ddr_x", "ddr_y", "ddr_z"};
+        static const char *c[] = {"ddx", "ddy", "ddz", "ddr_x", "ddr_y", "ddr_z"};
+        opts.axis_label = c;
         aa_plot_row_series( 6, n, T, ddX,
                             & opts );
 
@@ -134,7 +138,8 @@ void WorkspaceTrajectory::plot( double dt ) {
         opts.title="Integrated Acceleration (Velocity)";
         opts.ylabel="velocity";
         opts.xlabel="time";
-        opts.axis_label = (const char*[]){"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        static const char *c[] = {"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        opts.axis_label = c;
         aa_plot_row_series( 6, n, T, sddX,
                             & opts );
 
@@ -223,7 +228,8 @@ void WorkspaceTrajectory::jacobian_plot( double dt,
         opts.title="WS Velocity: Trajectory";
         opts.ylabel="velocity";
         opts.xlabel="time";
-        opts.axis_label = (const char*[]){"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        static const char *c[] = {"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        opts.axis_label = c;
         aa_plot_row_series( 6, n, T, dX0,
                             & opts );
     }
@@ -264,7 +270,8 @@ void WorkspaceTrajectory::jacobian_plot( double dt,
         opts.title="WS Position: Trajectory";
         opts.ylabel="position";
         opts.xlabel="time";
-        opts.axis_label = (const char*[]){"x", "y", "z", "r_x", "r_y", "r_z"};
+        static const char *c[] = {"x", "y", "z", "r_x", "r_y", "r_z"};
+        opts.axis_label = c;
         aa_plot_row_series( 6, n - 1, T, X0,
                             & opts );
 
@@ -274,7 +281,8 @@ void WorkspaceTrajectory::jacobian_plot( double dt,
         opts.title="WS Position: FK";
         opts.ylabel="position";
         opts.xlabel="time";
-        opts.axis_label = (const char*[]){"x", "y", "z", "r_x", "r_y", "r_z"};
+        static const char *c[] = {"x", "y", "z", "r_x", "r_y", "r_z"};
+        opts.axis_label = c;
         aa_plot_row_series( 6, n - 1, T, X,
                             & opts );
 
@@ -284,7 +292,8 @@ void WorkspaceTrajectory::jacobian_plot( double dt,
         opts.title="Workspace Velocity: dx = J dq";
         opts.ylabel="velocity";
         opts.xlabel="time";
-        opts.axis_label = (const char*[]){"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        static const char *c[] = {"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        opts.axis_label = c;
         aa_plot_row_series( 6, n, T, dX,
                             & opts );
 
@@ -382,7 +391,8 @@ void WorkspaceTrajectory::wsctrl_plot( double dt,
         opts.title="WS Velocity: Trajectory";
         opts.ylabel="velocity";
         opts.xlabel="time";
-        opts.axis_label = (const char*[]){"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        static const char *c[] = {"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        opts.axis_label = c;
         aa_plot_row_series( 6, n, T, dX0,
                             & opts );
     }
@@ -423,7 +433,8 @@ void WorkspaceTrajectory::wsctrl_plot( double dt,
         opts.title="WS Position: Trajectory";
         opts.ylabel="position";
         opts.xlabel="time";
-        opts.axis_label = (const char*[]){"x", "y", "z", "r_x", "r_y", "r_z"};
+        static const char *c[] = {"x", "y", "z", "r_x", "r_y", "r_z"};
+        opts.axis_label = c;
         aa_plot_row_series( 6, n , T, X0,
                             & opts );
 
@@ -433,7 +444,8 @@ void WorkspaceTrajectory::wsctrl_plot( double dt,
         opts.title="WS Position: FK";
         opts.ylabel="position";
         opts.xlabel="time";
-        opts.axis_label = (const char*[]){"x", "y", "z", "r_x", "r_y", "r_z"};
+        static const char *c[] = {"x", "y", "z", "r_x", "r_y", "r_z"};
+        opts.axis_label = c;
         aa_plot_row_series( 6, n , T, X,
                             & opts );
 
@@ -443,7 +455,8 @@ void WorkspaceTrajectory::wsctrl_plot( double dt,
         opts.title="Workspace Velocity: dx = J dq";
         opts.ylabel="velocity";
         opts.xlabel="time";
-        opts.axis_label = (const char*[]){"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        static const char *c[] = {"dx", "dy", "dz", "dr_x", "dr_y", "dr_z"};
+        opts.axis_label = c;
         aa_plot_row_series( 6, n, T, dX,
                             & opts );
 

@@ -69,8 +69,8 @@ void rfx_ctrl_ws_init( rfx_ctrl_ws_t *g, size_t n ) {
     g->dq_r = AA_NEW0_AR( double, n );
     g->q_min = AA_NEW0_AR( double, n );
     g->q_max = AA_NEW0_AR( double, n );
-    aa_fcpy( g->r, AA_TF_QUAT_IDENT, 4 );
-    aa_fcpy( g->r_r, AA_TF_QUAT_IDENT, 4 );
+    aa_fcpy( g->r, aa_tf_quat_ident, 4 );
+    aa_fcpy( g->r_r, aa_tf_quat_ident, 4 );
 }
 
 void rfx_ctrl_ws_destroy( rfx_ctrl_ws_t *g ) {
@@ -93,7 +93,7 @@ AA_API void rfx_ctrl_ws_lin_k_destroy( rfx_ctrl_ws_lin_k_t *k ) {
 
 // FIXME: check directions for all limits
 // FIXME: add hard limits
-static int check_limit( const rfx_ctrl_t *g, const double dx[3] ) {
+static rfx_status_t check_limit( const rfx_ctrl_t *g, const double dx[3] ) {
     // F_max
     if( (g->F_max > 0) /* has limit */ &&
         (aa_la_dot( 3, g->F, g->F ) > g->F_max*g->F_max) /* magnitude check */ &&
@@ -146,7 +146,7 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
 
     // check force limits
     {
-        int r = check_limit( ws, ws->dx_r );
+        rfx_status_t r = check_limit( ws, ws->dx_r );
         if( RFX_OK != r ) {
             aa_fzero( u, ws->n_q );
             return r;
@@ -161,7 +161,8 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
     {
         double r_e[4];
         aa_tf_qrel(ws->r, ws->r_r, r_e);
-        aa_tf_quat2rotvec_near( r_e, AA_FAR(0,0,0), x_e+3 );    // axis-angle conversion
+        double zero[3] = {0,0,0};
+        aa_tf_quat2rotvec_near( r_e, zero, x_e+3 );    // axis-angle conversion
     }
 
     // find workspace velocity
@@ -180,4 +181,3 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
 
     return RFX_OK;
 }
-

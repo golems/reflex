@@ -103,10 +103,11 @@ AA_API void rfx_lqg_destroy( rfx_lqg_t *lqg ) {
  * op(B): k*p
  * op(C): p*n
  */
+
 static inline void matmul3( size_t m, size_t n, size_t k, size_t p,
-                            enum CBLAS_ORDER transA,
-                            enum CBLAS_ORDER transB,
-                            enum CBLAS_ORDER transC,
+                            enum CBLAS_TRANSPOSE transA,
+                            enum CBLAS_TRANSPOSE transB,
+                            enum CBLAS_TRANSPOSE transC,
                             const double *A, size_t lda,
                             const double *B, size_t ldb,
                             const double *C, size_t ldc,

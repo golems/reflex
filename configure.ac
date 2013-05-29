@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.65])
 AC_INIT([reflex], [0.20120504], [ntd@gatech.edu])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_SRCDIR([include/reflex.h])
 AC_CONFIG_HEADERS([config.h])
 
@@ -12,6 +12,7 @@ AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_LIBTOOL
 AC_PROG_CC_C99
+AM_PROG_CC_C_O
 
 # Checks for libraries.
 AC_SEARCH_LIBS([cblas_dgemm],[blas], [true], [echo "Failed: need BLAS library" && exit 1])
