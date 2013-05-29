@@ -413,20 +413,13 @@ AA_API void rfx_lqg_sys( const void *lqg,
 /* Trajectories */
 /****************/
 
+/*--- Configuration Space Trajectories ---*/
 
 struct rfx_trajq_vtab {
     int (*generate)(void *cx);
     int (*get_q)(void *cx, double t, double *q);
     int (*get_dq)(void *cx, double t, double *dq);
     int (*get_ddq)(void *cx, double t, double *ddq);
-};
-
-struct rfx_trajx_vtab {
-    /*int (*add)(void *cx, size_t i, double t, double q[3], double r[4]);*/
-    int (*generate)(void *cx);
-    int (*get_x)(void *cx, double t, double x, double r[4]);
-    int (*get_dx)(void *cx, double t, double dx[6]);
-    int (*get_ddx)(void *cx, double t, double ddx[6]);
 };
 
 
@@ -445,15 +438,15 @@ void rfx_trajq_init( struct rfx_trajq *cx, aa_mem_region_t *reg, size_t n_q, siz
 /* Release all memory allocated for cx following its initilization */
 void rfx_trajq_destroy( struct rfx_trajq *cx );
 
-static inline int rfx_trajq_get_q( struct rfx_trajq *cx, double t, double *q) {
-    return cx->vtab->get_q( cx, t, q );
-}
-
 /* Add point q to trajectory.
  * q is copied to cx's internally managed memory */
 void rfx_trajq_add( struct rfx_trajq *cx, size_t i, double t, double *q );
 
 void rfx_trajq_plot( struct rfx_trajq *cx, double dt );
+
+static inline int rfx_trajq_get_q( struct rfx_trajq *cx, double t, double *q) {
+    return cx->vtab->get_q( cx, t, q );
+}
 
 static inline int rfx_trajq_get_dq( struct rfx_trajq *cx, double t, double *dq) {
     return cx->vtab->get_dq( cx, t, dq );
@@ -478,6 +471,61 @@ typedef struct rfx_trajq_trapvel {
 } rfx_trajq_trapvel_t;
 
 void rfx_trajq_trapvel_init( struct rfx_trajq_trapvel *cx, aa_mem_region_t *reg, size_t n_q );
+
+
+/*--- Cartesian Space Trajectories ---*/
+
+struct rfx_trajx;
+
+struct rfx_trajx_vtab {
+    /*int (*add)(void *cx, size_t i, double t, double q[3], double r[4]);*/
+    int (*generate)(struct rfx_trajx *cx);
+    void (*add)(struct rfx_trajx *cx, size_t i, double t, double x[3], double r[4]);
+    int (*get_x)(struct rfx_trajx *cx, double t, double x[3], double r[4]);
+    int (*get_dx)(struct rfx_trajx *cx, double t, double dx[6]);
+    int (*get_ddx)(struct rfx_trajx *cx, double t, double ddx[6]);
+};
+
+struct rfx_tfq {
+    double x[3];
+    double r[4];
+};
+
+typedef struct rfx_trajx {
+    struct rfx_trajx_vtab *vtab;
+    struct rfx_trajq *trajq;
+
+    /* Poses as vector and quaternion */
+    struct rfx_tfq *X;
+
+} rfx_trajx_t;
+
+static inline void rfx_trajx_add( struct rfx_trajx *cx, size_t i, double t, double x[3], double r[4]) {
+    cx->vtab->add( cx, i, t, x, r );
+}
+
+static inline int rfx_trajx_get_x( struct rfx_trajx *cx, double t, double x[3], double r[4]) {
+    return cx->vtab->get_x( cx, t, x, r );
+}
+
+static inline int rfx_trajx_get_dx( struct rfx_trajx *cx, double t, double dx[6]) {
+    return cx->vtab->get_dx( cx, t, dx );
+}
+
+static inline int rfx_trajx_get_ddx( struct rfx_trajx *cx, double t, double ddx[6]) {
+    return cx->vtab->get_ddx( cx, t, ddx );
+}
+
+static inline int rfx_trajx_generate( struct rfx_trajx *cx ) {
+    return cx->vtab->generate( cx );
+}
+
+/*-- Rotation Vector orientations --*/
+/* Initialize cartesian trajectory generator
+ *
+ * @pre: trajq has been initialized with length of 6
+ */
+void rfx_trajx_rv_init( struct rfx_trajx *cx, struct rfx_trajq *trajq );
 
 #ifdef __cplusplus
 }

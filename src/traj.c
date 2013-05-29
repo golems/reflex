@@ -213,10 +213,10 @@ int q_trapvel_get_ddq( void *vcx, double t, double *ddq ) {
 }
 
 static struct rfx_trajq_vtab vtab_q_trapvel = {
-    q_trapvel_generate,
-    q_trapvel_get_q,
-    q_trapvel_get_dq,
-    q_trapvel_get_ddq
+    .generate = q_trapvel_generate,
+    .get_q = q_trapvel_get_q,
+    .get_dq = q_trapvel_get_dq,
+    .get_ddq = q_trapvel_get_ddq
 };
 
 void rfx_trajq_trapvel_init( struct rfx_trajq_trapvel *cx, aa_mem_region_t *reg, size_t n_q ) {
@@ -227,4 +227,62 @@ void rfx_trajq_trapvel_init( struct rfx_trajq_trapvel *cx, aa_mem_region_t *reg,
     cx->ddq_max = (double*)aa_mem_region_alloc( reg, n_q*sizeof(cx->ddq_max[0]) );
     cx->traj.vtab = &vtab_q_trapvel;
 
+}
+
+
+
+/*************/
+/* WORKSPACE */
+/*************/
+
+static int x_generate( struct rfx_trajx *cx ) {
+    int i = cx->trajq->vtab->generate(cx->trajq);
+    return i;
+}
+
+static void x_rv_add( struct rfx_trajx *cx, size_t i, double t, double x[3], double r[4] ) {
+    memcpy( cx->X[i].x, x, 3*sizeof(x[0]) );
+    memcpy( cx->X[i].r, r, 4*sizeof(r[0]) );
+
+    double xp[6];
+    memcpy( xp, x, 3*sizeof(xp[0]) );
+
+    if( i ) {
+        aa_tf_quat2rotvec_near( r, cx->trajq->Q + (i-1)*cx->trajq->n_q + 3, xp+3 );
+    } else {
+        aa_tf_quat2rotvec( r, xp+3 );
+    }
+
+    rfx_trajq_add( cx->trajq, i, t, xp );
+}
+
+static int x_rv_get_x( struct rfx_trajx *cx, double t, double x[3], double r[4] ) {
+    double xp[6];
+    int i = rfx_trajq_get_q( cx->trajq, t, xp );
+    if( !i ) {
+        memcpy( x, xp, 3*sizeof(x[0]) );
+        aa_tf_rotvec2quat( xp+3, r );
+    }
+    return i;
+}
+static int x_rv_get_dx( struct rfx_trajx *cx, double t, double dx[6] ) {
+    return rfx_trajq_get_dq( cx->trajq, t, dx );
+}
+static int x_rv_get_ddx( struct rfx_trajx *cx, double t, double ddx[6] ) {
+    return rfx_trajq_get_ddq( cx->trajq, t, ddx );
+}
+
+static struct rfx_trajx_vtab vtab_x_rv = {
+    .generate = x_generate,
+    .add = x_rv_add,
+    .get_x = x_rv_get_x,
+    .get_dx = x_rv_get_dx,
+    .get_ddx = x_rv_get_ddx,
+};
+
+void rfx_trajx_rv_init( struct rfx_trajx *cx, struct rfx_trajq *trajq ) {
+    assert( 6 == trajq->n_q );
+    cx->trajq = trajq;
+    cx->vtab = &vtab_x_rv;
+    cx->X = (struct rfx_tfq*) aa_mem_region_alloc( cx->trajq->reg, trajq->n_t*sizeof(cx->X[0]) );
 }

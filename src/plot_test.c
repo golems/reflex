@@ -44,7 +44,7 @@
 #include "reflex.h"
 
 
-int main( void ) {
+void plotq () {
     aa_mem_region_t reg;
     aa_mem_region_init( &reg, 1024*64 );
 
@@ -80,6 +80,40 @@ int main( void ) {
     printf("q1: ");
     aa_dump_vec( stdout, traj.traj.Q+traj.traj.n_q, traj.traj.n_q );
 
-    rfx_trajq_plot( &traj.traj, 0.01 );
+}
+
+
+void plotx() {
+    aa_mem_region_t reg;
+    aa_mem_region_init( &reg, 1024*32 );
+
+    rfx_trajq_trapvel_t trajq;
+    rfx_trajq_trapvel_init( &trajq, &reg, 6 );
+    for( size_t i = 0; i < 6; i ++ ) {
+        trajq.dq_max[i] = 10.0;
+        trajq.ddq_max[i] = 10.0;
+    }
+
+
+    double x0[3] = {0.384311,0.004544,0.089198};
+    double r0[4] = {0.148775, 0.939373, 0.305129, -0.048381};
+    double x1[3] = {0.380000, 0.053318, 0.020952};
+    double r1[4] = {0.148778, 0.939347, 0.305212, -0.048341};
+
+    rfx_trajx_t trajx;
+    rfx_trajx_rv_init( &trajx, &trajq.traj );
+
+    rfx_trajx_add( &trajx, 0, 0, x0, r0 );
+    rfx_trajx_add( &trajx, 1, 10, x1, r1 );
+
+    rfx_trajx_generate( &trajx );
+
+    rfx_trajq_plot( trajx.trajq, .001 );
+}
+
+int main( void ) {
+    //rfx_trajq_plot( &traj.traj, 0.01 );
+    plotx();
+
 
 }
