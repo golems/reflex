@@ -520,12 +520,18 @@ static inline int rfx_trajx_generate( struct rfx_trajx *cx ) {
     return cx->vtab->generate( cx );
 }
 
+void rfx_trajx_destroy( struct rfx_trajx *cx );
+
 /*-- Rotation Vector orientations --*/
 /* Initialize cartesian trajectory generator
  *
  * @pre: trajq has been initialized with length of 6
  */
-void rfx_trajx_rv_init( struct rfx_trajx *cx, struct rfx_trajq *trajq );
+void rfx_trajx_rv_init( struct rfx_trajx *cx, aa_mem_region_t *reg );
+
+
+
+void rfx_trajx_slerp_init( struct rfx_trajx *cx, aa_mem_region_t *reg );
 
 #ifdef __cplusplus
 }

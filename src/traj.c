@@ -240,6 +240,9 @@ static int x_generate( struct rfx_trajx *cx ) {
     return i;
 }
 
+
+/*-- Rotation Vector --*/
+
 static void x_rv_add( struct rfx_trajx *cx, size_t i, double t, double x[3], double r[4] ) {
     memcpy( cx->X[i].x, x, 3*sizeof(x[0]) );
     memcpy( cx->X[i].r, r, 4*sizeof(r[0]) );
@@ -280,9 +283,102 @@ static struct rfx_trajx_vtab vtab_x_rv = {
     .get_ddx = x_rv_get_ddx,
 };
 
-void rfx_trajx_rv_init( struct rfx_trajx *cx, struct rfx_trajq *trajq ) {
-    assert( 6 == trajq->n_q );
-    cx->trajq = trajq;
-    cx->vtab = &vtab_x_rv;
-    cx->X = (struct rfx_tfq*) aa_mem_region_alloc( cx->trajq->reg, trajq->n_t*sizeof(cx->X[0]) );
+void rfx_trajx_destroy( struct rfx_trajx *cx ) {
+    aa_mem_region_pop(cx->trajq->reg, cx->trajq);
+}
+
+void rfx_trajx_rv_init( struct rfx_trajx *traj, aa_mem_region_t *reg ) {
+    struct rfx_trajq_trapvel *trajq = (struct rfx_trajq_trapvel*) aa_mem_region_alloc( reg, sizeof(*trajq) );
+    traj->trajq = &trajq->traj;
+    rfx_trajq_trapvel_init( trajq, reg, 6 );
+    traj->vtab = &vtab_x_rv;
+    traj->X = (struct rfx_tfq*) aa_mem_region_alloc( traj->trajq->reg, traj->trajq->n_t*sizeof(traj->X[0]) );
+
+    for( size_t i = 0; i < 6; i ++ ) {
+        trajq->dq_max[i] = 1.0; // TODO: pick better
+        trajq->ddq_max[i] = 1.0;
+    }
+}
+
+/*-- SLERP --*/
+
+static void x_slerp_add( struct rfx_trajx *cx, size_t i, double t, double x[3], double r[4] ) {
+    memcpy( cx->X[i].x, x, 3*sizeof(x[0]) );
+    memcpy( cx->X[i].r, r, 4*sizeof(r[0]) );
+
+    double xp[4];
+    memcpy( xp, x, 3*sizeof(xp[0]) );
+
+    if( 0 == i ) {
+        xp[3] = 0;
+    } else if( 1 == i ) {
+        xp[3] = 1;
+    } else {
+        abort();
+    }
+
+    rfx_trajq_add( cx->trajq, i, t, xp );
+}
+
+static int x_slerp_get_x( struct rfx_trajx *cx, double t, double x[3], double r[4] ) {
+    double xp[4];
+    int i = rfx_trajq_get_q( cx->trajq, t, xp );
+    //if( !i ) {
+        memcpy( x, xp, 3*sizeof(x[0]) );
+        aa_tf_qslerp( xp[3], cx->X[0].r, cx->X[1].r, r );
+    //}
+        //printf("slerp %f: ", xp[3]); aa_dump_vec( stdout, r, 4 );
+    return i;
+}
+
+static int x_slerp_get_dx( struct rfx_trajx *cx, double t, double dx[6] ) {
+    double xp[4];
+    int i = rfx_trajq_get_dq( cx->trajq, t, xp );
+
+    memcpy( dx, xp, 3*sizeof(xp[0]) );
+
+    double tau = xp[3];
+    double delta_t = cx->trajq->T[1] - cx->trajq->T[0];
+    double dtau_dt = 1.0 / delta_t;
+    double dr_dtau[4], r[4], dr_dt[4];
+    aa_tf_qslerp( xp[3], cx->X[0].r, cx->X[1].r, r );
+    aa_tf_qslerpdiff( tau, cx->X[0].r, cx->X[1].r, dr_dtau );
+    for( size_t j = 0; j < 4; j ++ ) dr_dt[j] = dr_dtau[j] * dtau_dt;
+    aa_tf_qdiff2vel( r, dr_dt, dx+3 );
+
+    return i;
+}
+static int x_slerp_get_ddx( struct rfx_trajx *cx, double t, double ddx[6] ) {
+    (void)cx; (void)t; (void) ddx;
+    /* double xp[4]; */
+    /* int i = rfx_trajq_get_ddq( cx->trajq, t, xp ); */
+    /* double tau = xp[3]; */
+    /* memcpy( ddx, xp, 3*sizeof(xp[0]) ); */
+    abort();
+    return 0;
+}
+
+static struct rfx_trajx_vtab vtab_x_slerp = {
+    .generate = x_generate,
+    .add = x_slerp_add,
+    .get_x = x_slerp_get_x,
+    .get_dx = x_slerp_get_dx,
+    .get_ddx = x_slerp_get_ddx,
+};
+
+
+void rfx_trajx_slerp_init( struct rfx_trajx *traj, aa_mem_region_t *reg ) {
+    struct rfx_trajq_trapvel *trajq = (struct rfx_trajq_trapvel*) aa_mem_region_alloc( reg, sizeof(*trajq) );
+    traj->trajq = &trajq->traj;
+    rfx_trajq_trapvel_init( trajq, reg, 4 );
+    traj->vtab = &vtab_x_slerp;
+    traj->X = (struct rfx_tfq*) aa_mem_region_alloc( reg, traj->trajq->n_t*sizeof(traj->X[0]) );
+
+
+    for( size_t i = 0; i < 3; i ++ ) {
+        trajq->dq_max[i] = 1.0; // TODO: pick better
+        trajq->ddq_max[i] = 1.0;
+    }
+    trajq->dq_max[3] = 50;
+    trajq->ddq_max[3] = 50;
 }
