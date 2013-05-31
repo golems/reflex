@@ -422,25 +422,29 @@ struct rfx_trajq_vtab {
     int (*get_ddq)(void *cx, double t, double *ddq);
 };
 
+struct rfx_trajq_data {
+    double t;
+    double q[1];
+};
 
 struct rfx_trajq {
     struct rfx_trajq_vtab *vtab;
     aa_mem_region_t *reg;
     size_t n_q;
     size_t n_t;
-
-    double *T; ///< Array of times
-    double *Q; ///< Matrix of points
+    double t_i, t_f;
+    double *q_i, *q_f;
+    aa_mem_rlist_t *point;
 };
 
 /* Initialize struct, performing future alloctions out of reg */
-void rfx_trajq_init( struct rfx_trajq *cx, aa_mem_region_t *reg, size_t n_q, size_t n_t );
-/* Release all memory allocated for cx following its initilization */
-void rfx_trajq_destroy( struct rfx_trajq *cx );
+struct rfx_trajq *rfx_trajq_alloc( aa_mem_region_t *reg, size_t n_q );
+
+void rfx_trajq_init( struct rfx_trajq *traj, aa_mem_region_t *reg, size_t n_q );
 
 /* Add point q to trajectory.
  * q is copied to cx's internally managed memory */
-void rfx_trajq_add( struct rfx_trajq *cx, size_t i, double t, double *q );
+void rfx_trajq_add( struct rfx_trajq *cx, double t, double *q );
 
 void rfx_trajq_plot( struct rfx_trajq *cx, double dt );
 
@@ -473,20 +477,21 @@ typedef struct rfx_trajq_trapvel {
 void rfx_trajq_trapvel_init( struct rfx_trajq_trapvel *cx, aa_mem_region_t *reg, size_t n_q );
 
 
+
 /*--- Cartesian Space Trajectories ---*/
 
 struct rfx_trajx;
 
 struct rfx_trajx_vtab {
-    /*int (*add)(void *cx, size_t i, double t, double q[3], double r[4]);*/
     int (*generate)(struct rfx_trajx *cx);
-    void (*add)(struct rfx_trajx *cx, size_t i, double t, double x[3], double r[4]);
+    void (*add)(struct rfx_trajx *cx, double t, double x[3], double r[4]);
     int (*get_x)(struct rfx_trajx *cx, double t, double x[3], double r[4]);
     int (*get_dx)(struct rfx_trajx *cx, double t, double dx[6]);
     int (*get_ddx)(struct rfx_trajx *cx, double t, double ddx[6]);
 };
 
-struct rfx_tfq {
+struct rfx_trajx_point {
+    double t;
     double x[3];
     double r[4];
 };
@@ -495,13 +500,15 @@ typedef struct rfx_trajx {
     struct rfx_trajx_vtab *vtab;
     struct rfx_trajq *trajq;
 
-    /* Poses as vector and quaternion */
-    struct rfx_tfq *X;
+    struct rfx_trajx_point *pt_i;
+    struct rfx_trajx_point *pt_f;
 
+    /* Poses as vector and quaternion */
+    aa_mem_rlist_t *point;
 } rfx_trajx_t;
 
-static inline void rfx_trajx_add( struct rfx_trajx *cx, size_t i, double t, double x[3], double r[4]) {
-    cx->vtab->add( cx, i, t, x, r );
+static inline void rfx_trajx_add( struct rfx_trajx *cx, double t, double x[3], double r[4]) {
+    cx->vtab->add( cx, t, x, r );
 }
 
 static inline int rfx_trajx_get_x( struct rfx_trajx *cx, double t, double x[3], double r[4]) {

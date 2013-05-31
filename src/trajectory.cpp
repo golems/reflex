@@ -96,8 +96,8 @@ int TrapvelWS::validate() {
 
 int TrapvelWS::generate() {
     double rv[3];
-    aa_fcpy(rv, traj.traj.Q + 6 + 3, 3);
-    aa_tf_rotvec_near( rv, traj.traj.Q+3, traj.traj.Q+6+3 );
+    // aa_fcpy(rv, traj.traj.Q + 6 + 3, 3);
+    // aa_tf_rotvec_near( rv, traj.traj.Q+3, traj.traj.Q+6+3 );
     // int i = rfx_trapvel_generate( 6, this->t_n,
     //                               this->x_0, this->x_n,
     //                               this->dx_max, this->ddx_max,
@@ -243,7 +243,7 @@ int TrapvelWS::add( double t, const double x[3], const double r[4]) {
         assert( aa_isfok( xp[i] ) );
     //aa_dump_vec( stderr, xp, 6 );
     //return 0;
-    rfx_trajq_add( &traj.traj, i, t, xp );
+    // rfx_trajq_add( &traj.traj, i, t, xp );
 }
 
 

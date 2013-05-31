@@ -43,23 +43,45 @@
 #include <amino.h>
 #include "reflex.h"
 
-
-void rfx_trajq_init( struct rfx_trajq *cx, aa_mem_region_t *reg, size_t n_q, size_t n_t ) {
-    cx->n_q = n_q;
-    cx->n_t = n_t;
-    cx->reg = reg;
-
-    cx->T = (double*)aa_mem_region_alloc( cx->reg, cx->n_t * sizeof(cx->T[0]) );
-    cx->Q = (double*)aa_mem_region_alloc( cx->reg, cx->n_t * cx->n_q * sizeof(cx->Q[0]) );
+void rfx_trajq_init( struct rfx_trajq *traj, aa_mem_region_t *reg, size_t n_q ) {
+    traj->n_q = n_q;
+    traj->reg = reg;
+    traj->n_t = 0;
+    traj->point = aa_mem_rlist_alloc( reg );
 }
 
-void rfx_trajq_destroy( struct rfx_trajq *cx ) {
-    aa_mem_region_pop(cx->reg, cx->T);
+struct rfx_trajq *rfx_trajq_alloc( aa_mem_region_t *reg, size_t n_q ) {
+    struct rfx_trajq* traj = AA_MEM_REGION_NEW( reg, struct rfx_trajq );
+    rfx_trajq_init( traj, reg, n_q );
+    return traj;
 }
 
-void rfx_trajq_add( struct rfx_trajq *cx, size_t i, double t, double *q ) {
-    cx->T[i] = t;
-    memcpy( &cx->Q[i*cx->n_q], q, cx->n_q*sizeof(q[0]) );
+/* void rfx_trajq_alloc( struct rfx_trajq *cx, aa_mem_region_t *reg, size_t n_q, size_t n_t ) { */
+/*     cx->n_q = n_q; */
+/*     cx->n_t = n_t; */
+
+/*     cx->T = (double*)aa_mem_region_alloc( cx->reg, cx->n_t * sizeof(cx->T[0]) ); */
+/*     cx->Q = (double*)aa_mem_region_alloc( cx->reg, cx->n_t * cx->n_q * sizeof(cx->Q[0]) ); */
+/* } */
+
+/* void rfx_trajq_destroy( struct rfx_trajq *cx ) { */
+/*     aa_mem_region_pop(cx->reg, cx->T); */
+/* } */
+
+void rfx_trajq_add( struct rfx_trajq *cx,  double t, double *q ) {
+    double *qq = AA_MEM_REGION_NEW_N( cx->reg, double, cx->n_q+1 );
+    qq[0] = t;
+    AA_MEM_CPY(qq+1, q, cx->n_q);
+    aa_mem_rlist_enqueue_ptr( cx->point, qq );
+
+    if( 0 ==  cx->n_t ) {
+        cx->t_i = t;
+        cx->q_i = qq+1;
+    }
+    cx->t_f = t;
+    cx->q_f = qq+1;
+    cx->n_t++;
+    printf("addq: "); aa_dump_vec( stdout, qq, cx->n_q+1 );
 }
 
 int rfx_trapvel_generate( size_t n, double t_f,
@@ -122,10 +144,22 @@ int rfx_trapvel_generate( size_t n, double t_f,
 
 int q_trapvel_generate( void *vcx ) {
     struct rfx_trajq_trapvel *cx = (struct rfx_trajq_trapvel*)vcx;
-    double delta_t = cx->traj.T[1] - cx->traj.T[0];
+
+    if( 2 != cx->traj.n_t ) {
+        abort();
+        return -1;
+    }
+    /* double *X_i = (double*)cx->traj.point->head->data; */
+    /* double *X_f = (double*)cx->traj.point->head->next->data; */
+    /* cx->t_i = X_i[0]; */
+    /* cx->t_f = X_f[0]; */
+    /* cx->q_i = X_i+1; */
+    /* cx->q_f = X_f+1; */
+
+    double delta_t = cx->traj.t_f - cx->traj.t_i;
 
     rfx_trapvel_generate( cx->traj.n_q, delta_t,
-                          cx->traj.Q, cx->traj.Q + cx->traj.n_q,
+                          cx->traj.q_i, cx->traj.q_f,
                           cx->dq_max, cx->ddq_max,
                           &cx->t_b, cx->dq_r, cx->ddq_r );
     return 0;
@@ -133,29 +167,29 @@ int q_trapvel_generate( void *vcx ) {
 
 int q_trapvel_get_q( void *vcx, double t, double *q ) {
     struct rfx_trajq_trapvel *cx = (struct rfx_trajq_trapvel*)vcx;
-    const double *q0 = cx->traj.Q;
-    const double *q1 = cx->traj.Q+cx->traj.n_q;
-    if( t < cx->traj.T[0] ) {
+    const double *q0 = cx->traj.q_i;
+    const double *q1 = cx->traj.q_f;
+    if( t < cx->traj.t_i ) {
         // before t0
         memcpy( q, q0, cx->traj.n_q*sizeof(q[0]) ) ;
     }
-    else if( t > cx->traj.T[1] ) {
+    else if( t > cx->traj.t_f ) {
         // after t1
         memcpy( q, q1, cx->traj.n_q*sizeof(q[0]) );
     } else {
         //normal
-        double t1 = cx->traj.T[0] + cx->t_b;
-        double t2 = cx->traj.T[1] - cx->t_b; // switching timesreturn
+        double t1 = cx->traj.t_i + cx->t_b;
+        double t2 = cx->traj.t_f - cx->t_b; // switching timesreturn
         if( t < t1 ) {
-            double tt = t - cx->traj.T[0];
+            double tt = t - cx->traj.t_i;
             for( size_t i = 0; i < cx->traj.n_q; i ++ )
                 q[i] = q0[i] + 0.5 * cx->ddq_r[i] * tt * tt;
         } else if (t < t2 ) {
             double tt = t - t1;
             for( size_t i = 0; i < cx->traj.n_q; i ++ )
                 q[i] = q0[0] + 0.5*cx->dq_r[i]*cx->t_b + cx->dq_r[i]*tt;
-        } else if (t < cx->traj.T[1] ) {
-            double tt = cx->traj.T[1] - t;
+        } else if (t < cx->traj.t_f ) {
+            double tt = cx->traj.t_f - t;
             for( size_t i = 0; i < cx->traj.n_q; i ++ )
                 q[i] = q1[i] - .5*cx->ddq_r[i]*tt*tt;
         } else {
@@ -168,7 +202,7 @@ int q_trapvel_get_q( void *vcx, double t, double *q ) {
 
 int q_trapvel_get_dq( void *vcx, double t, double *dq ) {
     struct rfx_trajq_trapvel *cx = (struct rfx_trajq_trapvel*)vcx;
-    double t_i = cx->traj.T[0], t_f = cx->traj.T[1];
+    double t_i = cx->traj.t_i, t_f = cx->traj.t_f;
     if( t <= t_i || t >= t_f ) {
         memset( dq, 0, cx->traj.n_q*sizeof(dq[0]) );
     } else if( t <= t_i + cx->t_b ) {
@@ -192,7 +226,7 @@ int q_trapvel_get_dq( void *vcx, double t, double *dq ) {
 
 int q_trapvel_get_ddq( void *vcx, double t, double *ddq ) {
     struct rfx_trajq_trapvel *cx = (struct rfx_trajq_trapvel*)vcx;
-    double t_i = cx->traj.T[0], t_f = cx->traj.T[1];
+    double t_i = cx->traj.t_i, t_f = cx->traj.t_f;
     if( t <= t_i || t >= t_f ) {
         memset( ddq, 0, cx->traj.n_q * sizeof(ddq[0]) );
     } else if (t <= t_i + cx->t_b ) {
@@ -220,11 +254,11 @@ static struct rfx_trajq_vtab vtab_q_trapvel = {
 };
 
 void rfx_trajq_trapvel_init( struct rfx_trajq_trapvel *cx, aa_mem_region_t *reg, size_t n_q ) {
-    rfx_trajq_init( &cx->traj, reg, n_q, 2 );
-    cx->dq_r    = (double*)aa_mem_region_alloc( reg, n_q*sizeof(cx->dq_r[0]) );
-    cx->ddq_r   = (double*)aa_mem_region_alloc( reg, n_q*sizeof(cx->ddq_r[0]) );
-    cx->dq_max  = (double*)aa_mem_region_alloc( reg, n_q*sizeof(cx->dq_max[0]) );
-    cx->ddq_max = (double*)aa_mem_region_alloc( reg, n_q*sizeof(cx->ddq_max[0]) );
+    rfx_trajq_init( &cx->traj, reg, n_q );
+    cx->dq_r    = AA_MEM_REGION_NEW_N( reg, double, n_q );
+    cx->ddq_r   = AA_MEM_REGION_NEW_N( reg, double, n_q );
+    cx->dq_max  = AA_MEM_REGION_NEW_N( reg, double, n_q );
+    cx->ddq_max = AA_MEM_REGION_NEW_N( reg, double, n_q );
     cx->traj.vtab = &vtab_q_trapvel;
 
 }
@@ -235,29 +269,41 @@ void rfx_trajq_trapvel_init( struct rfx_trajq_trapvel *cx, aa_mem_region_t *reg,
 /* WORKSPACE */
 /*************/
 
-static int x_generate( struct rfx_trajx *cx ) {
-    int i = cx->trajq->vtab->generate(cx->trajq);
-    return i;
+static void x_add( struct rfx_trajx *cx, double t, double x[3], double r[4] ) {
+    struct rfx_trajx_point *pt = AA_MEM_REGION_NEW( cx->trajq->reg, struct rfx_trajx_point );
+    pt->t = t;
+    AA_MEM_CPY( pt->x, x, 3 );
+    AA_MEM_CPY( pt->r, r, 4 );
+    aa_mem_rlist_enqueue_ptr( cx->point, pt );
 }
 
 
 /*-- Rotation Vector --*/
 
-static void x_rv_add( struct rfx_trajx *cx, size_t i, double t, double x[3], double r[4] ) {
-    memcpy( cx->X[i].x, x, 3*sizeof(x[0]) );
-    memcpy( cx->X[i].r, r, 4*sizeof(r[0]) );
+static int x_rv_generate( struct rfx_trajx *cx ) {
 
-    double xp[6];
-    memcpy( xp, x, 3*sizeof(xp[0]) );
+    cx->pt_i = (struct rfx_trajx_point*) cx->point->head->data;
+    cx->pt_f = (struct rfx_trajx_point*) cx->point->head->next->data;
 
-    if( i ) {
-        aa_tf_quat2rotvec_near( r, cx->trajq->Q + (i-1)*cx->trajq->n_q + 3, xp+3 );
-    } else {
-        aa_tf_quat2rotvec( r, xp+3 );
+    double rp[3];
+    for( aa_mem_cons_t *cons = cx->point->head; cons; cons = cons->next ) {
+        double xp[6];
+        struct rfx_trajx_point *pt = (struct rfx_trajx_point*)cons->data;
+        AA_MEM_CPY( xp, pt->x, 3 );
+        if( cons == cx->point->head ) {
+            aa_tf_quat2rotvec( pt->r, xp+3 );
+        } else {
+            aa_tf_quat2rotvec_near( pt->r, rp, xp+3 );
+        }
+        AA_MEM_CPY(rp, xp, 3);
+        rfx_trajq_add( cx->trajq, pt->t, xp );
     }
 
-    rfx_trajq_add( cx->trajq, i, t, xp );
+    int i = cx->trajq->vtab->generate(cx->trajq);
+
+    return i;
 }
+
 
 static int x_rv_get_x( struct rfx_trajx *cx, double t, double x[3], double r[4] ) {
     double xp[6];
@@ -276,8 +322,8 @@ static int x_rv_get_ddx( struct rfx_trajx *cx, double t, double ddx[6] ) {
 }
 
 static struct rfx_trajx_vtab vtab_x_rv = {
-    .generate = x_generate,
-    .add = x_rv_add,
+    .generate = x_rv_generate,
+    .add = x_add,
     .get_x = x_rv_get_x,
     .get_dx = x_rv_get_dx,
     .get_ddx = x_rv_get_ddx,
@@ -292,40 +338,51 @@ void rfx_trajx_rv_init( struct rfx_trajx *traj, aa_mem_region_t *reg ) {
     traj->trajq = &trajq->traj;
     rfx_trajq_trapvel_init( trajq, reg, 6 );
     traj->vtab = &vtab_x_rv;
-    traj->X = (struct rfx_tfq*) aa_mem_region_alloc( traj->trajq->reg, traj->trajq->n_t*sizeof(traj->X[0]) );
+
+    traj->point = aa_mem_rlist_alloc( reg );
 
     for( size_t i = 0; i < 6; i ++ ) {
         trajq->dq_max[i] = 1.0; // TODO: pick better
         trajq->ddq_max[i] = 1.0;
     }
+
 }
 
 /*-- SLERP --*/
 
-static void x_slerp_add( struct rfx_trajx *cx, size_t i, double t, double x[3], double r[4] ) {
-    memcpy( cx->X[i].x, x, 3*sizeof(x[0]) );
-    memcpy( cx->X[i].r, r, 4*sizeof(r[0]) );
+static int x_slerp_generate( struct rfx_trajx *cx ) {
 
-    double xp[4];
-    memcpy( xp, x, 3*sizeof(xp[0]) );
+    cx->pt_i = (struct rfx_trajx_point*) cx->point->head->data;
+    cx->pt_f = (struct rfx_trajx_point*) cx->point->head->next->data;
 
-    if( 0 == i ) {
-        xp[3] = 0;
-    } else if( 1 == i ) {
-        xp[3] = 1;
-    } else {
-        abort();
+    int i = 0;
+    for( aa_mem_cons_t *cons = cx->point->head; cons; cons = cons->next ) {
+        struct rfx_trajx_point *pt = (struct rfx_trajx_point*)cons->data;
+        double xp[4];
+        AA_MEM_CPY( xp, pt->x, 3 );
+
+        if( 0 == i ) {
+            xp[3] = 0;
+        } else if( 1 == i ) {
+            xp[3] = 1;
+        } else {
+            abort();
+        }
+        rfx_trajq_add( cx->trajq, pt->t, xp );
+        i++;
     }
 
-    rfx_trajq_add( cx->trajq, i, t, xp );
+    return cx->trajq->vtab->generate(cx->trajq);
 }
 
 static int x_slerp_get_x( struct rfx_trajx *cx, double t, double x[3], double r[4] ) {
     double xp[4];
     int i = rfx_trajq_get_q( cx->trajq, t, xp );
+
+
     //if( !i ) {
         memcpy( x, xp, 3*sizeof(x[0]) );
-        aa_tf_qslerp( xp[3], cx->X[0].r, cx->X[1].r, r );
+        aa_tf_qslerp( xp[3], cx->pt_i->r, cx->pt_f->r, r );
     //}
         //printf("slerp %f: ", xp[3]); aa_dump_vec( stdout, r, 4 );
     return i;
@@ -338,11 +395,11 @@ static int x_slerp_get_dx( struct rfx_trajx *cx, double t, double dx[6] ) {
     memcpy( dx, xp, 3*sizeof(xp[0]) );
 
     double tau = xp[3];
-    double delta_t = cx->trajq->T[1] - cx->trajq->T[0];
+    double delta_t = cx->pt_f->t - cx->pt_i->t;
     double dtau_dt = 1.0 / delta_t;
     double dr_dtau[4], r[4], dr_dt[4];
-    aa_tf_qslerp( xp[3], cx->X[0].r, cx->X[1].r, r );
-    aa_tf_qslerpdiff( tau, cx->X[0].r, cx->X[1].r, dr_dtau );
+    aa_tf_qslerp( xp[3], cx->pt_i->r, cx->pt_f->r, r );
+    aa_tf_qslerpdiff( tau, cx->pt_i->r, cx->pt_f->r, dr_dtau );
     for( size_t j = 0; j < 4; j ++ ) dr_dt[j] = dr_dtau[j] * dtau_dt;
     aa_tf_qdiff2vel( r, dr_dt, dx+3 );
 
@@ -359,8 +416,8 @@ static int x_slerp_get_ddx( struct rfx_trajx *cx, double t, double ddx[6] ) {
 }
 
 static struct rfx_trajx_vtab vtab_x_slerp = {
-    .generate = x_generate,
-    .add = x_slerp_add,
+    .generate = x_slerp_generate,
+    .add = x_add,
     .get_x = x_slerp_get_x,
     .get_dx = x_slerp_get_dx,
     .get_ddx = x_slerp_get_ddx,
@@ -372,8 +429,8 @@ void rfx_trajx_slerp_init( struct rfx_trajx *traj, aa_mem_region_t *reg ) {
     traj->trajq = &trajq->traj;
     rfx_trajq_trapvel_init( trajq, reg, 4 );
     traj->vtab = &vtab_x_slerp;
-    traj->X = (struct rfx_tfq*) aa_mem_region_alloc( reg, traj->trajq->n_t*sizeof(traj->X[0]) );
 
+    traj->point = aa_mem_rlist_alloc( reg );
 
     for( size_t i = 0; i < 3; i ++ ) {
         trajq->dq_max[i] = 1.0; // TODO: pick better

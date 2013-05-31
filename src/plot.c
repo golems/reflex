@@ -45,7 +45,10 @@
 
 void rfx_trajq_plot( struct rfx_trajq *cx, double dt ) {
     (void)dt;
-    double t_i = cx->T[0], t_f = cx->T[ cx->n_t-1 ];
+    double t_i = cx->t_i;
+    double t_f = cx->t_f;
+
+
     size_t n = (size_t) ( (t_f - t_i) / dt );
     size_t n_q = cx->n_q;
     double T[n]; // time
@@ -74,7 +77,7 @@ void rfx_trajq_plot( struct rfx_trajq *cx, double dt ) {
     {
         //aa_fzero( sdX, 6 );
         //aa_fzero( sddX, 6 );
-        memcpy( Qi, cx->Q, n_q*sizeof(Qi[0]) );
+        AA_MEM_CPY( Qi, cx->q_i, n_q );
 
         for( size_t k = 1; k < n; k ++ ) {
             //qi(i) = qi(i-1) + dt*dq(i)
