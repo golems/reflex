@@ -498,10 +498,13 @@ struct rfx_trajx_point {
 
 typedef struct rfx_trajx {
     struct rfx_trajx_vtab *vtab;
+    struct aa_mem_region *reg;
     struct rfx_trajq *trajq;
 
     struct rfx_trajx_point *pt_i;
     struct rfx_trajx_point *pt_f;
+
+    size_t n_p;
 
     /* Poses as vector and quaternion */
     aa_mem_rlist_t *point;
@@ -539,6 +542,41 @@ void rfx_trajx_rv_init( struct rfx_trajx *cx, aa_mem_region_t *reg );
 
 
 void rfx_trajx_slerp_init( struct rfx_trajx *cx, aa_mem_region_t *reg );
+
+
+/*--- Cartesian Segments ---*/
+
+struct rfx_trajx_seg {
+    struct rfx_trajx_vtab *vtab;
+    double t_i, t_f;
+};
+
+typedef struct rfx_trajx_seg_lerp {
+    struct rfx_trajx_seg seg;
+    double x_i[3], x_f[3];
+    double r_i[4], r_f[4];
+    double tau_i, tau_f;
+    double dt;
+} rfx_trajx_seg_lerp_t;
+
+/* t_i and t_f are the times when we actually start (used to pick the segment to execute)
+ * tau_f and tau_f are the times used to compute the interpolation
+ */
+
+struct rfx_trajx_seg *
+rfx_trajx_seg_lerp_slerp_alloc( aa_mem_region_t *reg, double t_i, double t_f,
+                                double tau_i, double x_i[3], double r_i[4],
+                                double tau_f, double x_f[3], double r_f[4] );
+
+typedef struct rfx_trajx_via {
+    struct rfx_trajx trajx;
+    struct rfx_trajx_seg **seg;
+} rfx_trajx_via_t;
+
+
+void rfx_trajx_via_init( struct rfx_trajx_via *cx, aa_mem_region_t *reg );
+
+void rfx_trajx_plot( struct rfx_trajx *cx, double dt );
 
 #ifdef __cplusplus
 }

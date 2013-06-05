@@ -87,10 +87,12 @@ void plotq () {
     aa_dump_vec( stdout, traj.traj.q_f, traj.traj.n_q );
 
     rfx_trajq_plot( &traj.traj, .001 );
+
+    aa_mem_region_destroy( &reg );
 }
 
 
-void plotx() {
+void plotx2() {
     aa_mem_region_t reg;
     aa_mem_region_init( &reg, 1024*32 );
 
@@ -119,11 +121,34 @@ void plotx() {
 
     rfx_trajq_plot( trajx.trajq, .001 );
 
+    aa_mem_region_destroy( &reg );
+}
+
+void plot_viax() {
+    aa_mem_region_t reg;
+    aa_mem_region_init( &reg, 1024*32 );
+
+    rfx_trajx_via_t T;
+    rfx_trajx_via_init( &T, &reg );
+
+    double X[4][3] = { {0,0,0}, {1,0,0}, {1,1,0}, {1,1,1} };
+    double E[4][3] = { {0,0,0}, {M_PI_2,0,0}, {M_PI_2,M_PI_2,0}, {M_PI_2,M_PI_2,M_PI_2} };
+    double R[4][4];
+    for( size_t i = 0; i < sizeof(E)/sizeof(E[0]); i ++ ) {
+        aa_tf_eulerzyx2quat( E[i], R[i] );
+        rfx_trajx_add( &T.trajx, 5.0*(double)i, X[i], R[i] );
+    }
+    rfx_trajx_generate( &T.trajx );
+
+    rfx_trajx_plot( &T.trajx, .001 );
+
+    aa_mem_region_destroy( &reg );
 }
 
 int main( void ) {
     /* /rfx_trajq_plot( &traj.traj, 0.01 ); */
-    plotx();
+    //plotx2();
+    plot_viax();
 
 
 }

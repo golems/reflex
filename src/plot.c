@@ -44,7 +44,6 @@
 #include "reflex.h"
 
 void rfx_trajq_plot( struct rfx_trajq *cx, double dt ) {
-    (void)dt;
     double t_i = cx->t_i;
     double t_f = cx->t_f;
 
@@ -185,5 +184,114 @@ void rfx_trajq_plot( struct rfx_trajq *cx, double dt ) {
 /*         assert( -1 != r ); */
 /*     } */
 /* } */
+
+}
+
+
+
+void rfx_trajx_plot( struct rfx_trajx *cx, double dt ) {
+
+    double t_i = cx->pt_i->t;
+    double t_f = cx->pt_f->t;
+
+    fprintf(stderr, "%f, %f\n", t_i, t_f );
+
+    size_t n = (size_t) ( (t_f - t_i) / dt );
+    double T[n]; // time
+    // matrices for points in the trajectory.
+    // each column is a point.
+    // the rows are the time series for each axis.
+    double X[n*3];     // translation
+    double Q[n*4];     // Orientation
+    double dX[n*6];    // vel
+
+    double sdQ[n*4];   // Integrated Quatenion Derivative (orientation)
+    double sdX[n*3];   // Integrated translation
+
+    double dQ[n*4];    // Quaternion Derivative
+
+    /* double ddX[n*6];  // acc */
+    /* double sddX[n*6]; // integrated acc (vel) */
+
+    // get actuals
+    {
+        double t;
+        size_t i;
+        for( i = 0, t = t_i; t < t_f && i < n; i++, t+=dt ) {
+            T[i] = t;
+            rfx_trajx_get_x( cx, t, X + 3*i, Q+4*i );
+            rfx_trajx_get_dx( cx, t, dX+3*i );
+            aa_tf_qvel2diff( Q+4*i, dX+3*i+3, dQ+4*i );
+        }
+    }
+    // integrate
+    {
+        //aa_fzero( sdX, 6 );
+        //aa_fzero( sddX, 6 );
+        AA_MEM_CPY( sdQ, cx->pt_i->r, 4 );
+        AA_MEM_CPY( sdX, cx->pt_i->x, 3 );
+
+        for( size_t k = 1; k < n; k ++ ) {
+            for( size_t i = 0; i < 4; i ++ ) {
+                sdQ[ k*4 + i ] = Q[ (k-1)*4 + i ] + dt*dQ[ k*4 + i ];
+            }
+
+            for( size_t i = 0; i < 3; i ++ ) {
+                sdX[ k*3 + i ] = X[ (k-1)*3 + i ] + dt*dX[ k*6 + i ];
+            }
+        }
+    }
+
+    { // plot position
+        aa_plot_opts_t opts = {0};
+        opts.title="Translation";
+        opts.ylabel="translation";
+        opts.xlabel="time";
+        aa_plot_row_series( 3, n, T, X,
+                            & opts );
+
+    }
+
+    { // plot orientation
+        aa_plot_opts_t opts = {0};
+        opts.title="Orientation";
+        opts.ylabel="orientation";
+        opts.xlabel="time";
+        aa_plot_row_series( 4, n, T, Q,
+                            & opts );
+
+    }
+
+
+    { // plot integrated quaternion derivative
+        aa_plot_opts_t opts = {0};
+        opts.title="Orientation (integrated derivative)";
+        opts.ylabel="orientation";
+        opts.xlabel="time";
+        aa_plot_row_series( 4, n, T, sdQ,
+                            & opts );
+
+    }
+
+    { // plot integrated translational velocity
+        aa_plot_opts_t opts = {0};
+        opts.title="Position (integrated velocity)";
+        opts.ylabel="position";
+        opts.xlabel="time";
+        aa_plot_row_series( 3, n, T, sdX,
+                            & opts );
+
+    }
+
+    { // plot velocity
+        aa_plot_opts_t opts = {0};
+        opts.title="Velocity";
+        opts.ylabel="velocity";
+        opts.xlabel="time";
+        aa_plot_row_series( 6, n, T, dX,
+                            & opts );
+
+    }
+
 
 }

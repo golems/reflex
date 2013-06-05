@@ -270,11 +270,12 @@ void rfx_trajq_trapvel_init( struct rfx_trajq_trapvel *cx, aa_mem_region_t *reg,
 /*************/
 
 static void x_add( struct rfx_trajx *cx, double t, double x[3], double r[4] ) {
-    struct rfx_trajx_point *pt = AA_MEM_REGION_NEW( cx->trajq->reg, struct rfx_trajx_point );
+    struct rfx_trajx_point *pt = AA_MEM_REGION_NEW( cx->reg, struct rfx_trajx_point );
     pt->t = t;
     AA_MEM_CPY( pt->x, x, 3 );
     AA_MEM_CPY( pt->r, r, 4 );
     aa_mem_rlist_enqueue_ptr( cx->point, pt );
+    cx->n_p++;
 }
 
 
@@ -335,6 +336,7 @@ void rfx_trajx_destroy( struct rfx_trajx *cx ) {
 
 void rfx_trajx_rv_init( struct rfx_trajx *traj, aa_mem_region_t *reg ) {
     struct rfx_trajq_trapvel *trajq = (struct rfx_trajq_trapvel*) aa_mem_region_alloc( reg, sizeof(*trajq) );
+    traj->reg = reg;
     traj->trajq = &trajq->traj;
     rfx_trajq_trapvel_init( trajq, reg, 6 );
     traj->vtab = &vtab_x_rv;
@@ -349,7 +351,6 @@ void rfx_trajx_rv_init( struct rfx_trajx *traj, aa_mem_region_t *reg ) {
 }
 
 /*-- SLERP --*/
-
 static int x_slerp_generate( struct rfx_trajx *cx ) {
 
     cx->pt_i = (struct rfx_trajx_point*) cx->point->head->data;
@@ -427,6 +428,8 @@ static struct rfx_trajx_vtab vtab_x_slerp = {
 void rfx_trajx_slerp_init( struct rfx_trajx *traj, aa_mem_region_t *reg ) {
     struct rfx_trajq_trapvel *trajq = (struct rfx_trajq_trapvel*) aa_mem_region_alloc( reg, sizeof(*trajq) );
     traj->trajq = &trajq->traj;
+    traj->reg = reg;
+
     rfx_trajq_trapvel_init( trajq, reg, 4 );
     traj->vtab = &vtab_x_slerp;
 
@@ -438,4 +441,142 @@ void rfx_trajx_slerp_init( struct rfx_trajx *traj, aa_mem_region_t *reg ) {
     }
     trajq->dq_max[3] = 50;
     trajq->ddq_max[3] = 50;
+}
+
+/*-- VIA --*/
+
+static int x_seg_lerp_get_x( struct rfx_trajx *cx, double t, double x[3], double r[4] ) {
+    rfx_trajx_seg_lerp_t *S = (rfx_trajx_seg_lerp_t*)cx;
+    double u = (t - S->tau_i) / S->dt;
+    aa_la_d_lerp( 3, u,
+                  S->x_i, 1,
+                  S->x_f, 1,
+                  x, 1 );
+    aa_tf_qslerp( u, S->r_i, S->r_f, r );
+    return 0;
+}
+
+static int x_seg_lerp_get_dx( struct rfx_trajx *cx, double t, double dx[6] ) {
+    rfx_trajx_seg_lerp_t *S = (rfx_trajx_seg_lerp_t*)cx;
+    /* translational */
+    for( size_t i = 0; i < 3; i ++ ) {
+        dx[i] = (S->x_f[i] - S->x_i[i]) / S->dt;
+    }
+
+    /* rotational */
+    double u = (t - S->tau_i) / S->dt;
+    double r[4], dr[4];
+    aa_tf_qslerp( u, S->r_i, S->r_f, r );
+    aa_tf_qslerpdiff( u, S->r_i, S->r_f, dr );
+    // dr/dt = dr/du * du/dt
+    for( size_t i = 0; i < 4; i ++ ) dr[i] /= S->dt;
+    aa_tf_qdiff2vel( r, dr, dx+3 );
+    return 0;
+}
+
+static struct rfx_trajx_vtab x_seg_lerp_vtab = {
+    .get_x = x_seg_lerp_get_x,
+    .get_dx = x_seg_lerp_get_dx
+};
+
+struct rfx_trajx_seg *
+rfx_trajx_seg_lerp_slerp_alloc( aa_mem_region_t *reg, double t_i, double t_f,
+                                double tau_i, double x_i[3], double r_i[4],
+                                double tau_f, double x_f[3], double r_f[4] ) {
+    rfx_trajx_seg_lerp_t *S = AA_MEM_REGION_NEW( reg, rfx_trajx_seg_lerp_t );
+    S->seg.vtab = &x_seg_lerp_vtab;
+    S->seg.t_i = t_i;
+    S->seg.t_f = t_f;
+    S->tau_i = tau_i;
+    S->tau_f = tau_f;
+    S->dt = tau_f - tau_i;
+    AA_MEM_CPY( S->x_i, x_i, 3 );
+    AA_MEM_CPY( S->x_f, x_f, 3 );
+    AA_MEM_CPY( S->r_i, r_i, 4 );
+    AA_MEM_CPY( S->r_f, r_f, 4 );
+    return &S->seg;
+}
+
+
+
+static int x_via_generate( struct rfx_trajx *cx ) {
+    cx->pt_i = (struct rfx_trajx_point*) cx->point->head->data;
+    struct rfx_trajx_via *traj = (struct rfx_trajx_via*)cx;
+
+    // allocate arrays
+    traj->seg = AA_MEM_REGION_NEW_N( cx->reg, struct rfx_trajx_seg*, cx->n_p - 1 );
+
+    // fill arrays
+    size_t i = 0;
+    for( aa_mem_cons_t *pcons = cx->point->head; pcons; pcons = pcons->next )
+    {
+        struct rfx_trajx_point *pt = (struct rfx_trajx_point*)pcons->data;
+        struct rfx_trajx_point *pt_next = NULL;
+        if( NULL == pcons->next ) cx->pt_f = pt;
+        else {
+            pt_next = (struct rfx_trajx_point*)pcons->next->data;
+            traj->seg[i] = rfx_trajx_seg_lerp_slerp_alloc( traj->trajx.reg, pt->t, pt_next->t,
+                                                           pt->t, pt->x, pt->r,
+                                                           pt_next->t, pt_next->x, pt_next->r );
+        }
+        i++;
+    }
+    return 0;
+}
+
+static int x_via_compar( const void *a, const void *b ) {
+    double t = *(double*)a;
+    struct rfx_trajx_seg *B = *(struct rfx_trajx_seg**)b;
+    if( t < B->t_i ) return -1;
+    else if( t > B->t_f ) return 1;
+    else {
+        return 0;
+    }
+}
+
+static struct rfx_trajx_seg  *
+x_via_search( struct rfx_trajx *cx, double t ) {
+    rfx_trajx_via_t *traj = (rfx_trajx_via_t*)cx;
+    if( t <= cx->pt_i->t ) return traj->seg[0];
+    else if (t >= cx->pt_f->t) return traj->seg[cx->n_p - 1];
+    /* else search */
+    struct rfx_trajx_seg *B = *(struct rfx_trajx_seg**)bsearch( &t, traj->seg,
+                                                                cx->n_p-1, sizeof(traj->seg[0]),
+                                                                x_via_compar );
+    return B;
+}
+
+static int x_via_get_x( struct rfx_trajx *cx, double t, double x[3], double r[4] ) {
+    struct rfx_trajx_seg *s = x_via_search(cx,t);
+    return rfx_trajx_get_x( (rfx_trajx_t*)s, t, x, r );
+}
+
+static int x_via_get_dx( struct rfx_trajx *cx, double t, double dx[6] ) {
+    struct rfx_trajx_seg *s = x_via_search(cx,t);
+    return rfx_trajx_get_dx( (rfx_trajx_t*)s, t, dx );
+}
+
+static int x_via_get_ddx( struct rfx_trajx *cx, double t, double ddx[6] ) {
+    struct rfx_trajx_seg *s = x_via_search(cx,t);
+    return rfx_trajx_get_ddx( (rfx_trajx_t*)s, t, ddx );
+}
+
+static void x_via_add( struct rfx_trajx *cx, double t, double x[3], double r[4] ) {
+    x_add( cx, t, x, r );
+}
+
+static struct rfx_trajx_vtab vtab_x_via = {
+    .generate = x_via_generate,
+    .add = x_via_add,
+    .get_x = x_via_get_x,
+    .get_dx = x_via_get_dx,
+    .get_ddx = x_via_get_ddx,
+};
+
+void rfx_trajx_via_init( struct rfx_trajx_via *traj, aa_mem_region_t *reg ) {
+    traj->trajx.vtab = &vtab_x_via;
+    traj->trajx.reg = reg;
+    traj->trajx.point = aa_mem_rlist_alloc( reg );
+
+    traj->trajx.n_p = 0;
 }
