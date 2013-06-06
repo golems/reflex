@@ -128,19 +128,23 @@ void plot_viax() {
     aa_mem_region_t reg;
     aa_mem_region_init( &reg, 1024*32 );
 
-    rfx_trajx_via_t T;
-    rfx_trajx_via_init( &T, &reg );
+    /* rfx_trajx_via_t T; */
+    /* rfx_trajx_via_init( &T, &reg ); */
+    rfx_trajx_parablend_t T;
+    rfx_trajx_parablend_init( &T, &reg, 1 );
+
+    rfx_trajx_t *pT = (rfx_trajx_t*)&T;
 
     double X[4][3] = { {0,0,0}, {1,0,0}, {1,1,0}, {1,1,1} };
     double E[4][3] = { {0,0,0}, {M_PI_2,0,0}, {M_PI_2,M_PI_2,0}, {M_PI_2,M_PI_2,M_PI_2} };
     double R[4][4];
     for( size_t i = 0; i < sizeof(E)/sizeof(E[0]); i ++ ) {
         aa_tf_eulerzyx2quat( E[i], R[i] );
-        rfx_trajx_add( &T.trajx, 5.0*(double)i, X[i], R[i] );
+        rfx_trajx_add( pT, 5.0*(double)i, X[i], R[i] );
     }
-    rfx_trajx_generate( &T.trajx );
 
-    rfx_trajx_plot( &T.trajx, .001 );
+    rfx_trajx_generate( pT );
+    rfx_trajx_plot( pT, .001 );
 
     aa_mem_region_destroy( &reg );
 }

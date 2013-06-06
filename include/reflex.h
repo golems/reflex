@@ -571,12 +571,46 @@ rfx_trajx_seg_lerp_slerp_alloc( aa_mem_region_t *reg, double t_i, double t_f,
 typedef struct rfx_trajx_via {
     struct rfx_trajx trajx;
     struct rfx_trajx_seg **seg;
+    size_t n_seg;
 } rfx_trajx_via_t;
 
 
 void rfx_trajx_via_init( struct rfx_trajx_via *cx, aa_mem_region_t *reg );
 
 void rfx_trajx_plot( struct rfx_trajx *cx, double dt );
+
+
+/*--- Cartesian Parabolic Blends ---*/
+
+typedef struct rfx_trajx_seg_lerp_rv {
+    struct rfx_trajx_seg seg;
+    double x_i[6], x_f[6];
+    double tau_i, tau_f;
+    double dt;
+} rfx_trajx_seg_lerp_rv_t;
+
+struct rfx_trajx_seg *
+rfx_trajx_seg_lerp_rv_alloc( aa_mem_region_t *reg, double t_i, double t_f,
+                             double tau_i, double x_i[6],
+                             double tau_f, double x_f[6] );
+
+typedef struct rfx_trajx_seg_blend_rv {
+    struct rfx_trajx_seg seg;
+    double x_i[6], dx_i[6], ddx[6];
+    double tau_i;
+} rfx_trajx_seg_blend_rv_t;
+struct rfx_trajx_seg *
+rfx_trajx_seg_blend_rv_alloc( aa_mem_region_t *reg, double t_i, double t_f,
+                              double tau_i, double x_i[6], double dx_i[6], double ddx[6] );
+
+
+typedef struct rfx_trajx_parablend {
+    struct rfx_trajx_via via;
+    double t_b;
+} rfx_trajx_parablend_t;
+
+
+void rfx_trajx_parablend_init( struct rfx_trajx_parablend *cx, aa_mem_region_t *reg, double t_b );
 
 #ifdef __cplusplus
 }

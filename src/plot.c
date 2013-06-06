@@ -203,7 +203,7 @@ void rfx_trajx_plot( struct rfx_trajx *cx, double dt ) {
     // the rows are the time series for each axis.
     double X[n*3];     // translation
     double Q[n*4];     // Orientation
-    double dX[n*6];    // vel
+    double dX[n*6];   // translational vel
 
     double sdQ[n*4];   // Integrated Quatenion Derivative (orientation)
     double sdX[n*3];   // Integrated translation
@@ -220,8 +220,8 @@ void rfx_trajx_plot( struct rfx_trajx *cx, double dt ) {
         for( i = 0, t = t_i; t < t_f && i < n; i++, t+=dt ) {
             T[i] = t;
             rfx_trajx_get_x( cx, t, X + 3*i, Q+4*i );
-            rfx_trajx_get_dx( cx, t, dX+3*i );
-            aa_tf_qvel2diff( Q+4*i, dX+3*i+3, dQ+4*i );
+            rfx_trajx_get_dx( cx, t, dX+6*i );
+            aa_tf_qvel2diff( Q+4*i, dX+6*i+3, dQ+4*i );
         }
     }
     // integrate
@@ -237,7 +237,7 @@ void rfx_trajx_plot( struct rfx_trajx *cx, double dt ) {
             }
 
             for( size_t i = 0; i < 3; i ++ ) {
-                sdX[ k*3 + i ] = X[ (k-1)*3 + i ] + dt*dX[ k*6 + i ];
+                sdX[ k*3 + i ] = sdX[ (k-1)*3 + i ] + dt*dX[ k*6 + i ];
             }
         }
     }
