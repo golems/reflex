@@ -635,6 +635,7 @@ typedef struct rfx_trajx_seg_blend_q {
 
     double ddu_ij;
     double ddu_jk;
+    double ddu_j;
 } rfx_trajx_seg_blend_q_t;
 
 struct rfx_trajx_seg *

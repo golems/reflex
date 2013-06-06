@@ -194,8 +194,6 @@ void rfx_trajx_plot( struct rfx_trajx *cx, double dt ) {
     double t_i = cx->pt_i->t;
     double t_f = cx->pt_f->t;
 
-    fprintf(stderr, "%f, %f\n", t_i, t_f );
-
     size_t n = (size_t) ( (t_f - t_i) / dt );
     double T[n]; // time
     // matrices for points in the trajectory.
@@ -235,7 +233,7 @@ void rfx_trajx_plot( struct rfx_trajx *cx, double dt ) {
 
         for( size_t k = 1; k < n; k ++ ) {
             for( size_t i = 0; i < 4; i ++ ) {
-                sdQ[ k*4 + i ] = Q[ (k-1)*4 + i ] + dt*dQ[ k*4 + i ];
+                sdQ[ k*4 + i ] = sdQ[ (k-1)*4 + i ] + dt*dQ[ k*4 + i ];
             }
 
             for( size_t i = 0; i < 3; i ++ ) {

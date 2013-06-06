@@ -772,7 +772,7 @@ static void x_seg_blend_q_get_u( struct rfx_trajx *cx, double t,
                                  double *pdt,
                                  double *du_ij, double *u_ij,
                                  double *du_jk, double *u_jk,
-                                 double *u_j )
+                                 double *du_j, double *u_j )
 {
     rfx_trajx_seg_blend_q_t *S = (rfx_trajx_seg_blend_q_t*)cx;
     double t_ij = S->t_ij;
@@ -788,7 +788,14 @@ static void x_seg_blend_q_get_u( struct rfx_trajx *cx, double t,
     *du_jk = dt * ddu_jk;
     *u_jk = 0.5*ddu_jk * dt*dt;
 
-    *u_j = dt / t_b;
+    if (t < S->t_j) {
+        *du_j = S->ddu_j * dt;
+        *u_j = 0.5 * S->ddu_j * dt*dt;
+    } else {
+        double dtt = (S->t_j + t_b/2) - t;
+        *du_j = S->ddu_j * dtt;
+        *u_j = 1 - 0.5 * S->ddu_j * dtt*dtt;
+    }
 
     *pdt = dt;
 
@@ -796,16 +803,16 @@ static void x_seg_blend_q_get_u( struct rfx_trajx *cx, double t,
 
 static int x_seg_blend_q_get_q( struct rfx_trajx *cx, double t, double r[4], double dr[4] ) {
     rfx_trajx_seg_blend_q_t *S = (rfx_trajx_seg_blend_q_t*)cx;
-    double dt, du_ij, u_ij, du_jk, u_jk, u_j;
+    double dt, du_ij, u_ij, du_jk, u_jk, du_j, u_j;
     x_seg_blend_q_get_u( cx, t,
                          &dt,
                          &du_ij, &u_ij,
                          &du_jk, &u_jk,
-                         &u_j );
+                         &du_j, &u_j );
 
     aa_tf_qslerp3diff( u_ij, du_ij, S->r_i, S->r_j,
                        u_jk, du_jk, S->r_j, S->r_k,
-                       u_j, 1/S->t_b, r, dr );
+                       u_j, du_j, r, dr );
     return 0;
 }
 
@@ -874,6 +881,7 @@ rfx_trajx_seg_blend_q_alloc( aa_mem_region_t *reg, double t_0, double t_1,
     S->tau_i = t_j - t_b/2;
     S->ddu_ij =  - 1.0 / (S->t_ij*t_b);
     S->ddu_jk =  1.0 / ( (t_k-t_j)*t_b );
+    S->ddu_j = 4 / (t_b*t_b);
 
     /* translational parameters */
     aa_la_d_lerp( 3, (S->t_ij-t_b/2)/S->t_ij,
