@@ -131,7 +131,8 @@ void plot_viax() {
     /* rfx_trajx_via_t T; */
     /* rfx_trajx_via_init( &T, &reg ); */
     rfx_trajx_parablend_t T;
-    rfx_trajx_parablend_init( &T, &reg, 1 );
+    rfx_trajx_splend_init( &T, &reg, 1 );
+    //rfx_trajx_parablend_init( &T, &reg, 1 );
 
     rfx_trajx_t *pT = (rfx_trajx_t*)&T;
 

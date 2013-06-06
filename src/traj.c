@@ -346,8 +346,8 @@ void rfx_trajx_rv_init( struct rfx_trajx *traj, aa_mem_region_t *reg ) {
     traj->point = aa_mem_rlist_alloc( reg );
 
     for( size_t i = 0; i < 6; i ++ ) {
-        trajq->dq_max[i] = 1.0; // TODO: pick better
-        trajq->ddq_max[i] = 1.0;
+        trajq->dq_max[i] = 10.0; // TODO: pick better
+        trajq->ddq_max[i] = 10.0;
     }
 
 }
@@ -439,8 +439,8 @@ void rfx_trajx_slerp_init( struct rfx_trajx *traj, aa_mem_region_t *reg ) {
     traj->point = aa_mem_rlist_alloc( reg );
 
     for( size_t i = 0; i < 3; i ++ ) {
-        trajq->dq_max[i] = 1.0; // TODO: pick better
-        trajq->ddq_max[i] = 1.0;
+        trajq->dq_max[i] = 10.0; // TODO: pick better
+        trajq->ddq_max[i] = 10.0;
     }
     trajq->dq_max[3] = 50;
     trajq->ddq_max[3] = 50;
@@ -763,4 +763,194 @@ void rfx_trajx_parablend_init( struct rfx_trajx_parablend *cx, aa_mem_region_t *
     rfx_trajx_via_init(&cx->via, reg);
     cx->t_b = t_b;
     cx->via.trajx.vtab = &vtab_x_parablend;
+}
+
+
+/*--- Cartesian Sphereical Parabolic Blends ---*/
+
+static void x_seg_blend_q_get_u( struct rfx_trajx *cx, double t,
+                                 double *pdt,
+                                 double *du_ij, double *u_ij,
+                                 double *du_jk, double *u_jk,
+                                 double *u_j )
+{
+    rfx_trajx_seg_blend_q_t *S = (rfx_trajx_seg_blend_q_t*)cx;
+    double t_ij = S->t_ij;
+    double t_b = S->t_b;
+    double ddu_ij = S->ddu_ij;
+    double ddu_jk = S->ddu_jk;
+
+    double dt = t - (S->t_j - t_b/2);
+
+    *du_ij = (1.0 / t_ij) + (dt * ddu_ij);
+    *u_ij = (t_ij - t_b/2) / t_ij  +  dt/t_ij + 0.5*ddu_ij * dt*dt;
+
+    *du_jk = dt * ddu_jk;
+    *u_jk = 0.5*ddu_jk * dt*dt;
+
+    *u_j = dt / t_b;
+
+    *pdt = dt;
+
+}
+
+static int x_seg_blend_q_get_q( struct rfx_trajx *cx, double t, double r[4], double dr[4] ) {
+    rfx_trajx_seg_blend_q_t *S = (rfx_trajx_seg_blend_q_t*)cx;
+    double dt, du_ij, u_ij, du_jk, u_jk, u_j;
+    x_seg_blend_q_get_u( cx, t,
+                         &dt,
+                         &du_ij, &u_ij,
+                         &du_jk, &u_jk,
+                         &u_j );
+
+    aa_tf_qslerp3diff( u_ij, du_ij, S->r_i, S->r_j,
+                       u_jk, du_jk, S->r_j, S->r_k,
+                       u_j, 1/S->t_b, r, dr );
+    return 0;
+}
+
+
+// Rotation Vector Parabolic Blend Segment
+static int x_seg_blend_q_get_x( struct rfx_trajx *cx, double t, double x[3], double r[4] ) {
+    rfx_trajx_seg_blend_q_t *S = (rfx_trajx_seg_blend_q_t*)cx;
+    double dt = t - S->tau_i;
+
+    /* translation */
+    for( size_t i = 0; i < 6; i ++ ) {
+        x[i] = S->x0[i] + dt*S->dx0[i] + 0.5*dt*dt*S->ddx[i];
+    }
+
+    /* rotation */
+    double  dq[4];
+    x_seg_blend_q_get_q( cx, t, r, dq );
+    return 0;
+}
+
+static int x_seg_blend_q_get_dx( struct rfx_trajx *cx, double t, double dx[6] ) {
+    rfx_trajx_seg_blend_q_t *S = (rfx_trajx_seg_blend_q_t*)cx;
+    double dt = t - (S->t_j-S->t_b/2);
+
+    /* translation */
+    for( size_t i = 0; i < 3; i ++ ) {
+        dx[i] = S->dx0[i] + dt*S->ddx[i];
+    }
+
+    /* rotation */
+    double  q[4], dq[4];
+    x_seg_blend_q_get_q( cx, t, q, dq );
+    aa_tf_qdiff2vel( q, dq, dx+3 );
+
+    return 0;
+}
+
+static struct rfx_trajx_vtab x_seg_blend_q_vtab = {
+    .get_x = x_seg_blend_q_get_x,
+    .get_dx = x_seg_blend_q_get_dx
+};
+
+
+struct rfx_trajx_seg *
+rfx_trajx_seg_blend_q_alloc( aa_mem_region_t *reg, double t_0, double t_1,
+                             double t_b,
+                             double t_i, double x_i[3], double r_i[4],
+                             double t_j, double x_j[3], double r_j[4],
+                             double t_k, double x_k[3], double r_k[4] )
+{
+    rfx_trajx_seg_blend_q_t *S = AA_MEM_REGION_NEW( reg, rfx_trajx_seg_blend_q_t );
+    S->seg.vtab = &x_seg_blend_q_vtab;
+    S->seg.t_i = t_0;
+    S->seg.t_f = t_1;
+
+    S->t_i = t_i;
+    S->t_j = t_j;
+    S->t_k = t_k;
+    S->t_b = t_b;
+
+    AA_MEM_CPY( S->r_i, r_i, 4 );
+    AA_MEM_CPY( S->r_j, r_j, 4 );
+    AA_MEM_CPY( S->r_k, r_k, 4 );
+
+    S->t_ij = t_j-t_i;
+    S->tau_i = t_j - t_b/2;
+    S->ddu_ij =  - 1.0 / (S->t_ij*t_b);
+    S->ddu_jk =  1.0 / ( (t_k-t_j)*t_b );
+
+    /* translational parameters */
+    aa_la_d_lerp( 3, (S->t_ij-t_b/2)/S->t_ij,
+                  x_i, 1,
+                  x_j, 1,
+                  S->x0, 1 );
+    double dx1[3];
+    for( size_t i = 0; i < 3; i ++ ) {
+        S->dx0[i] = (x_j[i] - x_i[i]) / S->t_ij;
+        dx1[i] = (x_k[i] - x_j[i]) / (t_k - t_j);
+        S->ddx[i] = (dx1[i] - S->dx0[i]) / t_b;
+    }
+    return &S->seg;
+}
+
+static int x_splend_generate( struct rfx_trajx *cx ) {
+    rfx_trajx_splend_t *traj = (rfx_trajx_splend_t*)cx;
+
+    // allocate arrays
+    traj->via.n_seg = cx->n_p * 2 - 1;
+    traj->via.seg = AA_MEM_REGION_NEW_N( cx->reg, struct rfx_trajx_seg*, traj->via.n_seg );
+
+    // add virtual via points
+    {
+        cx->pt_i = (struct rfx_trajx_point*) cx->point->head->data;
+        struct rfx_trajx_point *pt_i = AA_MEM_REGION_NEW_CPY( cx->reg, cx->pt_i, struct rfx_trajx_point );
+        struct rfx_trajx_point *pt_f = AA_MEM_REGION_NEW_CPY( cx->reg, cx->pt_f, struct rfx_trajx_point );
+        aa_mem_rlist_push_ptr( cx->point, pt_i );
+        aa_mem_rlist_enqueue_ptr( cx->point, pt_f );
+        cx->pt_i->t += traj->t_b/2;
+        cx->pt_f->t -= traj->t_b/2;
+        cx->pt_i = pt_i;
+        cx->pt_f = pt_f;
+    }
+
+    // fill arrays
+    size_t i = 0;
+    for( aa_mem_cons_t *pcons = cx->point->head; pcons->next->next; pcons = pcons->next )
+    {
+        double t_b = traj->t_b;
+        /* current point */
+        struct rfx_trajx_point *pt_i = (struct rfx_trajx_point*)pcons->data;
+        struct rfx_trajx_point *pt_j = (struct rfx_trajx_point*)pcons->next->data;
+        struct rfx_trajx_point *pt_k = (struct rfx_trajx_point*)pcons->next->next->data;
+        /* add blend about current point */
+        traj->via.seg[i++] = rfx_trajx_seg_blend_q_alloc( cx->reg, pt_j->t-t_b/2, pt_j->t+t_b/2,
+                                                          t_b,
+                                                          pt_i->t, pt_i->x, pt_i->r,
+                                                          pt_j->t, pt_j->x, pt_j->r,
+                                                          pt_k->t, pt_k->x, pt_k->r );
+        /* add linear to next point */
+        if( pcons->next->next->next ) {
+            double t0 = pt_j->t + t_b/2;
+            double t1 = pt_k->t - t_b/2;
+            // FIXME: this is wrong for the first one
+            traj->via.seg[i++] = rfx_trajx_seg_lerp_slerp_alloc( cx->reg, t0, t1,
+                                                                 pt_j->t, pt_j->x, pt_j->r,
+                                                                 pt_k->t, pt_k->x, pt_k->r );
+            double x[3], r[4];
+            rfx_trajx_get_x( (rfx_trajx_t*)traj->via.seg[i-1], t0, x, r );
+        }
+    }
+    return 0;
+}
+
+
+static struct rfx_trajx_vtab vtab_x_splend = {
+    .generate = x_splend_generate,
+    .add = x_via_add,
+    .get_x = x_via_get_x,
+    .get_dx = x_via_get_dx,
+    .get_ddx = x_via_get_ddx,
+};
+
+void rfx_trajx_splend_init( struct rfx_trajx_parablend *cx, aa_mem_region_t *reg, double t_b ) {
+    memset(cx,0,sizeof(*cx));
+    rfx_trajx_via_init(&cx->via, reg);
+    cx->t_b = t_b;
+    cx->via.trajx.vtab = &vtab_x_splend;
 }

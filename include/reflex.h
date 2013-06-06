@@ -612,6 +612,42 @@ typedef struct rfx_trajx_parablend {
 
 void rfx_trajx_parablend_init( struct rfx_trajx_parablend *cx, aa_mem_region_t *reg, double t_b );
 
+/*--- Cartesian Sphereical Parabolic Blends ---*/
+
+typedef struct rfx_trajx_seg_blend_q {
+    struct rfx_trajx_seg seg;
+    double x0[3];
+    double dx0[3];
+    double ddx[3];
+
+    double r_i[4];
+    double r_j[4];
+    double r_k[4];
+
+    double t_b;
+    double t_i;
+    double t_j;
+    double t_k;
+
+    double t_ij;
+
+    double tau_i;
+
+    double ddu_ij;
+    double ddu_jk;
+} rfx_trajx_seg_blend_q_t;
+
+struct rfx_trajx_seg *
+rfx_trajx_seg_blend_q_alloc( aa_mem_region_t *reg, double t_0, double t_1,
+                             double t_b,
+                             double t_i, double x_i[3], double r_i[4],
+                             double t_j, double x_j[3], double r_j[4],
+                             double t_k, double x_k[3], double r_k[4] );
+
+typedef struct rfx_trajx_parablend rfx_trajx_splend_t;
+
+void rfx_trajx_splend_init( rfx_trajx_splend_t *cx, aa_mem_region_t *reg, double t_b );
+
 #ifdef __cplusplus
 }
 #endif //__cplusplus

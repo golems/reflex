@@ -222,6 +222,8 @@ void rfx_trajx_plot( struct rfx_trajx *cx, double dt ) {
             rfx_trajx_get_x( cx, t, X + 3*i, Q+4*i );
             rfx_trajx_get_dx( cx, t, dX+6*i );
             aa_tf_qvel2diff( Q+4*i, dX+6*i+3, dQ+4*i );
+            //printf("%f: ", t);
+            //aa_dump_vec(stdout, X+3*i, 3);
         }
     }
     // integrate
