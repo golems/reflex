@@ -181,3 +181,45 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
 
     return RFX_OK;
 }
+
+rfx_ctrlx_lin_t *rfx_ctrlx_alloc( aa_mem_region_t *reg, size_t n_q, rfx_kin_fun kin_fun, void *kin_fun_cx ) {
+    rfx_ctrlx_lin_t *p = AA_MEM_REGION_NEW( reg, rfx_ctrlx_lin_t );
+    p->ctrl = AA_MEM_REGION_NEW( reg, rfx_ctrl_t );
+    p->k = AA_MEM_REGION_NEW( reg, rfx_ctrl_ws_lin_k_t  );
+
+    memset( p->ctrl, 0, sizeof(*p->ctrl) );
+    memset( p->k, 0, sizeof(*p->k) );
+
+    p->ctrl->n_q = n_q;
+    p->kin_fun = kin_fun;
+    p->kin_fun_cx = kin_fun_cx;
+
+    p->ctrl->q = AA_MEM_REGION_NEW_N( reg, double, n_q );
+    p->ctrl->q_r = AA_MEM_REGION_NEW_N( reg, double, n_q );
+    p->ctrl->dq = AA_MEM_REGION_NEW_N( reg, double, n_q );
+    p->ctrl->q_min = AA_MEM_REGION_NEW_N( reg, double, n_q );
+    p->ctrl->q_max = AA_MEM_REGION_NEW_N( reg, double, n_q );
+
+    AA_MEM_SET( p->ctrl->q, 0, n_q );
+    AA_MEM_SET( p->ctrl->q_r, 0, n_q );
+    AA_MEM_SET( p->ctrl->dq, 0, n_q );
+    AA_MEM_SET( p->ctrl->q_min, 0, n_q );
+    AA_MEM_SET( p->ctrl->q_max, 0, n_q );
+
+    p->ctrl->J = AA_MEM_REGION_NEW_N( reg, double, n_q*6 );
+
+    p->k->n_q = n_q;
+    p->k->q = AA_MEM_REGION_NEW_N( reg, double, n_q );
+    AA_MEM_SET( p->k->q, 0, n_q );
+
+
+    return p;
+}
+
+AA_API rfx_status_t rfx_ctrlx_lin_vfwd( const rfx_ctrlx_lin_t *ctrl, const double *q,
+                                        double *u ) {
+    AA_MEM_CPY( ctrl->ctrl->q, q, ctrl->ctrl->n_q );
+
+    ctrl->kin_fun( ctrl->kin_fun_cx, q, ctrl->ctrl->x, ctrl->ctrl->r, ctrl->ctrl->J );
+    return rfx_ctrl_ws_lin_vfwd( ctrl->ctrl, ctrl->k, u );
+}

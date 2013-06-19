@@ -268,6 +268,18 @@ void rfx_trajq_trapvel_init( struct rfx_trajq_trapvel *cx, aa_mem_region_t *reg,
 /* WORKSPACE */
 /*************/
 
+
+int rfx_trajx_set_ctrl( struct rfx_trajx *cx, double t, rfx_ctrlx_lin_t *ctrlx ) {
+    int r;
+
+    if( (r = rfx_trajx_get_x( cx, t, ctrlx->ctrl->x_r, ctrlx->ctrl->r_r )) )
+        return r;
+
+    r = rfx_trajx_get_dx( cx, t, ctrlx->ctrl->dx_r );
+
+    return r;
+}
+
 static void x_add( struct rfx_trajx *cx, double t, double x[3], double r[4] ) {
     struct rfx_trajx_point *pt = AA_MEM_REGION_NEW( cx->reg, struct rfx_trajx_point );
     pt->t = t;

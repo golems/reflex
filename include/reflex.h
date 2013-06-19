@@ -164,6 +164,11 @@ AA_API const char* rfx_status_string(rfx_status_t i);
 /* Workspace Controller */
 /************************/
 
+typedef int (*rfx_kin_fun) ( const void *cx, const double *q, double *x, double *r, double *J);
+
+typedef int (*rfx_ctrlx_fun) ( const void *cx, const double *q, const double *dq,
+                               double *x, double *r, double *dx );
+
 /** Workspace control state and reference values.
  *
  */
@@ -236,6 +241,19 @@ AA_API void rfx_ctrl_ws_lin_k_destroy( rfx_ctrl_ws_lin_k_t *k );
  * \param u The configuration velocity to command, \f$ u \in \Re^{n_q} \f$
  */
 AA_API rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k,  double *u );
+
+
+typedef struct rfx_ctrlx_lin {
+    rfx_ctrl_t *ctrl;
+    rfx_ctrl_ws_lin_k_t *k;
+    rfx_kin_fun kin_fun;
+    void  *kin_fun_cx;
+} rfx_ctrlx_lin_t;
+
+rfx_ctrlx_lin_t *rfx_ctrlx_alloc( aa_mem_region_t *reg, size_t n_q, rfx_kin_fun kin_fun, void *kin_fun_cx );
+
+AA_API rfx_status_t rfx_ctrlx_lin_vfwd( const rfx_ctrlx_lin_t *ctrl, const double *q,
+                                        double *u );
 
 /****************************************/
 /* Linear Quadratic Gaussian Controller */
@@ -526,9 +544,13 @@ static inline int rfx_trajx_get_ddx( struct rfx_trajx *cx, double t, double ddx[
     return cx->vtab->get_ddx( cx, t, ddx );
 }
 
+
+int rfx_trajx_set_ctrl( struct rfx_trajx *cx, double t, rfx_ctrlx_lin_t *ctrlx );
+
 static inline int rfx_trajx_generate( struct rfx_trajx *cx ) {
     return cx->vtab->generate( cx );
 }
+
 
 void rfx_trajx_destroy( struct rfx_trajx *cx );
 
