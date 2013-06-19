@@ -140,7 +140,7 @@ void plot_viax() {
     double E[4][3] = { {0,0,0}, {M_PI_2,0,0}, {M_PI_2,M_PI_2,0}, {M_PI_2,M_PI_2,M_PI_2} };
     double R[4][4];
     for( size_t i = 0; i < sizeof(E)/sizeof(E[0]); i ++ ) {
-        aa_tf_eulerzyx2quat( E[i], R[i] );
+        aa_tf_eulerzyx2quat( E[i][0], E[i][1], E[i][2], R[i] );
         rfx_trajx_add( pT, 5.0*(double)i, X[i], R[i] );
     }
 

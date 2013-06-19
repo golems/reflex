@@ -577,7 +577,11 @@ typedef struct rfx_trajx_via {
 
 void rfx_trajx_via_init( struct rfx_trajx_via *cx, aa_mem_region_t *reg );
 
-void rfx_trajx_plot( struct rfx_trajx *cx, double dt );
+typedef struct rfx_trajx_plot_opts {
+    int to_file;
+} rfx_trajx_plot_opts_t;
+
+void rfx_trajx_plot( struct rfx_trajx *cx, double dt, const struct rfx_trajx_plot_opts *opts );
 
 
 /*--- Cartesian Parabolic Blends ---*/
