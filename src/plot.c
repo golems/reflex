@@ -247,6 +247,7 @@ void rfx_trajx_plot( struct rfx_trajx *cx, double dt, const struct rfx_trajx_plo
         }
     }
 
+
     static const char *XYZW[] = {"x", "y", "z", "w"};
     { // plot position
         aa_plot_opts_t opts = {0};
@@ -332,5 +333,51 @@ void rfx_trajx_plot( struct rfx_trajx *cx, double dt, const struct rfx_trajx_plo
 
     }
 
+    // joints
+
+    if ( xopts && xopts->ctrlx && xopts->q_0 ) {
+        size_t n_q = xopts->ctrlx->ctrl->n_q;
+        double phi[ xopts->ctrlx->ctrl->n_q * (n+1) ];
+        double dphi[ n_q * n ];
+        AA_MEM_CPY( phi, xopts->q_0, n_q );
+
+        for( size_t i = 0; i < n; i ++ ) {
+            rfx_trajx_set_ctrl( cx, T[i], xopts->ctrlx );
+            rfx_ctrlx_lin_vfwd( xopts->ctrlx, phi + i*n_q, dphi+i*n_q );
+            // integrate
+            for( size_t j = 0; j < n_q; j ++ ) {
+                phi[ (i+1)*n_q + j ] = phi[i*n_q + j] + dt * dphi[i*n_q + j];
+            }
+        }
+        char lbl[n_q][32];
+        const char *plbl[n_q];
+        for( size_t j = 0; j < n_q; j ++ ) {
+            sprintf( lbl[j], "%lu", j );
+            plbl[j] = lbl[j];
+        }
+
+        { // plot joint position
+            aa_plot_opts_t opts = {0};
+            opts.title="Joint Position";
+            opts.ylabel="position (rad)";
+            opts.xlabel="time (s)";
+            opts.axis_label = plbl;
+            if( xopts->to_file ) opts.script_file = "phi.gnuplot";
+            aa_plot_row_series( n_q, n, T, phi,
+                                & opts );
+
+        }
+        { // plot joint velocity
+            aa_plot_opts_t opts = {0};
+            opts.title="Joint Velocity";
+            opts.ylabel="velocity (rad/s)";
+            opts.xlabel="time (s)";
+            opts.axis_label = plbl;
+            if( xopts->to_file ) opts.script_file = "dphi.gnuplot";
+            aa_plot_row_series( n_q, n, T, dphi,
+                                & opts );
+
+        }
+    }
 
 }

@@ -600,7 +600,9 @@ typedef struct rfx_trajx_via {
 void rfx_trajx_via_init( struct rfx_trajx_via *cx, aa_mem_region_t *reg );
 
 typedef struct rfx_trajx_plot_opts {
-    int to_file;
+    int to_file;                ///< write plot to file
+    rfx_ctrlx_lin_t * ctrlx;    ///< plot joint values with this controller
+    double *q_0;                ///< initial joint position
 } rfx_trajx_plot_opts_t;
 
 void rfx_trajx_plot( struct rfx_trajx *cx, double dt, const struct rfx_trajx_plot_opts *opts );
