@@ -51,7 +51,8 @@ void spring()  {
     //FILE *f_nx1 = fopen("x1.dat","w");
 
     double A[4] = {0, -1, 1, 0};
-    aa_sys_affine_t sys = {.n = 2, .A = A, .D = (double[]){0,0}};
+    double z2[2] = {0,0};
+    aa_sys_affine_t sys = {.n = 2, .A = A, .D = z2};
     double x1[2] = {0,1}, x0[2];
     double dt=.1;
     for( double t = 0; t < 10; t+=dt ) {
@@ -69,14 +70,19 @@ void spring()  {
 
 void init_lqg(rfx_lqg_t *lqg) {
     rfx_lqg_init(lqg, 2, 1, 1 );
+    double A[4] = {0,-1, 1,-.5};
+    AA_MEM_CPY( lqg->A, A, 4 );
+    double B[2] = {0,1};
+    AA_MEM_CPY( lqg->B, B, 2 );
+    double C[2] = {1,0};
+    AA_MEM_CPY( lqg->C, C, 2 );
 
-    memcpy( lqg->A, (double[]){0,-1, 1,-.5}, 4*sizeof(double) );
-    memcpy( lqg->B, (double[]){0,1}, 2*sizeof(double) );
-    memcpy( lqg->C, (double[]){1,0}, 2*sizeof(double) );
-
-    memcpy( lqg->P, (double[]){1,0, 0,1}, 4*sizeof(double) );
-    memcpy( lqg->V, (double[]){1,0, 0,1}, 4*sizeof(double) );
-    memcpy( lqg->W, (double[]){1}, 1*sizeof(double) );
+    double P[4] = {1,0, 0,1};
+    AA_MEM_CPY( lqg->P, P, 4 );
+    double V[4] = {1,0, 0,1};
+    AA_MEM_CPY( lqg->V, V, 4 );
+    double W[1] = {1};
+    AA_MEM_CPY( lqg->W, W, 1 );
 }
 
 void kf() {
@@ -88,10 +94,11 @@ void kf() {
     init_lqg( &sys_lqg );
 
     // spring sequence test
-    memcpy(kf_lqg.x, (double[]){0,0}, sizeof(double)*kf_lqg.n_x);
-    memcpy(kf_lqg.u, (double[]){0}, sizeof(double)*kf_lqg.n_u);
-    memcpy(kf_lqg.z, (double[]){0}, sizeof(double)*kf_lqg.n_z);
-    memcpy(kf_lqg.P, (double[]){1e0,0,0,1e0}, sizeof(double)*kf_lqg.n_x*kf_lqg.n_x);
+    AA_MEM_SET(kf_lqg.x, 0, kf_lqg.n_x);
+    AA_MEM_SET(kf_lqg.u, 0, kf_lqg.n_u);
+    AA_MEM_SET(kf_lqg.z, 0, kf_lqg.n_z);
+    double P[4] = {1e0,0,0,1e0};
+    AA_MEM_CPY(kf_lqg.P, P, kf_lqg.n_x*kf_lqg.n_x);
     FILE *f_tx0 = fopen("x0.dat","w");
     FILE *f_tx1 = fopen("x1.dat","w");
     FILE *f_z0 = fopen("z0.dat","w");
@@ -164,7 +171,8 @@ void kbf() {
 
     // test gain
     rfx_lqg_kbf_gain(&lqg);
-    assert( aa_veq( 2, lqg.K, (double[]){1,0}, .001 ) );
+    double K[2] = {1,0};
+    assert( aa_veq( 2, lqg.K, K, .001 ) );
 
     /* memcpy(lqg.P, (double[]){1,0,0,1}, sizeof(double)*lqg.n_x*lqg.n_x); */
     /* rfx_lqg_kf_predict(&lqg); */
@@ -240,8 +248,3 @@ int main( int argc, char **argv ) {
     kf();
     kbf();
 }
-
-
-
-
-

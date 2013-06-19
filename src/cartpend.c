@@ -77,23 +77,20 @@ void init_lqg(rfx_lqg_t *lqg) {
     double p = i*(M+m)+M*m*l*l;
 
     // A: Process Model
-    aa_la_transpose2( 4, 4,
-                      (double[]){ 0, 1,               0,             0,
-                                  0, -(i+m*l*l)*b/p, (m*m*g*l*l)/p,  0,
-                                  0, 0,               0,             1,
-                                  0, -(m*l*b)/p,      m*g*l*(M+m)/p, 0 },
-                      lqg->A );
+    double At[16] = { 0, 1,               0,             0,
+                      0, -(i+m*l*l)*b/p, (m*m*g*l*l)/p,  0,
+                      0, 0,               0,             1,
+                      0, -(m*l*b)/p,      m*g*l*(M+m)/p, 0 };
+    aa_la_transpose2( 4, 4, At, lqg->A );
 
     // B: Input Model
-    memcpy( lqg->B,
-            (double[]){ 0, (i+m*l*l)/p, 0, m*l/p },
-            sizeof(double)*4 );
+    double B[4] = { 0, (i+m*l*l)/p, 0, m*l/p };
+    AA_MEM_CPY( lqg->B, B, 4 );
 
     // C: Measurement Model
-    aa_la_transpose2( 4, 2,
-                      (double[]){ 1, 0, 0, 0,
-                                  0, 0, 1, 0},
-                      lqg->C );
+    double Ct[8] = { 1, 0, 0, 0,
+                     0, 0, 1, 0};
+    aa_la_transpose2( 4, 2, Ct, lqg->C );
 
     // Covariance, Noise, Cost as identity matrices
     aa_la_ident( lqg->n_x, lqg->P );
@@ -163,9 +160,10 @@ int main( int argc, char **argv ) {
     aa_tock();
 
     // check the the LQR gain is what we expect
-    assert( aa_veq(4, lqg.L,
-                   AA_FAR( -1.0000,  -2.0408,  20.3672,   3.9302),
-                   .001) );
+    {
+        double L[4] = { -1.0000,  -2.0408,  20.3672,   3.9302};
+        assert( aa_veq(4, lqg.L, L, .001) );
+    }
 
 
     /* open output files */
@@ -225,8 +223,3 @@ int main( int argc, char **argv ) {
     }
     fclose(f_u);
 }
-
-
-
-
-
