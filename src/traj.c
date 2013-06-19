@@ -823,7 +823,7 @@ static int x_seg_blend_q_get_x( struct rfx_trajx *cx, double t, double x[3], dou
     double dt = t - S->tau_i;
 
     /* translation */
-    for( size_t i = 0; i < 6; i ++ ) {
+    for( size_t i = 0; i < 3; i ++ ) {
         x[i] = S->x0[i] + dt*S->dx0[i] + 0.5*dt*dt*S->ddx[i];
     }
 

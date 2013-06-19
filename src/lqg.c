@@ -48,7 +48,7 @@
 
 
 AA_API void rfx_lqg_init( rfx_lqg_t *lqg, size_t n_x, size_t n_u, size_t n_z ) {
-    memset( lqg, 0, sizeof(lqg) );
+    memset( lqg, 0, sizeof(*lqg) );
     lqg->n_x = n_x;
     lqg->n_u = n_u;
     lqg->n_z = n_z;
