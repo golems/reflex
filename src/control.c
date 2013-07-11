@@ -176,8 +176,21 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
     for( size_t i = 0; i < ws->n_q; i ++ ) {
         dq_r[i] = -k->q[i] * (ws->q[i] - ws->q_r[i]);// + ws->dq_r[i];
     }
-    // find jointspace velocity
-    aa_la_dlsnp( 6, ws->n_q, k->dls, ws->J, dx_u, dq_r, u );
+
+    // find damped inverse
+    double J_star[6*ws->n_q];  // q is probally small, assume this fits on the stack
+
+    // Compute a damped pseudo inverse
+    if( k->s2min > 0 ) {
+        aa_la_dzdpinv( 6, ws->n_q, k->s2min, ws->J, J_star );
+    } else  {
+        aa_la_dpinv( 6, ws->n_q, k->dls, ws->J, J_star );
+    }
+
+    // damped least squares with null-space projection
+    aa_la_xlsnp( 6, ws->n_q, ws->J, J_star, dx_u, dq_r, u );
+
+    /* aa_la_dlsnp( 6, ws->n_q, k->dls, ws->J, dx_u, dq_r, u ); */
 
     return RFX_OK;
 }

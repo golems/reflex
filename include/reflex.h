@@ -212,11 +212,12 @@ AA_API void rfx_ctrl_ws_destroy( rfx_ctrl_ws_t *g );
  */
 typedef struct {
     size_t n_q;
-    double p[6]; ///< position error gains
-    double *q;   ///< configuration error gains
+    double p[6];   ///< position error gains
+    double *q;     ///< configuration error gains
     //double v[6]; ///< velocity error gains
-    double f[6]; ///< force error gains
-    double dls;  ///< damped least squares k
+    double f[6];   ///< force error gains
+    double dls;    ///< damped least squares k
+    double s2min;  ///< deadzone damped least squares minimum square singular value
 } rfx_ctrl_ws_lin_k_t;
 
 /// initialize
