@@ -195,6 +195,16 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
     return RFX_OK;
 }
 
+rfx_status_t rfx_ctrl_ws_sdx( rfx_ctrl_ws_t *ws, double dt ) {
+    // translation
+    aa_la_axpy( 3, dt, ws->dx_r, ws->x_r );
+    // rotation
+    double r1[4];
+    aa_tf_qvelrk4( ws->r_r, ws->dx_r+3, dt, r1 );
+    aa_tf_qnormalize2( r1, ws->r_r );
+    return RFX_OK;
+}
+
 rfx_ctrlx_lin_t *rfx_ctrlx_alloc( aa_mem_region_t *reg, size_t n_q, rfx_kin_fun kin_fun, void *kin_fun_cx ) {
     rfx_ctrlx_lin_t *p = AA_MEM_REGION_NEW( reg, rfx_ctrlx_lin_t );
     p->ctrl = AA_MEM_REGION_NEW( reg, rfx_ctrl_t );

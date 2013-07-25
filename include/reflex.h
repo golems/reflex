@@ -244,6 +244,15 @@ AA_API void rfx_ctrl_ws_lin_k_destroy( rfx_ctrl_ws_lin_k_t *k );
 AA_API rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k,  double *u );
 
 
+/** Integrate the reference velocity in ws to produce an updated
+ * reference position.
+ *
+ * Uses RK1/Euler integration.
+ */
+rfx_status_t rfx_ctrl_ws_sdx( rfx_ctrl_ws_t *ws, double dt );
+
+
+
 typedef struct rfx_ctrlx_lin {
     rfx_ctrl_t *ctrl;
     rfx_ctrl_ws_lin_k_t *k;
