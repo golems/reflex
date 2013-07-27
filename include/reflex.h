@@ -687,6 +687,8 @@ typedef struct rfx_trajx_parablend rfx_trajx_splend_t;
 
 void rfx_trajx_splend_init( rfx_trajx_splend_t *cx, aa_mem_region_t *reg, double t_b );
 
+#include "reflex/kinematics.h"
+
 #ifdef __cplusplus
 }
 #endif //__cplusplus

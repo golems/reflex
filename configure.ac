@@ -13,6 +13,7 @@ AC_PROG_CC
 AC_PROG_LIBTOOL
 AC_PROG_CC_C99
 AM_PROG_CC_C_O
+AC_PROG_FC
 
 # Checks for libraries.
 AC_SEARCH_LIBS([cblas_dgemm],[blas], [true], [echo "Failed: need BLAS library" && exit 1])
@@ -65,6 +66,25 @@ APPEND_CFLAG([-Wfloat-equal])
 APPEND_CFLAG([-Wshadow])
 APPEND_CFLAG([-Wwrite-strings])
 APPEND_CFLAG([-Wc++-compat])
+
+
+AC_LANG([Fortran])
+APPEND_FCFLAG([-fimplicit-none])
+APPEND_FCFLAG([-ffree-line-length-none])
+APPEND_FCFLAG([-Wall])
+APPEND_FCFLAG([-pedantic])
+APPEND_FCFLAG([-Wextra])
+APPEND_FCFLAG([-Wconversion])
+APPEND_FCFLAG([-Wconversion-extra])
+APPEND_FCFLAG([-Wshadow])
+APPEND_FCFLAG([-Wimplicit-interface])
+APPEND_FCFLAG([-Wimplicit-procedure])
+APPEND_FCFLAG([-Wunderflow])
+APPEND_FCFLAG([-Warray-temporaries])
+APPEND_FCFLAG([-Wtabs])
+APPEND_FCFLAG([-Wunused-parameter])
+APPEND_FCFLAG([-Wintrinsic-shadow])
+
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
