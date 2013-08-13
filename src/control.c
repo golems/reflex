@@ -153,16 +153,26 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
         }
     }
 
+    /* // find position error */
+    /* aa_la_vsub( 3, ws->x, ws->x_r, x_e ); */
 
-    // find position error
-    aa_la_vsub( 3, ws->x, ws->x_r, x_e );
+    /* // find orientation error */
+    /* { */
+    /*     double r_e[4]; */
+    /*     aa_tf_qrel(ws->r, ws->r_r, r_e); */
+    /*     double zero[3] = {0,0,0}; */
+    /*     // this is really the quaternion logarithm!
+    /*     aa_tf_quat2rotvec_near( r_e, zero, x_e+3 );    // axis-angle conversion */
+    /* } */
 
-    // find orientation error
+    // relative dual quaternion -> twist -> velocity
     {
-        double r_e[4];
-        aa_tf_qrel(ws->r, ws->r_r, r_e);
-        double zero[3] = {0,0,0};
-        aa_tf_quat2rotvec_near( r_e, zero, x_e+3 );    // axis-angle conversion
+        double twist[8], d_r[8], d[8], de[8];
+        aa_tf_qv2duqu( ws->r, ws->x, d );
+        aa_tf_qv2duqu( ws->r_r, ws->x_r, d_r );
+        aa_tf_duqu_mulc( d, d_r, de );  // de = d*conj(d_r)
+        aa_tf_duqu_ln( de, twist );     // twist = log( de )
+        aa_tf_duqu_twist2vel( d, twist, x_e );
     }
 
     // find workspace velocity
