@@ -154,27 +154,33 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
     }
 
     // find position error
-    aa_la_vsub( 3, ws->x, ws->x_r, x_e );
+    /* aa_la_vsub( 3, ws->x, ws->x_r, x_e ); */
 
-    // find orientation error
-    {
-        double r_e[4];
-        aa_tf_qrel(ws->r, ws->r_r, r_e);
-        double zero[3] = {0,0,0};
-        // this is really the quaternion logarithm!
-        aa_tf_quat2rotvec_near( r_e, zero, x_e+3 );    // axis-angle conversion
-    }
-
-    /* // relative dual quaternion -> twist -> velocity */
+    /* // find orientation error */
     /* { */
-    /*     double twist[8], d_r[8], d[8], de[8]; */
-    /*     aa_tf_qv2duqu( ws->r, ws->x, d ); */
-    /*     aa_tf_qv2duqu( ws->r_r, ws->x_r, d_r ); */
-    /*     aa_tf_duqu_mulc( d, d_r, de );  // de = d*conj(d_r) */
-    /*     aa_tf_duqu_ln( de, twist );     // twist = log( de ) */
-    /*     aa_tf_duqu_twist2vel( d, twist, x_e ); */
+    /*     double r_e[4], rln[4]; */
+    /*     aa_tf_qmulc(ws->r, ws->r_r, r_e); */
+    /*     // this is really the quaternion logarithm! */
+    /*     aa_tf_qminimize(r_e); */
+    /*     aa_tf_quat2rotvec( r_e, x_e+3 );    // axis-angle conversion */
     /* } */
 
+    // relative dual quaternion -> twist -> velocity
+    {
+        double twist[8], d_r[8], d[8], de[8];
+        aa_tf_qv2duqu( ws->r, ws->x, d );
+        aa_tf_qv2duqu( ws->r_r, ws->x_r, d_r );
+        aa_tf_duqu_mulc( d, d_r, de );  // de = d*conj(d_r)
+        aa_tf_duqu_minimize(de);
+        aa_tf_duqu_ln( de, twist );     // twist = log( de )
+        aa_tf_duqu_twist2vel( d, twist, x_e );
+    }
+
+    //printf("xe: "); aa_dump_vec(stdout, x_e, 6);
+    //printf("xed: "); aa_dump_vec(stdout, x_e_d, 6);
+    //if( aa_la_ssd(6, x_e_s, x_e_d) > 1e-1 ) {
+    //    abort();
+    //}
 
     // find workspace velocity
     // dx_u = dx_r - k_p * x_e -  k_f * (F - F_r)
@@ -216,10 +222,11 @@ rfx_status_t rfx_ctrl_ws_sdx( rfx_ctrl_ws_t *ws, double dt ) {
     /* aa_tf_qsvel( ws->r_r, ws->dx_r+3, dt, r1_split ); */
     /* aa_tf_qnormalize( r1_split ); */
 
-    double S0[8], S1[8], v1_duqu[3];
+    double S0[8], S1[8];
     aa_tf_qv2duqu( ws->r_r, ws->x_r, S0 );
     aa_tf_duqu_svel( S0, ws->dx_r, dt, S1 );
-    aa_tf_duqu_trans( S1, v1_duqu );
+    AA_MEM_CPY( ws->r_r, S1, 4 );
+    aa_tf_duqu_trans( S1, ws->x_r );
 
     /* printf("old:  %f\t%f\t%f\t%f\t|\t%f\t%f\t%f\n", */
     /*        ws->r_r[0], ws->r_r[1], ws->r_r[2], ws->r_r[3], */
@@ -230,9 +237,6 @@ rfx_status_t rfx_ctrl_ws_sdx( rfx_ctrl_ws_t *ws, double dt ) {
     /* printf("dual: %f\t%f\t%f\t%f\t|\t%f\t%f\t%f\n", */
     /*        S1[0], S1[1], S1[2], S1[3], */
     /*        v1_duqu[0], v1_duqu[1], v1_duqu[2] ); */
-
-    AA_MEM_CPY( ws->r_r, S1, 4 );
-    AA_MEM_CPY( ws->x_r, v1_duqu, 3 );
 
     return RFX_OK;
 }
