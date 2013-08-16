@@ -69,8 +69,8 @@ void rfx_ctrl_ws_init( rfx_ctrl_ws_t *g, size_t n ) {
     g->dq_r = AA_NEW0_AR( double, n );
     g->q_min = AA_NEW0_AR( double, n );
     g->q_max = AA_NEW0_AR( double, n );
-    aa_fcpy( g->r, aa_tf_quat_ident, 4 );
-    aa_fcpy( g->r_r, aa_tf_quat_ident, 4 );
+    AA_MEM_CPY( g->S, aa_tf_duqu_ident, 8 );
+    AA_MEM_CPY( g->S_r, aa_tf_duqu_ident, 8 );
 }
 
 void rfx_ctrl_ws_destroy( rfx_ctrl_ws_t *g ) {
@@ -111,8 +111,11 @@ static rfx_status_t check_limit( const rfx_ctrl_t *g, const double dx[3] ) {
             return RFX_LIMIT_CONFIGURATION;
     }
     // x_min, x_max
+    double x[3], x_r[3];
+    aa_tf_duqu_trans( g->S, x );
+    aa_tf_duqu_trans( g->S_r, x_r );
     for( size_t i = 0; i < 3; i++ ) {
-        if( (g->x[i] < g->x_min[i]) || (g->x[i] > g->x_max[i] ) )
+        if( (x[i] < g->x_min[i]) || (x[i] > g->x_max[i] ) )
             return RFX_LIMIT_POSITION;
     }
     // e_q_max
@@ -121,7 +124,7 @@ static rfx_status_t check_limit( const rfx_ctrl_t *g, const double dx[3] ) {
         return RFX_LIMIT_CONFIGURATION_ERROR;
     // e_x_max
     if( (g->e_x_max > 0) &&
-        ( aa_la_ssd(3, g->x, g->x_r) > g->e_x_max * g->e_x_max ) )
+        ( aa_la_ssd(3, x, x_r) > g->e_x_max * g->e_x_max ) )
         return RFX_LIMIT_POSITION_ERROR;
     // e_F_max
     if( (g->e_F_max > 0) &&
@@ -167,13 +170,11 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
 
     // relative dual quaternion -> twist -> velocity
     {
-        double twist[8], d_r[8], d[8], de[8];
-        aa_tf_qv2duqu( ws->r, ws->x, d );
-        aa_tf_qv2duqu( ws->r_r, ws->x_r, d_r );
-        aa_tf_duqu_mulc( d, d_r, de );  // de = d*conj(d_r)
+        double twist[8], de[8];
+        aa_tf_duqu_mulc( ws->S, ws->S_r, de );  // de = d*conj(d_r)
         aa_tf_duqu_minimize(de);
         aa_tf_duqu_ln( de, twist );     // twist = log( de )
-        aa_tf_duqu_twist2vel( d, twist, x_e );
+        aa_tf_duqu_twist2vel( ws->S, twist, x_e );
     }
 
     //printf("xe: "); aa_dump_vec(stdout, x_e, 6);
@@ -222,11 +223,9 @@ rfx_status_t rfx_ctrl_ws_sdx( rfx_ctrl_ws_t *ws, double dt ) {
     /* aa_tf_qsvel( ws->r_r, ws->dx_r+3, dt, r1_split ); */
     /* aa_tf_qnormalize( r1_split ); */
 
-    double S0[8], S1[8];
-    aa_tf_qv2duqu( ws->r_r, ws->x_r, S0 );
-    aa_tf_duqu_svel( S0, ws->dx_r, dt, S1 );
-    AA_MEM_CPY( ws->r_r, S1, 4 );
-    aa_tf_duqu_trans( S1, ws->x_r );
+    double S1[8];
+    aa_tf_duqu_svel( ws->S_r, ws->dx_r, dt, S1 );
+    AA_MEM_CPY( ws->S_r, S1, 8 );
 
     /* printf("old:  %f\t%f\t%f\t%f\t|\t%f\t%f\t%f\n", */
     /*        ws->r_r[0], ws->r_r[1], ws->r_r[2], ws->r_r[3], */
@@ -279,6 +278,8 @@ AA_API rfx_status_t rfx_ctrlx_lin_vfwd( const rfx_ctrlx_lin_t *ctrl, const doubl
                                         double *u ) {
     AA_MEM_CPY( ctrl->ctrl->q, q, ctrl->ctrl->n_q );
 
-    ctrl->kin_fun( ctrl->kin_fun_cx, q, ctrl->ctrl->x, ctrl->ctrl->r, ctrl->ctrl->J );
+    double r[4], x[3];
+    ctrl->kin_fun( ctrl->kin_fun_cx, q, x, r, ctrl->ctrl->J );
+    aa_tf_qv2duqu( r, x, ctrl->ctrl->S );
     return rfx_ctrl_ws_lin_vfwd( ctrl->ctrl, ctrl->k, u );
 }

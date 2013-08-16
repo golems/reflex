@@ -272,8 +272,10 @@ void rfx_trajq_trapvel_init( struct rfx_trajq_trapvel *cx, aa_mem_region_t *reg,
 int rfx_trajx_set_ctrl( struct rfx_trajx *cx, double t, rfx_ctrlx_lin_t *ctrlx ) {
     int r;
 
-    if( (r = rfx_trajx_get_x( cx, t, ctrlx->ctrl->x_r, ctrlx->ctrl->r_r )) )
+    double x_r[3], r_r[4];
+    if( (r = rfx_trajx_get_x( cx, t, x_r,r_r )) )
         return r;
+    aa_tf_qv2duqu( r_r, x_r, ctrlx->ctrl->S_r );
 
     r = rfx_trajx_get_dx( cx, t, ctrlx->ctrl->dx_r );
 

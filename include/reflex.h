@@ -178,14 +178,12 @@ typedef struct {
     double *q;       ///< actual configuration
     double *dq;      ///< actual config velocity
     double *J;       ///< jacobian
-    double x[3];     ///< actual workspace position
-    double r[4];     ///< actual workspace orientation quaternion
+    double S[8];     ///< actual pose dual quaternion
     double F[6];     ///< actual workspace forces
     // reference
     double *q_r;     ///< reference confguration position
     double *dq_r;    ///< reference confguration velocity
-    double x_r[3];   ///< reference workspace position
-    double r_r[4];   ///< reference workspace orientation quaternion
+    double S_r[8];   ///< reference pose dual quaternion
     double dx_r[6];  ///< reference workspace velocity
     double F_r[6];   ///< reference workspace forces
     // limits
@@ -507,6 +505,13 @@ void rfx_trajq_trapvel_init( struct rfx_trajq_trapvel *cx, aa_mem_region_t *reg,
 
 
 /*--- Cartesian Space Trajectories ---*/
+
+/* TODO: Separate structure types for trajectory via point container
+ * and segment list.  Then, can use a generic segment list struct for
+ * any trajectory type.  Also gives some possibility to parallelize
+ * generation and tracking, or even pass generated trajectories via
+ * IPC (would need to fixup vtable links for that somehow).
+ */
 
 struct rfx_trajx;
 

@@ -29,7 +29,6 @@ plot_test_LDADD = libreflex.la
 libreflex_la_SOURCES =              \
 	src/control.c               \
 	src/trajectory.cpp          \
-	src/trajectory_plot.cpp     \
 	src/lqg.c                   \
 	src/plot.c                  \
 	src/kinematics.f90          \
