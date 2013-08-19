@@ -187,12 +187,15 @@ void rfx_trajq_plot( struct rfx_trajq *cx, double dt ) {
 
 }
 
+static struct rfx_trajx_plot_opts default_trajx_plot_opts = {0};
 
 
 void rfx_trajx_plot( struct rfx_trajx *cx, double dt, const struct rfx_trajx_plot_opts *xopts ) {
 
     double t_i = cx->pt_i->t;
     double t_f = cx->pt_f->t;
+
+    if( NULL == xopts ) xopts = &default_trajx_plot_opts;
 
     size_t n = (size_t) ( (t_f - t_i) / dt );
     double T[n]; // time
@@ -280,7 +283,7 @@ void rfx_trajx_plot( struct rfx_trajx *cx, double dt, const struct rfx_trajx_plo
         opts.ylabel="quaternion";
         opts.xlabel="time (s)";
         opts.axis_label = XYZW;
-        if( xopts->to_file ) opts.script_file = "x.gnuplot";
+        if( xopts->to_file ) opts.script_file = "sum_dq.gnuplot";
         aa_plot_row_series( 4, n, T, sdQ,
                             & opts );
 
