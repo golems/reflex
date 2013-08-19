@@ -542,8 +542,22 @@ static inline void rfx_trajx_add( struct rfx_trajx *cx, double t, double x[3], d
     cx->vtab->add( cx, t, x, r );
 }
 
+
+static inline void rfx_trajx_add_duqu( struct rfx_trajx *cx, double t, const double S[8] ) {
+    double r[4], x[3];
+    aa_tf_duqu2qv(S, r, x );
+    cx->vtab->add( cx, t, x, r );
+}
+
 static inline int rfx_trajx_get_x( struct rfx_trajx *cx, double t, double x[3], double r[4]) {
     return cx->vtab->get_x( cx, t, x, r );
+}
+
+static inline int rfx_trajx_get_x_duqu( struct rfx_trajx *cx, double t, double S[8] ) {
+    double x[3], r[4];
+    int i = cx->vtab->get_x( cx, t, x, r );
+    aa_tf_qv2duqu( r, x, S );
+    return i;
 }
 
 static inline int rfx_trajx_get_dx( struct rfx_trajx *cx, double t, double dx[6]) {
