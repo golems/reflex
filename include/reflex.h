@@ -169,23 +169,22 @@ typedef int (*rfx_kin_fun) ( const void *cx, const double *q, double *x, double 
 typedef int (*rfx_ctrlx_fun) ( const void *cx, const double *q, const double *dq,
                                double *x, double *r, double *dx );
 
+struct rfx_ctrlx_state {
+    double *q;  ///< joint configuration
+    double *dq; ///< joint velocity
+    double *S;  ///< pose dual quaternion
+    double *dx; ///< workspace velocity
+    double *F;  ///< workspace forces
+};
+
 /** Workspace control state and reference values.
  *
  */
 typedef struct {
     size_t n_q;      ///< size of config space
-    // actual
-    double *q;       ///< actual configuration
-    double *dq;      ///< actual config velocity
+    struct rfx_ctrlx_state act; ///< actual state
+    struct rfx_ctrlx_state ref; ///< reference state
     double *J;       ///< jacobian
-    double S[8];     ///< actual pose dual quaternion
-    double F[6];     ///< actual workspace forces
-    // reference
-    double *q_r;     ///< reference confguration position
-    double *dq_r;    ///< reference confguration velocity
-    double S_r[8];   ///< reference pose dual quaternion
-    double dx_r[6];  ///< reference workspace velocity
-    double F_r[6];   ///< reference workspace forces
     // limits
     double F_max;    ///< maximum linear force magnitude (<=0 to ignore)
     double M_max;    ///< maximum moment magnitude (<=0 to ignore)
@@ -200,6 +199,11 @@ typedef struct {
 } rfx_ctrl_t;
 
 typedef rfx_ctrl_t rfx_ctrl_ws_t;
+
+/** Initialize workspace control state structure.
+ *  Malloc's arrays for each field
+ */
+AA_API void rfx_ctrlx_state_init( struct rfx_ctrlx_state *x, size_t n );
 
 /// initialize workspace controller
 AA_API void rfx_ctrl_ws_init( rfx_ctrl_ws_t *g, size_t n );

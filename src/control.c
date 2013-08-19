@@ -59,26 +59,56 @@ const char* rfx_status_string(rfx_status_t i) {
     return "unknown";
 }
 
+
+void rfx_ctrlx_state_init( struct rfx_ctrlx_state *x, size_t n ) {
+    x->q  = AA_NEW0_AR( double, n );
+    x->dq = AA_NEW0_AR( double, n );
+    x->S  = AA_NEW0_AR( double, 8 );
+    x->dx = AA_NEW0_AR( double, 6 );
+    x->F  = AA_NEW0_AR( double, 6 );
+    AA_MEM_CPY( x->S, aa_tf_duqu_ident, 8 );
+}
+
+
+void rfx_ctrlx_state_init_region( struct rfx_ctrlx_state *x, aa_mem_region_t *reg, size_t n ) {
+    x->q  = AA_MEM_REGION_NEW_N( reg, double, n );
+    AA_MEM_SET( x->q, 0, n );
+    x->dq = AA_MEM_REGION_NEW_N( reg, double, n );
+    AA_MEM_SET( x->dq, 0, n );
+    x->S  = AA_MEM_REGION_NEW_N( reg, double, 8 );
+    AA_MEM_CPY( x->S, aa_tf_duqu_ident, 8 );
+    x->dx = AA_MEM_REGION_NEW_N( reg, double, 6 );
+    AA_MEM_SET( x->dx, 0, 6 );
+    x->F  = AA_MEM_REGION_NEW_N( reg, double, 6 );
+    AA_MEM_SET( x->F, 0, 6 );
+}
+
 void rfx_ctrl_ws_init( rfx_ctrl_ws_t *g, size_t n ) {
     memset( g, 0, sizeof(*g) );
     g->n_q = n;
-    g->q = AA_NEW0_AR( double, n );
-    g->dq = AA_NEW0_AR( double, n );
+
+    rfx_ctrlx_state_init( &g->ref, n );
+    rfx_ctrlx_state_init( &g->act, n );
+
     g->J = AA_NEW0_AR( double, n*6 );
-    g->q_r = AA_NEW0_AR( double, n );
-    g->dq_r = AA_NEW0_AR( double, n );
+
     g->q_min = AA_NEW0_AR( double, n );
     g->q_max = AA_NEW0_AR( double, n );
-    AA_MEM_CPY( g->S, aa_tf_duqu_ident, 8 );
-    AA_MEM_CPY( g->S_r, aa_tf_duqu_ident, 8 );
+}
+
+void rfx_ctrlx_state_destroy( struct rfx_ctrlx_state *x ) {
+    free(x->q);
+    free(x->dq);
+    free(x->S);
+    free(x->dx);
+    free(x->F);
 }
 
 void rfx_ctrl_ws_destroy( rfx_ctrl_ws_t *g ) {
-    free(g->q);
-    free(g->dq);
+    rfx_ctrlx_state_destroy(&g->ref);
+    rfx_ctrlx_state_destroy(&g->act);
+
     free(g->J);
-    free(g->q_r);
-    free(g->dq_r);
     free(g->q_min);
     free(g->q_max);
 }
@@ -96,31 +126,31 @@ AA_API void rfx_ctrl_ws_lin_k_destroy( rfx_ctrl_ws_lin_k_t *k ) {
 static rfx_status_t check_limit( const rfx_ctrl_t *g, const double dx[3] ) {
     // F_max
     if( (g->F_max > 0) /* has limit */ &&
-        (aa_la_dot( 3, g->F, g->F ) > g->F_max*g->F_max) /* magnitude check */ &&
-        0 < aa_la_dot( 3, g->F, dx ) /*direction check*/ )
+        (aa_la_dot( 3, g->act.F, g->act.F ) > g->F_max*g->F_max) /* magnitude check */ &&
+        0 < aa_la_dot( 3, g->act.F, dx ) /*direction check*/ )
     {
         return RFX_LIMIT_FORCE;
     }
     // M_max
     if( (g->M_max > 0) &&
-        (aa_la_dot( 3, g->F+3, g->F+3 ) > g->M_max*g->M_max) )
+        (aa_la_dot( 3, g->act.F+3, g->act.F+3 ) > g->M_max*g->M_max) )
         return RFX_LIMIT_MOMENT;
     // q_min, q_max
     for( size_t i = 0; i < g->n_q; i++ ) {
-        if( (g->q[i] < g->q_min[i]) || (g->q[i] > g->q_max[i] ) )
+        if( (g->act.q[i] < g->q_min[i]) || (g->act.q[i] > g->q_max[i] ) )
             return RFX_LIMIT_CONFIGURATION;
     }
     // x_min, x_max
     double x[3], x_r[3];
-    aa_tf_duqu_trans( g->S, x );
-    aa_tf_duqu_trans( g->S_r, x_r );
+    aa_tf_duqu_trans( g->act.S, x );
+    aa_tf_duqu_trans( g->ref.S, x_r );
     for( size_t i = 0; i < 3; i++ ) {
         if( (x[i] < g->x_min[i]) || (x[i] > g->x_max[i] ) )
             return RFX_LIMIT_POSITION;
     }
     // e_q_max
     if( (g->e_q_max > 0) &&
-        ( aa_la_ssd(g->n_q, g->q, g->q_r) > g->e_q_max * g->e_q_max ) )
+        ( aa_la_ssd(g->n_q, g->act.q, g->ref.q) > g->e_q_max * g->e_q_max ) )
         return RFX_LIMIT_CONFIGURATION_ERROR;
     // e_x_max
     if( (g->e_x_max > 0) &&
@@ -128,11 +158,11 @@ static rfx_status_t check_limit( const rfx_ctrl_t *g, const double dx[3] ) {
         return RFX_LIMIT_POSITION_ERROR;
     // e_F_max
     if( (g->e_F_max > 0) &&
-        ( aa_la_ssd(3, g->F, g->F_r) > g->e_F_max * g->e_F_max ) )
+        ( aa_la_ssd(3, g->act.F, g->ref.F) > g->e_F_max * g->e_F_max ) )
         return RFX_LIMIT_FORCE_ERROR;;
     // e_M_max
     if( (g->e_M_max > 0) &&
-        ( aa_la_ssd(3, g->F+3, g->F_r+3) > g->e_M_max * g->e_M_max ) )
+        ( aa_la_ssd(3, g->act.F+3, g->ref.F+3) > g->e_M_max * g->e_M_max ) )
         return RFX_LIMIT_MOMENT_ERROR;
 
     return RFX_OK;
@@ -149,7 +179,7 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
 
     // check force limits
     {
-        rfx_status_t r = check_limit( ws, ws->dx_r );
+        rfx_status_t r = check_limit( ws, ws->ref.dx );
         if( RFX_OK != r ) {
             aa_fzero( u, ws->n_q );
             return r;
@@ -171,10 +201,10 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
     // relative dual quaternion -> twist -> velocity
     {
         double twist[8], de[8];
-        aa_tf_duqu_mulc( ws->S, ws->S_r, de );  // de = d*conj(d_r)
+        aa_tf_duqu_mulc( ws->act.S, ws->ref.S, de );  // de = d*conj(d_r)
         aa_tf_duqu_minimize(de);
         aa_tf_duqu_ln( de, twist );     // twist = log( de )
-        aa_tf_duqu_twist2vel( ws->S, twist, x_e );
+        aa_tf_duqu_twist2vel( ws->act.S, twist, x_e );
     }
 
     //printf("xe: "); aa_dump_vec(stdout, x_e, 6);
@@ -186,13 +216,13 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
     // find workspace velocity
     // dx_u = dx_r - k_p * x_e -  k_f * (F - F_r)
     for(size_t i = 0; i < 6; i ++ ) {
-        dx_u[i] = ws->dx_r[i]
+        dx_u[i] = ws->ref.dx[i]
             - k->p[i] * x_e[i]
-            - k->f[i] * (ws->F[i] - ws->F_r[i]);
+            - k->f[i] * (ws->act.F[i] - ws->ref.F[i]);
     }
     // jointspace reference velocity
     for( size_t i = 0; i < ws->n_q; i ++ ) {
-        dq_r[i] = -k->q[i] * (ws->q[i] - ws->q_r[i]);// + ws->dq_r[i];
+        dq_r[i] = -k->q[i] * (ws->act.q[i] - ws->ref.q[i]);// + ws->dq_r[i];
     }
 
     // find damped inverse
@@ -224,8 +254,8 @@ rfx_status_t rfx_ctrl_ws_sdx( rfx_ctrl_ws_t *ws, double dt ) {
     /* aa_tf_qnormalize( r1_split ); */
 
     double S1[8];
-    aa_tf_duqu_svel( ws->S_r, ws->dx_r, dt, S1 );
-    AA_MEM_CPY( ws->S_r, S1, 8 );
+    aa_tf_duqu_svel( ws->ref.S, ws->ref.dx, dt, S1 );
+    AA_MEM_CPY( ws->ref.S, S1, 8 );
 
     /* printf("old:  %f\t%f\t%f\t%f\t|\t%f\t%f\t%f\n", */
     /*        ws->r_r[0], ws->r_r[1], ws->r_r[2], ws->r_r[3], */
@@ -252,15 +282,12 @@ rfx_ctrlx_lin_t *rfx_ctrlx_alloc( aa_mem_region_t *reg, size_t n_q, rfx_kin_fun 
     p->kin_fun = kin_fun;
     p->kin_fun_cx = kin_fun_cx;
 
-    p->ctrl->q = AA_MEM_REGION_NEW_N( reg, double, n_q );
-    p->ctrl->q_r = AA_MEM_REGION_NEW_N( reg, double, n_q );
-    p->ctrl->dq = AA_MEM_REGION_NEW_N( reg, double, n_q );
+    rfx_ctrlx_state_init_region( &p->ctrl->act, reg, n_q );
+    rfx_ctrlx_state_init_region( &p->ctrl->ref, reg, n_q );
+
     p->ctrl->q_min = AA_MEM_REGION_NEW_N( reg, double, n_q );
     p->ctrl->q_max = AA_MEM_REGION_NEW_N( reg, double, n_q );
 
-    AA_MEM_SET( p->ctrl->q, 0, n_q );
-    AA_MEM_SET( p->ctrl->q_r, 0, n_q );
-    AA_MEM_SET( p->ctrl->dq, 0, n_q );
     AA_MEM_SET( p->ctrl->q_min, 0, n_q );
     AA_MEM_SET( p->ctrl->q_max, 0, n_q );
 
@@ -276,10 +303,10 @@ rfx_ctrlx_lin_t *rfx_ctrlx_alloc( aa_mem_region_t *reg, size_t n_q, rfx_kin_fun 
 
 AA_API rfx_status_t rfx_ctrlx_lin_vfwd( const rfx_ctrlx_lin_t *ctrl, const double *q,
                                         double *u ) {
-    AA_MEM_CPY( ctrl->ctrl->q, q, ctrl->ctrl->n_q );
+    AA_MEM_CPY( ctrl->ctrl->act.q, q, ctrl->ctrl->n_q );
 
     double r[4], x[3];
     ctrl->kin_fun( ctrl->kin_fun_cx, q, x, r, ctrl->ctrl->J );
-    aa_tf_qv2duqu( r, x, ctrl->ctrl->S );
+    aa_tf_qv2duqu( r, x, ctrl->ctrl->act.S );
     return rfx_ctrl_ws_lin_vfwd( ctrl->ctrl, ctrl->k, u );
 }

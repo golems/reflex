@@ -145,7 +145,7 @@ void plot_viax() {
     }
 
     rfx_trajx_generate( pT );
-    rfx_trajx_plot( pT, .001 );
+    rfx_trajx_plot( pT, .001, NULL );
 
     aa_mem_region_destroy( &reg );
 }

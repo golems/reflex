@@ -275,9 +275,9 @@ int rfx_trajx_set_ctrl( struct rfx_trajx *cx, double t, rfx_ctrlx_lin_t *ctrlx )
     double x_r[3], r_r[4];
     if( (r = rfx_trajx_get_x( cx, t, x_r,r_r )) )
         return r;
-    aa_tf_qv2duqu( r_r, x_r, ctrlx->ctrl->S_r );
+    aa_tf_qv2duqu( r_r, x_r, ctrlx->ctrl->ref.S );
 
-    r = rfx_trajx_get_dx( cx, t, ctrlx->ctrl->dx_r );
+    r = rfx_trajx_get_dx( cx, t, ctrlx->ctrl->ref.dx );
 
     return r;
 }
