@@ -270,6 +270,16 @@ rfx_status_t rfx_ctrl_ws_sdx( rfx_ctrl_ws_t *ws, double dt ) {
     return RFX_OK;
 }
 
+
+rfx_status_t rfx_ctrlq_lin_vfwd( const rfx_ctrl_t *g, const rfx_ctrlq_lin_k_t *k,  double *u ) {
+    for( size_t i = 0; i < g->n_q; i ++ ) {
+        u[i] = g->ref.dq[i]
+            - k->p[i] * (g->act.q[i] - g->ref.q[i]);
+    }
+    return RFX_OK;
+}
+
+
 rfx_ctrlx_lin_t *rfx_ctrlx_alloc( aa_mem_region_t *reg, size_t n_q, rfx_kin_fun kin_fun, void *kin_fun_cx ) {
     rfx_ctrlx_lin_t *p = AA_MEM_REGION_NEW( reg, rfx_ctrlx_lin_t );
     p->ctrl = AA_MEM_REGION_NEW( reg, rfx_ctrl_t );

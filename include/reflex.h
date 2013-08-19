@@ -222,6 +222,14 @@ typedef struct {
     double s2min;  ///< deadzone damped least squares minimum square singular value
 } rfx_ctrl_ws_lin_k_t;
 
+
+/** Gains for linear jointspace control.
+ */
+typedef struct {
+    size_t n_q;
+    double *p;      ///< position error gains
+} rfx_ctrlq_lin_k_t;
+
 /// initialize
 AA_API void rfx_ctrl_ws_lin_k_init( rfx_ctrl_ws_lin_k_t *k, size_t n_q );
 /// destroy
@@ -244,6 +252,11 @@ AA_API void rfx_ctrl_ws_lin_k_destroy( rfx_ctrl_ws_lin_k_t *k );
  * \param u The configuration velocity to command, \f$ u \in \Re^{n_q} \f$
  */
 AA_API rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_lin_k_t *k,  double *u );
+
+
+/** Linear jointspace control
+ */
+AA_API rfx_status_t rfx_ctrlq_lin_vfwd( const rfx_ctrl_t *g, const rfx_ctrlq_lin_k_t *k,  double *u );
 
 
 /** Integrate the reference velocity in ws to produce an updated
@@ -457,7 +470,7 @@ struct rfx_trajq_data {
     double q[1];
 };
 
-struct rfx_trajq {
+typedef struct rfx_trajq {
     struct rfx_trajq_vtab *vtab;
     aa_mem_region_t *reg;
     size_t n_q;
@@ -465,7 +478,7 @@ struct rfx_trajq {
     double t_i, t_f;
     double *q_i, *q_f;
     aa_mem_rlist_t *point;
-};
+} rfx_trajq_t;
 
 /* Initialize struct, performing future alloctions out of reg */
 struct rfx_trajq *rfx_trajq_alloc( aa_mem_region_t *reg, size_t n_q );
@@ -494,7 +507,6 @@ static inline int rfx_trajq_generate( struct rfx_trajq *cx ) {
     return cx->vtab->generate( cx );
 }
 
-
 typedef struct rfx_trajq_trapvel {
     struct rfx_trajq traj;
     double *dq_max;   ///< max velocity (specified)
@@ -505,8 +517,6 @@ typedef struct rfx_trajq_trapvel {
 } rfx_trajq_trapvel_t;
 
 void rfx_trajq_trapvel_init( struct rfx_trajq_trapvel *cx, aa_mem_region_t *reg, size_t n_q );
-
-
 
 /*--- Cartesian Space Trajectories ---*/
 
