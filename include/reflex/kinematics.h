@@ -47,6 +47,7 @@
 extern "C" {
 #endif //__cplusplus
 
+/* ---- MATRICES ---- */
 
 /** Combine array of relative transforms into array of absolute transforms */
 void rfx_kin_tf_chain( size_t n, const double T0[12], const double *TT_rel, double * TT_abs );
@@ -64,6 +65,26 @@ void rfx_kin_jac_col_rev( const double T_abs[12], const double axis_rel[3], cons
 void rfx_kin_revchain( size_t n, const double T0[12], const double *TT_rel, const double Te_rel[12],
                        const double *axis,
                        double * TT_abs, double *J, size_t ldJ );
+
+
+/* ---- Dual Quaternions ---- */
+
+/** Combine array of relative transforms into array of absolute transforms */
+void rfx_kin_duqu_chain( size_t n, const double T0[8], const double *TT_rel, double * TT_abs );
+
+/** Compute columns of jacobian matrix for revolute links */
+void rfx_kin_duqu_jac_rev( size_t n, const double *TT_abs, const double *axis, const double pe[3],
+                           double *J, size_t ldJ );
+
+
+/** Compute one column of the Jacobian matrix for a revolute joint */
+void rfx_kin_duqu_jac_col_rev( const double T_abs[8], const double axis_rel[3], const double pe_abs[3],
+                          double *J );
+
+/** Compute FK and Jacobian for a chain of links with revolute joints */
+void rfx_kin_duqu_revchain( size_t n, const double T0[8], const double *TT_rel, const double Te_rel[8],
+                            const double *axis,
+                            double * TT_abs, double *J, size_t ldJ );
 
 #ifdef __cplusplus
 }
