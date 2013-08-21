@@ -58,7 +58,7 @@ contains
     call aa_tf_9(T_abs(:,1:3), axis_rel, J(4:6))
     ! translation
     tmp = pe_abs - T_abs(:,4)
-    call aa_tf_cross( J(3:6), tmp, J(1:3) )
+    call aa_tf_cross( J(4:6), tmp, J(1:3) )
   end subroutine rfx_kin_jac_col_rev
 
   pure subroutine rfx_kin_tf_jac_rev( n, TT_abs, axis, pe, J, ldJ ) &
@@ -112,7 +112,7 @@ contains
     ! translation
     call aa_tf_duqu_trans( T_abs, tmp )
     tmp = pe_abs - tmp
-    call aa_tf_cross( J(3:6), tmp, J(1:3) )
+    call aa_tf_cross( J(4:6), tmp, J(1:3) )
   end subroutine rfx_kin_duqu_jac_col_rev
 
   subroutine rfx_kin_duqu_jac_rev( n, TT_abs, axis, pe, J, ldJ ) &
