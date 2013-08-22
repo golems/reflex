@@ -177,14 +177,6 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
 
     assert( ws->n_q == k->n_q );
 
-    // check force limits
-    {
-        rfx_status_t r = check_limit( ws, ws->ref.dx );
-        if( RFX_OK != r ) {
-            aa_fzero( u, ws->n_q );
-            return r;
-        }
-    }
 
     // find position error
     /* aa_la_vsub( 3, ws->x, ws->x_r, x_e ); */
@@ -220,6 +212,18 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
             - k->p[i] * x_e[i]
             - k->f[i] * (ws->act.F[i] - ws->ref.F[i]);
     }
+
+
+    // check force limits
+    {
+        rfx_status_t r = check_limit( ws, dx_u );
+        if( RFX_OK != r ) {
+            aa_fzero( u, ws->n_q );
+            return r;
+        }
+    }
+
+
     // jointspace reference velocity
     for( size_t i = 0; i < ws->n_q; i ++ ) {
         dq_r[i] = -k->q[i] * (ws->act.q[i] - ws->ref.q[i]);// + ws->dq_r[i];
