@@ -48,6 +48,7 @@ struct kin_solve_cx {
     struct rfx_kin_solve_opts *opts;
     rfx_kin_duqu_fun kin_fun;
     const double *S1;
+    double dq_dt;
 };
 
 
@@ -95,23 +96,30 @@ static void kin_solve_sys( const void *vcx,
     rfx_kin_duqu_werr( S, cx->S1, w_e );
     for( size_t i = 0; i < 6; i ++ ) w_e[i] *= -cx->opts->dx_dt;
 
-
     // damped least squares
     aa_la_dzdpinv( 6, cx->n, cx->opts->s2min_dls, J, J_star );
     if( cx->opts->q_ref ) {
         // nullspace projection
         double dqnull[cx->n];
         for( size_t i = 0; i < cx->n; i ++ )  {
-            dqnull[i] =  -.003*( q[i] - cx->opts->q_ref[i] );
+            dqnull[i] = - cx->dq_dt * ( q[i] - cx->opts->q_ref[i] );
         }
         aa_la_xlsnp( 6, cx->n, J, J_star, w_e, dqnull, dq );
     } else {
-        aa_la_mvmul(7,6,J_star,w_e,dq);
+        aa_la_mvmul(cx->n,6,J_star,w_e,dq);
     }
 }
 
 
-/* Levenberg Marquedt */
+/* Levenberg Marquedt
+ *
+ *
+ *   dq = pinv(J) * log( conj(S)*S_ref ) + (I-pinv(J)*J) dq_dt * (q - q_ref)
+ *   q(k+1) = q(k) + dt(k) * dq(k)
+ *
+ *   dt is adjusted using an adaptive Runge-Kutta
+ *   dq_dt is adjusted when dq is too small
+ */
 int rfx_kin_solve( size_t n, const double *q0, const double S1[8],
                    rfx_kin_duqu_fun kin_fun,
                    double *q1,
@@ -122,52 +130,91 @@ int rfx_kin_solve( size_t n, const double *q0, const double S1[8],
     cx.opts = opts;
     cx.S1 = S1;
     cx.kin_fun = kin_fun;
+    cx.dq_dt = opts->dq_dt;
 
     AA_MEM_CPY(q1, q0, n);
-    double dq_norm = 0;
 
     int iters = 0;
 
-    do {
+    double k[n*6]; // adaptive runge-kutta internal derivatives
+    kin_solve_sys( &cx, 0, q1, k ); // initial dx for adaptive runge-kutta
+    double dt = opts->dt0; // adaptive timestep
+
+    double dq_norm = opts->dq_tol;
+    double theta_err = opts->theta_tol;
+    double x_err = opts->x_tol;
+
+    while( fabs(theta_err) >= opts->theta_tol ||
+           fabs(x_err) >= opts->x_tol ||
+           dq_norm >= opts->dq_tol )
+    {
         iters++;
-        // check error
-        double S[8], theta_err, x_err;
-        kin_fun( NULL, q1, S, NULL );
-        rfx_kin_duqu_serr( S, S1, &theta_err, &x_err );
-
-        //printf("err: theta: %f, x: %f, dqn: %f\n", theta_err, x_err, dq_norm);
-
-        if( fabs(theta_err) < opts->theta_tol &&
-            fabs(x_err) < opts->x_tol &&
-            dq_norm < opts->dq_tol )
-        {
-            break;
-        }
-
         dq_norm = 0;
 
         // integrate
-        double dq[n];
-        kin_solve_sys( &cx, 0, q1, dq );
-        for( size_t i = 0; i < n; i ++ ) {
-            dq_norm += dq[i] * dq[i];
-            q1[i] += dq[i];
-        }
+        /* double dq[n]; */
+        /* kin_solve_sys( &cx, 0, q1, dq ); */
+        /* for( size_t i = 0; i < n; i ++ ) { */
+        /*     dq_norm += dq[i] * dq[i]; */
+        /*     q1[i] += dq[i]; */
+        /* } */
 
-        /* double q[7]; */
-        /* aa_odestep_rk4( 7, kin_solve_sys, &cx, */
+        /* double q[n]; */
+        /* aa_odestep_rk4( n, kin_solve_sys, &cx, */
         /*                 0, opts->dt0, */
         /*                 q1, q ); */
-        /* for( size_t i = 0; i < 7; i ++ ) { */
+        /* for( size_t i = 0; i < n; i ++ ) { */
         /*     dq_norm += (q1[i]-q[i]) * (q1[i]-q[i]); */
         /*     q1[i] = q[i]; */
         /* } */
 
-        //printf("q: "); aa_dump_vec(stdout, q1, 7 );
-        //AA_MEM_CPY(q, q1, n);
-    } while(1);
+
+        // Adaptive step
+        {
+            double q5[n];
+            double qerr;
+            do {
+                double q4[n];
+                aa_odestep_dorpri45( n, kin_solve_sys, &cx,
+                                     0, dt,
+                                     q1, k, q4, q5 );
+                qerr = aa_la_ssd( n, q4, q5 );
+                // adapt the step size
+                if( qerr > opts->dq_tol / 2) {
+                    dt /= 10;
+                    //printf("reducing dt: %f\n", dt);
+                } else if ( qerr < opts->dq_tol / 16 ) {
+                    dt *= 2;
+                    //printf("increasing dt: %f\n", dt);
+                }
+            } while( qerr > opts->dq_tol );
+
+            for( size_t i = 0; i < n; i ++ ) {
+                dq_norm += (q1[i]-q5[i]) * (q1[i]-q5[i]);
+                q1[i] = q5[i];
+            }
+            AA_MEM_CPY(k, k+5*n, n); // write dx to k0
+        }
+
+        //printf("q: "); aa_dump_vec(stdout, q1, n );
+
+        // check error
+        double S[8];
+        kin_fun( NULL, q1, S, NULL );
+        rfx_kin_duqu_serr( S, S1, &theta_err, &x_err );
+        //printf("err: theta: %f, x: %f, dqn: %f\n", theta_err, x_err, dq_norm);
+
+        // adapt the nullspace gain
+        if( dq_norm < opts->dq_tol &&
+            (theta_err > opts->theta_tol ||
+             x_err > opts->x_tol ) )
+        {
+            cx.dq_dt /= 2;
+            //printf("halving nullspace gain: %f\n", cx.dq_dt);
+        }
+    };
 
     //printf(" iter: %d\n", iters );
-    //printf(" norm: %f\n", aa_la_dot( 7, q1, q1 ) );
+    //printf(" norm: %f\n", aa_la_dot( n, q1, q1 ) );
     return 0;
 }
