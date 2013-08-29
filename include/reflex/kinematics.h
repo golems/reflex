@@ -86,6 +86,43 @@ void rfx_kin_duqu_revchain( size_t n, const double T0[8], const double *TT_rel, 
                             const double *axis,
                             double * TT_abs, double *J, size_t ldJ );
 
+
+/* ---- Kinematic Solvers ---- */
+
+struct rfx_kin_solve_opts {
+    double dt0;          ///< initial timestep
+
+    double theta_tol;    ///< angle error tolerate
+    double x_tol;        ///< translation error tolerance
+    double dq_tol;       ///< translation error tolerance
+    double s2min_dls;    ///< minimum square singular value for damped least squares
+
+    double dx_dt;        ///< scaling for cartesian error
+
+    double *q_ref;
+};
+
+/** Gradient descent kinematic solver
+ */
+int rfx_kin_solve( size_t n, const double *q0, const double S1[8],
+                   rfx_kin_duqu_fun kin_fun,
+                   double *q1,
+                   struct rfx_kin_solve_opts *opts );
+
+/** Position error to velocity.
+ *
+  *   Returns cartesian velocity to correct position error in unit
+  *   time
+ */
+void rfx_kin_duqu_werr( const double S[8], const double S_ref[8],
+                        double werr[6] );
+
+
+/** Position error to scalars
+ */
+void rfx_kin_duqu_serr( const double S[8], const double S_ref[8],
+                       double *theta, double *x );
+
 #ifdef __cplusplus
 }
 #endif //__cplusplus

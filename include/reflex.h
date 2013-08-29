@@ -166,6 +166,8 @@ AA_API const char* rfx_status_string(rfx_status_t i);
 
 typedef int (*rfx_kin_fun) ( const void *cx, const double *q, double *x, double *r, double *J);
 
+typedef int (*rfx_kin_duqu_fun) ( const void *cx, const double *q, double S[8],  double *J);
+
 typedef int (*rfx_ctrlx_fun) ( const void *cx, const double *q, const double *dq,
                                double *x, double *r, double *dx );
 
