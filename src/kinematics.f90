@@ -141,13 +141,13 @@ contains
 
   end subroutine rfx_kin_duqu_chain
 
-  subroutine rfx_kin_duqu_revchain( n, T0, TT_rel, Te_rel, axis, TT_abs, J, ldJ ) &
+  subroutine rfx_kin_duqu_revchain( n, T0, TT_rel, Te_rel, axis, TT_abs, Te_abs, J, ldJ ) &
        bind( C, name="rfx_kin_duqu_revchain" )
     integer(C_SIZE_T), intent(in), value ::  n, ldJ
     real(C_DOUBLE), intent(in) :: T0(8), TT_rel(8,n), Te_rel(8), axis(3,n)
-    real(C_DOUBLE), intent(out) :: TT_abs(8,n)
-    real(C_DOUBLE), intent(inout) :: J(ldJ,n)
-    real(C_DOUBLE) :: Te_abs(8), pe_abs(8)
+    real(C_DOUBLE), intent(out) :: TT_abs(8,n), Te_abs(8)
+    real(C_DOUBLE), intent(out) :: J(ldJ,n)
+    real(C_DOUBLE) :: pe_abs(3)
     call rfx_kin_duqu_chain( n, T0, TT_rel, TT_abs )
     call aa_tf_duqu_mul( TT_abs(:,n), Te_rel, Te_abs )
     call aa_tf_duqu_trans( Te_abs, pe_abs )

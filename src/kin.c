@@ -221,3 +221,15 @@ int rfx_kin_solve( size_t n, const double *q0, const double S1[8],
     //printf(" norm: %f\n", aa_la_dot( n, q1, q1 ) );
     return 0;
 }
+
+/* void rfx_kin_duqu_revchain( size_t n, const double T0[8], const double *TT_rel, const double Te_rel[8], */
+/*                             const double *axis, */
+/*                             double * TT_abs,  double Te_abs[8], double *J, size_t ldJ ) */
+/* { */
+/*       printf("J: %x\n", J); */
+/*       double pe[3]; */
+/*       rfx_kin_duqu_chain( n, T0, TT_rel, TT_abs ); */
+/*       aa_tf_duqu_mul( TT_abs + 8*(n-1), Te_rel, Te_abs ); */
+/*       aa_tf_duqu_trans( Te_abs, pe ); */
+/*       rfx_kin_duqu_jac_rev( n, TT_abs, axis, pe, J, ldJ ); */
+/* } */

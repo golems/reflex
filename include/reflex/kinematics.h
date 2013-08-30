@@ -84,7 +84,7 @@ void rfx_kin_duqu_jac_col_rev( const double T_abs[8], const double axis_rel[3], 
 /** Compute FK and Jacobian for a chain of links with revolute joints */
 void rfx_kin_duqu_revchain( size_t n, const double T0[8], const double *TT_rel, const double Te_rel[8],
                             const double *axis,
-                            double * TT_abs, double *J, size_t ldJ );
+                            double * TT_abs,  double Te_abs[8], double *J, size_t ldJ );
 
 
 /* ---- Kinematic Solvers ---- */
