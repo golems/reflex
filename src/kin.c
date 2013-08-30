@@ -48,7 +48,7 @@ struct kin_solve_cx {
     struct rfx_kin_solve_opts *opts;
     rfx_kin_duqu_fun kin_fun;
     const double *S1;
-    double dq_dt;
+    double *dq_dt;
 };
 
 
@@ -102,7 +102,7 @@ static void kin_solve_sys( const void *vcx,
         // nullspace projection
         double dqnull[cx->n];
         for( size_t i = 0; i < cx->n; i ++ )  {
-            dqnull[i] = - cx->dq_dt * ( q[i] - cx->opts->q_ref[i] );
+            dqnull[i] = - cx->dq_dt[i] * ( q[i] - cx->opts->q_ref[i] );
         }
         aa_la_xlsnp( 6, cx->n, J, J_star, w_e, dqnull, dq );
     } else {
@@ -139,6 +139,9 @@ int rfx_kin_solve( size_t n, const double *q0, const double S1[8],
     double k[n*6]; // adaptive runge-kutta internal derivatives
     kin_solve_sys( &cx, 0, q1, k ); // initial dx for adaptive runge-kutta
     double dt = opts->dt0; // adaptive timestep
+    double dq_dt[n];
+    AA_MEM_CPY( dq_dt, opts->dq_dt, n );
+    cx.dq_dt = dq_dt;
 
     double dq_norm = opts->dq_tol;
     double theta_err = opts->theta_tol;
@@ -209,7 +212,7 @@ int rfx_kin_solve( size_t n, const double *q0, const double S1[8],
             (theta_err > opts->theta_tol ||
              x_err > opts->x_tol ) )
         {
-            cx.dq_dt /= 2;
+            for( size_t i = 0; i < n; i ++  ) cx.dq_dt[i] /= 2;
             //printf("halving nullspace gain: %f\n", cx.dq_dt);
         }
     };

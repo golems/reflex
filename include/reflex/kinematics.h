@@ -98,8 +98,8 @@ struct rfx_kin_solve_opts {
     double s2min_dls;    ///< minimum square singular value for damped least squares
 
     double dx_dt;        ///< scaling for cartesian error
-    double dq_dt;        ///< scaling for configuration
 
+    double *dq_dt;       ///< scaling for joint error
     double *q_ref;
 };
 
