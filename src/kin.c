@@ -52,6 +52,12 @@ struct kin_solve_cx {
 };
 
 
+void rfx_kin_2d2_fk( double l0, double l1, double q0, double q1, double *x, double *y ) {
+    if( x ) *x = sin(q0)*l0 + sin(q0+q1)*l1;
+    if( y ) *y = cos(q0)*l0 + cos(q0+q1)*l1;
+}
+
+
 void rfx_kin_duqu_werr( const double S[8], const double S_ref[8], double werr[6] ) {
     double twist[8], de[8];
     aa_tf_duqu_mulc( S, S_ref, de );  // de = d*conj(d_r)

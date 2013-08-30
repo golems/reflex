@@ -89,6 +89,10 @@ void rfx_kin_duqu_revchain( size_t n, const double T0[8], const double *TT_rel, 
 
 /* ---- Kinematic Solvers ---- */
 
+/** Planar, 2-DOF FK
+ */
+void rfx_kin_2d2_fk( double l0, double l1, double q0, double q1, double *x, double *y );
+
 struct rfx_kin_solve_opts {
     double dt0;          ///< initial timestep
 
