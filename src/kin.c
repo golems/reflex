@@ -43,6 +43,31 @@
 #include <amino.h>
 #include "reflex.h"
 
+
+/*
+ *  S_t = S_u * S_r
+ *  S_u = S_t * conj(S_r)
+ *  dS_u = dS_t * conj(S_r), assuming S_r is constant
+ */
+
+void rfx_kin_duqu_reldiff( const double S_u[8], const double S_r[8], const double dS_t[8],
+                           double S_t[8], double dS_u[8] ) {
+    aa_tf_duqu_mul( S_u, S_r, S_t );
+    aa_tf_duqu_mulc( dS_t, S_r, dS_u );
+}
+
+void rfx_kin_duqu_relvel( const double S_u[8], const double S_r[8], const double w_t[6],
+                          double S_t[8], double w_u[6] ) {
+    double dS_t[8], dS_u[8];
+
+    aa_tf_duqu_mul( S_u, S_r, S_t );
+    aa_tf_duqu_vel2diff( S_t, w_t, dS_t );
+    aa_tf_duqu_mulc( dS_t, S_r, dS_u );
+    rfx_kin_duqu_reldiff( S_u, S_r, dS_t, S_t, dS_u );
+    aa_tf_duqu_diff2vel( S_u, dS_u, w_u );
+}
+
+
 struct kin_solve_cx {
     size_t n;
     struct rfx_kin_solve_opts *opts;

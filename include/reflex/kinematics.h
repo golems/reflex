@@ -86,6 +86,21 @@ void rfx_kin_duqu_revchain( size_t n, const double T0[8], const double *TT_rel, 
                             const double *axis,
                             double * TT_abs,  double Te_abs[8], double *J, size_t ldJ );
 
+/** Compute relative-transform preserving derivatives.
+ *
+ *  S_t = S_u * S_r
+ *  S_u = S_t * conj(S_r)
+ *  dS_u = dS_t * conj(S_r), assuming S_r is constant
+ */
+void rfx_kin_duqu_reldiff( const double S_u[8], const double S_r[8], const double dS_t[8],
+                           double S_t[8], double dS_u[8] );
+
+/** Compute relative-transform preserving velocities.
+ *
+ * \seealso rfx_kin_duqu_reldiff
+ */
+void rfx_kin_duqu_relvel( const double S_u[8], const double S_r[8], const double w_t[6],
+                          double S_t[8], double w_u[6] );
 
 /* ---- Kinematic Solvers ---- */
 
