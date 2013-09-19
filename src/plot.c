@@ -43,6 +43,79 @@
 #include <amino.h>
 #include "reflex.h"
 
+void rfx_trajq_seg_plot( struct rfx_trajq_seg_list *cx, double dt ) {
+    double t_i = cx->t_i;
+    double t_f = cx->t_f;
+
+
+    size_t n = (size_t) ( (t_f - t_i) / dt );
+    size_t n_q = cx->n_q;
+    double T[n]; // time
+    // matrices for points in the trajectory.
+    // each column is a point.
+    // the rows are the time series for each axis.
+    double Q[n*n_q];     //pos
+    double dQ[n*n_q];    // vel
+    double ddQ[n*n_q];   // acceleration
+    double Qi[n*n_q];    // integrated vel (pos)
+    /* double ddX[n*6];  // acc */
+    /* double sddX[n*6]; // integrated acc (vel) */
+
+    // get actuals
+    {
+        double t;
+        size_t i;
+        for( i = 0, t = t_i; t < t_f && i < n; i++, t+=dt ) {
+            T[i] = t;
+            rfx_trajq_seg_list_get_ddq( cx, t, Q + i*n_q, dQ + i*n_q,  ddQ + i*n_q );
+        }
+    }
+    // integrate
+    {
+        //aa_fzero( sdX, 6 );
+        //aa_fzero( sddX, 6 );
+        AA_MEM_CPY( Qi, Q, n_q );
+
+        for( size_t k = 1; k < n; k ++ ) {
+            //qi(i) = qi(i-1) + dt*dq(i)
+            for( size_t i = 0; i < n_q; i ++ ) {
+                Qi[ k*n_q + i ] = Qi[ (k-1)*n_q + i ] + dt*dQ[ k*n_q + i ];
+            }
+        }
+    }
+
+    { // plot position
+        aa_plot_opts_t opts = {0};
+        opts.title="Position";
+        opts.ylabel="position";
+        opts.xlabel="time";
+        aa_plot_row_series( n_q, n, T, Q,
+                            & opts );
+
+    }
+
+    { // plot position
+        aa_plot_opts_t opts = {0};
+        opts.title="Position (integrated velocity)";
+        opts.ylabel="position";
+        opts.xlabel="time";
+        aa_plot_row_series( n_q, n, T, Qi,
+                            & opts );
+
+    }
+
+    { // plot velocity position
+        aa_plot_opts_t opts = {0};
+        opts.title="Velocity";
+        opts.ylabel="velocity";
+        opts.xlabel="time";
+        aa_plot_row_series( n_q, n, T, dQ,
+                            & opts );
+
+    }
+}
+
+
 void rfx_trajq_plot( struct rfx_trajq *cx, double dt ) {
     double t_i = cx->t_i;
     double t_f = cx->t_f;

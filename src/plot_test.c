@@ -92,6 +92,34 @@ void plotq () {
 }
 
 
+
+void plot_qseg () {
+    aa_mem_region_t reg;
+    aa_mem_region_init( &reg, 1024*64 );
+
+
+    double q0[6] =  {0.296500, 0.000000, 0.178000, 0.000000, 3.141593, 0.000000};
+    double q1[6] =  {0.380000, 0.003357, 0.089718, 0.482354, 3.045461, 0.989530};
+    double q2[6] =  {1, 2, 3, 4, 5, 6};
+
+    size_t n_q = sizeof(q0)/sizeof(q0[0]);
+
+    rfx_trajq_points_t *points = rfx_trajq_points_alloc( &reg, n_q );
+    rfx_trajq_points_add( points, 0, q0 );
+    rfx_trajq_points_add( points, 10, q1 );
+    rfx_trajq_points_add( points, 20, q2 );
+
+    printf("n points: %lu\n", points->n_t );
+    printf("points 0: %lx\n", points->point->head );
+    printf("points 1: %lx\n", points->point->head->next );
+
+    rfx_trajq_seg_list_t *seglist = rfx_trajq_gen_pblend_tm1( &reg, points, 1 );
+
+    rfx_trajq_seg_plot( seglist, .001 );
+
+    aa_mem_region_destroy( &reg );
+}
+
 void plotx2() {
     aa_mem_region_t reg;
     aa_mem_region_init( &reg, 1024*32 );
@@ -153,7 +181,9 @@ void plot_viax() {
 int main( void ) {
     /* /rfx_trajq_plot( &traj.traj, 0.01 ); */
     //plotx2();
-    plot_viax();
+    //plot_viax();
+    plot_qseg();
+    //plotq();
 
 
 }
