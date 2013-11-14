@@ -270,10 +270,10 @@ rfx_trajq_seg_init( struct rfx_trajq_seg *seg, struct rfx_trajq_seg_vtab *vtab,
     return seg;
 }
 
-// Allocate trajectory segment of type with n_p additional parameters
+// Allocate trajectory segment of type with n_p additional space
 #define RFX_TRAJQ_SEG_ALLOC( reg, type, vtab, n_q, t_i, t_f, n_p )      \
     ( (type*) rfx_trajq_seg_init( (struct rfx_trajq_seg *)              \
-                                  aa_mem_region_alloc( (reg), sizeof(type) + (n_p)*sizeof(double)), \
+                                  aa_mem_region_alloc( (reg), sizeof(type) + (n_p)), \
                                   (vtab), (n_q), (t_i), (t_f) ) )
 
 
@@ -335,7 +335,7 @@ rfx_trajq_seg_dq_alloc( aa_mem_region_t *reg, size_t n_q,
                         double t_i, double *q_i, double *dq,
                         double t_f ) {
     rfx_trajq_seg_dq_t *x = RFX_TRAJQ_SEG_ALLOC( reg, rfx_trajq_seg_dq_t, &seg_dq_vtab,
-                                                 n_q, t_i, t_f, 2*n_q );
+                                                 n_q, t_i, t_f, 2*n_q*sizeof(double) );
     double *p_q_i = x->p;
     double *p_dq = x->p + n_q;
     AA_MEM_CPY(p_q_i, q_i, n_q );
@@ -440,7 +440,7 @@ rfx_trajq_seg_2dq_alloc( aa_mem_region_t *reg, size_t n_q,
                          double *dq, double *ddq,
                          double t_f ) {
     rfx_trajq_seg_2dq_t *x = RFX_TRAJQ_SEG_ALLOC( reg, rfx_trajq_seg_2dq_t, &seg_2dq_vtab,
-                                                  n_q, t_i, t_f, 3*n_q );
+                                                  n_q, t_i, t_f, 3*n_q*sizeof(double) );
     double *p_q_i = x->p;
     double *p_dq =  x->p + n_q;
     double *p_ddq = x->p + n_q + n_q;
@@ -484,7 +484,7 @@ rfx_trajq_seg_3dq_alloc( aa_mem_region_t *reg, size_t n_q,
                          double *dq, double *ddq, double *dddq,
                          double t_f ) {
     struct rfx_trajq_seg_3dq *x = RFX_TRAJQ_SEG_ALLOC( reg, struct rfx_trajq_seg_3dq,
-                                                       &seg_3dq_vtab, n_q, t_i, t_f, 3*n_q );
+                                                       &seg_3dq_vtab, n_q, t_i, t_f, 3*n_q*sizeof(double) );
     x->q_i = q_i;
     x->dq_i = dq;
     x->ddq_i = ddq;
@@ -499,3 +499,114 @@ rfx_trajq_seg_3dq_alloc2( aa_mem_region_t *reg, size_t n_q,
                           double t_i, double *q_i,
                           double *dq, double *ddq,
                           double t_f, double *dq_f, double *ddq_f );
+
+
+/*--- Dense waypoint segments ---*/
+
+typedef struct rfx_trajq_seg_dense {
+    rfx_trajq_seg_t parent;
+    size_t n_p;
+    double dt;
+    double *Q;
+} rfx_trajq_seg_dense_t;
+
+
+static int dense_get_ddq( void *vcx, double t, double *q, double *dq, double *ddq ) {
+    rfx_trajq_seg_dense_t *cx = (rfx_trajq_seg_dense_t*) vcx;
+    size_t n_q = cx->parent.n_q;
+    size_t n_p = cx->n_p;
+    double dt = cx->dt;
+    double *Q = cx->Q;
+    double t_i = cx->parent.t_i;
+
+    if( t <= cx->parent.t_i ) {
+        AA_MEM_CPY( q, cx->Q, n_q );
+        AA_MEM_SET(dq, 0, n_q );
+        AA_MEM_SET(ddq, 0, n_q );
+    } else  if( t >= cx->parent.t_i ) {
+        AA_MEM_CPY( q, cx->Q + n_q*(n_p-1), n_q );
+        AA_MEM_SET(dq, 0, n_q );
+        AA_MEM_SET(ddq, 0, n_q );
+    } else {
+        size_t j = (size_t) ( (t - (double)cx->parent.t_i) / dt );
+        double dj = (double)j;
+        /* get velocities of previous and next points */
+        double dx0[n_q], dx1[n_q];
+        double *X0 = Q+n_q*j;
+        double *X1 = Q+n_q*(j+1);
+        if( 0 == j ) {
+            memset(dx0, 0, sizeof(dx0));
+        } else  {
+            aa_la_quadterp_dx( n_q,
+                               t_i+dt*(dj-1), Q+n_q*(j-1),
+                               t_i+dt*dj,     X0,
+                               t_i+dt*(dj+1), X1,
+                               t_i+dt*dj,     dx0 );
+
+        }
+        if( n_p-2 <= j ) {
+            memset(dx1, 0, sizeof(dx0));
+        } else {
+            aa_la_quadterp_dx( n_q,
+                               t_i+dt*dj,     X0,
+                               t_i+dt*(dj+1), X1,
+                               t_i+dt*(dj+2), Q+n_q*(j+2),
+                               t_i+dt*(dj+2), dx0 );
+        }
+        /* Compute interpolation parameters */
+        double a2[n_q], a3[n_q];
+        aa_la_d_3spline_param( n_q, dt, /* assumes x0 is at t=0 */
+                               Q+n_q*j,     1,  dx0, 1,
+                               Q+n_q*(j+1), 1, dx1, 1,
+                               a2, a3 );
+        /* Interpolate */
+        aa_la_d_3spline( n_q, t - t_i + dj*dt,
+                         X0, 1, dx0, 1, a2, a3,
+                         q, 1, dq, 1, ddq, 1 );
+
+    }
+
+
+    return 0;
+}
+
+static int dense_get_q( void *vcx, double t, double *q ) {
+    rfx_trajq_seg_dense_t *cx = (rfx_trajq_seg_dense_t*) vcx;
+    size_t n_q = cx->parent.n_q;
+    double dq[n_q];
+    double ddq[n_q];
+    dense_get_ddq( vcx, t, q, dq, ddq );
+
+    return 0;
+}
+
+static int dense_get_dq( void *vcx, double t, double *q, double *dq ) {
+    rfx_trajq_seg_dense_t *cx = (rfx_trajq_seg_dense_t*) vcx;
+    size_t n_q = cx->parent.n_q;
+    double ddq[n_q];
+    dense_get_ddq( vcx, t, q, dq, ddq );
+
+    return 0;
+}
+
+
+static struct rfx_trajq_seg_vtab seg_dense_vtab = {
+    .get_q   = dense_get_q,
+    .get_dq  = dense_get_dq,
+    .get_ddq = dense_get_ddq
+};
+
+struct rfx_trajq_seg*
+rfx_trajq_seg_dense_alloc( aa_mem_region_t *reg, size_t n_q, size_t n_p,
+                           double t_i, double dt,
+                           double *Q )
+{
+
+    struct rfx_trajq_seg_dense *x =
+        RFX_TRAJQ_SEG_ALLOC( reg, struct rfx_trajq_seg_dense,
+                             &seg_dense_vtab, n_q, t_i, t_i+(double)n_p*dt, 2*sizeof(double)+sizeof(size_t) );
+    x->n_p = n_p;
+    x->dt = dt;
+    x->Q = Q;
+    return &x->parent;
+}

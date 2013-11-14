@@ -222,6 +222,19 @@ rfx_trajq_seg_3dq_alloc2( aa_mem_region_t *reg, size_t n_q,
                           double *dq, double *ddq,
                           double t_f, double *dq_f, double *ddq_f );
 
+
+
+/*--- Dense waypoint segments ---*/
+
+/** Allocate segment for dense waypoints.
+ *
+ * Does NOT create a copy of Q, but rather stores reference to Q.
+ */
+struct rfx_trajq_seg*
+rfx_trajq_seg_dense_alloc( aa_mem_region_t *reg, size_t n_q, size_t n_p,
+                           double t_i, double dt,
+                           double *Q );
+
 #ifdef __cplusplus
 }
 #endif //__cplusplus
