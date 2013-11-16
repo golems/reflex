@@ -159,10 +159,12 @@ void plot_viax() {
     /* rfx_trajx_via_t T; */
     /* rfx_trajx_via_init( &T, &reg ); */
     rfx_trajx_parablend_t T;
-    rfx_trajx_splend_init( &T, &reg, 1 );
-    //rfx_trajx_parablend_init( &T, &reg, 1 );
+    //rfx_trajx_splend_init( &T, &reg, 1 );
+    rfx_trajx_parablend_init( &T, &reg, 1 );
 
     rfx_trajx_t *pT = (rfx_trajx_t*)&T;
+
+    struct rfx_trajx_point_list *plist = rfx_trajx_point_list_alloc( &reg );
 
     double X[4][3] = { {0,0,0}, {1,0,0}, {1,1,0}, {1,1,1} };
     double E[4][3] = { {0,0,0}, {M_PI_2,0,0}, {M_PI_2,M_PI_2,0}, {M_PI_2,M_PI_2,M_PI_2} };
@@ -170,10 +172,18 @@ void plot_viax() {
     for( size_t i = 0; i < sizeof(E)/sizeof(E[0]); i ++ ) {
         aa_tf_eulerzyx2quat( E[i][0], E[i][1], E[i][2], R[i] );
         rfx_trajx_add( pT, 5.0*(double)i, X[i], R[i] );
+
+        rfx_trajx_point_list_addb_xr( plist, 5*(double)i, 1, X[i], R[i] );
     }
 
-    rfx_trajx_generate( pT );
-    rfx_trajx_plot( pT, .001, NULL );
+    //rfx_trajx_generate( pT );
+    //rfx_trajx_plot( pT, .001, NULL );
+
+    struct rfx_trajx_seg_list *seglist =
+        rfx_trajx_parablend_generate( plist, &reg );
+
+    rfx_trajx_seglist_plot( seglist, .001, NULL );
+
 
     aa_mem_region_destroy( &reg );
 }
@@ -181,8 +191,8 @@ void plot_viax() {
 int main( void ) {
     /* /rfx_trajq_plot( &traj.traj, 0.01 ); */
     //plotx2();
-    //plot_viax();
-    plot_qseg();
+    plot_viax();
+    //plot_qseg();
     //plotq();
 
 

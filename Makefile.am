@@ -34,6 +34,7 @@ libreflex_la_SOURCES =              \
 	src/plot.c                  \
 	src/trajq.c                 \
 	src/kin.c                   \
+	src/trajx.c                 \
 	src/traj.c
 
 libreflex_la_LIBADD =               \

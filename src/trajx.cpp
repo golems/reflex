@@ -49,6 +49,7 @@ struct trajx_point {
     double t;
     double tb;
     double S[8];
+    trajx_point() {}
     trajx_point( double a_t, double a_tb, const double a_S[8] ) :
         t(a_t),
         tb(a_tb)
@@ -129,22 +130,38 @@ rfx_trajx_seg_list_alloc( aa_mem_region_t *reg )
     return new(reg) rfx_trajx_seg_list(reg);
 }
 
+double
+rfx_trajx_seg_list_get_t_i( struct rfx_trajx_seg_list *seg )
+{
+    return seg->t_i;
+}
+double
+rfx_trajx_seg_list_get_t_f( struct rfx_trajx_seg_list *seg )
+{
+    return seg->t_f;
+}
+
+
 int
-rfx_trajx_point_list_add( struct rfx_trajx_seg_list *seg_list,
-                          struct rfx_trajx_seg *seg )
+rfx_trajx_seg_list_add( struct rfx_trajx_seg_list *seg_list,
+                        struct rfx_trajx_seg *seg )
 {
     if( seg_list->list.empty() ) {
         /* add to empty list */
         seg_list->t_i = seg->t_i;
-    } else if (seg_list->t_i < seg->t_f ||
+    } else if (seg_list->t_i > seg->t_f ||
                seg->t_f < seg->t_i ||
                seg->t_f < seg_list->t_f )
     {
         /* Incorrect ordering */
+        assert(0);
         return RFX_INVAL;
     }
     seg_list->list.push_back(seg);
+    seg_list->itr = seg_list->list.end();
+    seg_list->itr--;
     seg_list->t_f = seg->t_f;
+
     return 0;
 }
 
@@ -165,7 +182,8 @@ seg_search( struct rfx_trajx_seg_list *seglist, double t )
     if( seglist->itr != seglist->list.end() ) {
         RegionList<rfx_trajx_seg*>::iterator next = seglist->itr;
         next++;
-        if( t >= (*next)->t_i &&
+        if( next != seglist->list.end() &&
+            t >= (*next)->t_i &&
             t <= (*next)->t_f )
         {
             seglist->itr = next;
@@ -200,6 +218,7 @@ rfx_trajx_seg_list_get_x_duqu( struct rfx_trajx_seg_list *seglist,
     double x[3], r[4];
     seg->vtab->get_x( (rfx_trajx_t*)seg, t, x, r );
     aa_tf_qv2duqu( r, x, S );
+    return RFX_OK;
 }
 
 int
@@ -212,6 +231,7 @@ rfx_trajx_seg_list_get_dx_duqu( struct rfx_trajx_seg_list *seglist,
     seg->vtab->get_x( (rfx_trajx_t*)seg, t, x, r );
     seg->vtab->get_dx( (rfx_trajx_t*)seg, t, dx );
     aa_tf_qv2duqu( r, x, S );
+    return RFX_OK;
 }
 
 int
@@ -225,134 +245,181 @@ rfx_trajx_seg_list_get_ddx_duqu( struct rfx_trajx_seg_list *seglist,
     seg->vtab->get_dx( (rfx_trajx_t*)seg, t, dx );
     seg->vtab->get_ddx( (rfx_trajx_t*)seg, t, ddx );
     aa_tf_qv2duqu( r, x, S );
+    return RFX_OK;
+}
+
+
+int
+rfx_trajx_seg_list_get_x_vl( struct rfx_trajx_seg_list *seg,
+                             double t, double x[6] )
+{
+    double S[8];
+    int i = rfx_trajx_seg_list_get_x_duqu( seg, t, S );
+    if( RFX_OK == i ) {
+        double r[4];
+        aa_tf_duqu2qv( S, r, x );
+        aa_tf_quat2rotvec(r, x+3 );
+    }
+    return i;
+}
+
+
+int
+rfx_trajx_seg_list_get_x_qv( struct rfx_trajx_seg_list *seg,
+                             double t, double r[4], double x[3] )
+{
+    double S[8];
+    int i = rfx_trajx_seg_list_get_x_duqu( seg, t, S );
+    if( RFX_OK == i ) {
+        aa_tf_duqu2qv( S, r, x );
+    }
+    return i;
+}
+int
+rfx_trajx_seg_list_get_dx_qv( struct rfx_trajx_seg_list *seg,
+                              double t, double r[4], double x[3], double dx[6] )
+{
+    double S[8];
+    int i = rfx_trajx_seg_list_get_dx_duqu( seg, t, S, dx );
+    if( RFX_OK == i ) {
+        aa_tf_duqu2qv( S, r, x );
+    }
+    return i;
+}
+int
+rfx_trajx_seg_list_get_ddx_qv( struct rfx_trajx_seg_list *seg,
+                               double t, double r[4], double x[3], double dx[6], double ddx[6] )
+{
+    double S[8];
+    int i = rfx_trajx_seg_list_get_ddx_duqu( seg, t, S, dx, ddx );
+    if( RFX_OK == i ) {
+        aa_tf_duqu2qv( S, r, x );
+    }
+    return i;
 }
 
 /*--- Generators ---*/
 
-// static void point2vector( const struct trajx_point *pt, double x_last[6], double x[6] )
-// {
-//     double r[4];
-//     aa_tf_duqu2qv( pt->S, r, x );
-//     aa_tf_quat2rotvec_near(r, x_last+3, x+3 );
-// }
+static void point2vector( const struct trajx_point *pt, double x_last[6], double x[6] )
+{
+    double r[4];
+    aa_tf_duqu2qv( pt->S, r, x );
+    if( x_last )
+        aa_tf_quat2rotvec_near(r, x_last+3, x+3 );
+    else
+        aa_tf_quat2rotvec(r, x+3 );
+}
 
-// static void
-//  RegionList<rfx_trajx_seg*>::type &slist
+void virtpoints( RegionList<trajx_point>::type *list,
+                 RegionList<trajx_point>::iterator itr_j,
+                 struct trajx_point *pt_i, struct trajx_point *pt_j, struct trajx_point *pt_k )
 
-// void parablend_add_blend( aa_mem_region_t *reg,
-//                           RegionList<rfx_trajx_seg*>::type *slist,
-//                           const struct trajx_point *pt,
-//                           const struct trajx_point *pt_next,
-//                           double x[6], double dx[6] )
-// {
-//     double dx_p[6], x_p[6];
-//     memcpy(x_p, x, sizeof(x_p));
-//     memcpy(dx_p, dx, sizeof(dx_p));
+{
 
-//     rfx_trajx_get_dx( (struct rfx_trajx*)*slist.rbegin(), itr_next->t-t_b/2, x_p, r );
+    auto itr_0 = list->begin();
+    auto itr_1 = amino::next(itr_0);
+    auto itr_n = list->end();
+    auto itr_k = amino::next(itr_j);
+    assert( itr_1 != itr_n ); /* more than one point */
+    assert( itr_j != itr_n ); /* not at end */
+    /*-- pt_i --*/
+    if( itr_j == itr_0 ) {
+        *pt_i = *itr_0;
+    } else if( itr_j == itr_1 ) {
+        *pt_i = *itr_0;
+        pt_i->t += pt_i->tb/2;
+    } else {
+        auto itr_i = amino::prev(itr_j);
+        *pt_i = *itr_i;
+    }
+    /*-- pt_j --*/
+    if( itr_j == itr_0 ) {
+        *pt_j = *itr_0;
+        pt_j->t += pt_j->tb/2;
+    } else if( itr_k == itr_n ) {
+        *pt_j = *itr_j;
+        pt_j->t -= pt_j->tb/2;
+    } else {
+        *pt_j = *itr_j;
+    }
+    /*-- pt_k --*/
+    if( itr_k == itr_n ) {
+        *pt_k = *itr_j;
+    } else if( amino::next(itr_k) == itr_n ) {
+        *pt_k = *itr_k;
+        pt_k->t -= pt_k->tb/2;
+    } else {
+        *pt_k = *itr_k;
+    }
+}
 
-//     double t_b = pt->tb;
+struct rfx_trajx_seg_list *
+rfx_trajx_parablend_generate( struct rfx_trajx_point_list *points, aa_mem_region_t *reg )
+{
+    RegionList<trajx_point>::type &plist = points->list;
 
-//     /* current point */
-//     point2vector( pt, x_p, x );
+    if( plist.empty() ) return NULL;
+    if( 1 == plist.size() ) return NULL; /* TODO: return constant segment */
 
-//     /* next point point */
-//     double x_n[6];
-//     point2vector( pt, x, x_n );
+    struct rfx_trajx_seg_list * seg_list = rfx_trajx_seg_list_alloc( reg );
 
-//     /* compute velocity and acceleration */
-//     double ddx[6];
-//     for( size_t j = 0; j < 6; j ++ ) {
-//         dx[j] = (x_n[j] - x[j]) / (pt_next->t - pt->t);
-//         ddx[j] = (dx[j] - dx_p[j]) / t_b;
-//     }
+    auto itr_j = plist.begin();
+    while ( plist.end() != itr_j ) {
+        struct trajx_point pt_i, pt_j, pt_k;
+        virtpoints( &plist, itr_j, &pt_i, &pt_j, &pt_k );
+        double x_i[6], x_j[6], x_k[6];
+        point2vector( &pt_i, NULL, x_i );
+        point2vector( &pt_j, x_i, x_j );
+        point2vector( &pt_k, x_j, x_k );
 
-//     /* add blend about current point */
-//     slist->push_back( rfx_trajx_seg_blend_rv_alloc(reg,
-//                                                    pt->t - pt->tb/2,
-//                                                    pt->t + pt->tb/2,
-//                                                    pt->t - pt->tb/2,
-//                                                    x_p, dx_p, ddx) );
+        /* get start position */
+        double x_p[6];
+        double dx_p[6];
+        if( itr_j == plist.begin() ) {
+            memcpy( x_p, x_i, sizeof(x_p) );
+            memset( dx_p, 0, sizeof(x_p) );
+        } else {
+            double  r[4];
+            int i = rfx_trajx_seg_list_get_dx_qv( seg_list, seg_list->t_f, r, x_p, dx_p );
+            aa_tf_quat2rotvec_near(r, x_j+3, x_p+3 );
+        }
 
-// }
+        /* compute velocity and acceleration */
+        double ddx[6], dx[6];
+        for( size_t j = 0; j < 6; j ++ ) {
+            dx[j] = (x_k[j] - x_j[j]) / (pt_k.t - pt_j.t);
+            ddx[j] = (dx[j] - dx_p[j]) / pt_j.tb;
+        }
+        /* blend */
+        assert( seg_list->t_f == pt_j.t - pt_j.tb/2 );
+        if( rfx_trajx_seg_list_add( seg_list,
+                                    rfx_trajx_seg_blend_rv_alloc( reg,
+                                                                  seg_list->t_f,
+                                                                  seg_list->t_f + pt_j.tb,
+                                                                  seg_list->t_f,
+                                                                  x_p, dx_p, ddx ) ) )
+        {
+            return NULL;
+        }
 
+        /* linear */
+        if( plist.end() != amino::next(itr_j) ) {
+            if( rfx_trajx_seg_list_add( seg_list,
+                                        rfx_trajx_seg_lerp_rv_alloc( reg,
+                                                                     seg_list->t_f,
+                                                                     pt_k.t-pt_k.tb/2,
+                                                                     pt_j.t, x_j,
+                                                                     pt_k.t, x_k ) ) )
+            {
+                return NULL;
+            }
 
-// void parablend_add_linear( aa_mem_region_t *reg,
-//                            RegionList<rfx_trajx_seg*>::type *slist,
-//                            const struct trajx_point *pt,
-//                            const struct trajx_point *pt_next,
-//                            double x[6], double x_n[6] )
-// {
-//     slist->push_back( rfx_trajx_seg_lerp_rv_alloc(reg,
-//                                                   pt->t + pt->tb/2,
-//                                                   pt_next->t - pt_next->tb/2,
-//                                                   pt->t, x,
-//                                                   pt_next->t, x_n) );
+        }
+        itr_j++;
+    }
 
-
-// }
-
-
-// struct rfx_trajx_seg_list *
-// rfx_trajx_parablend_generate( struct rfx_trajx_point_list *points, aa_mem_region_t *reg )
-// {
-//     RegionList<trajx_point>::type &plist = points->list;
-
-//     if( plist.empty() ) return NULL;
-//     if( 1 == plist.size() ) return NULL; /* TODO: return constant segment */
-
-//     struct rfx_trajx_seg_list * seg_list = rfx_trajx_seg_list_alloc( reg );
-//     RegionList<rfx_trajx_seg*>::type &slist = seg_list->list;
-
-//     struct trajx_point virt_i( *plist.begin() );
-//     struct trajx_point virt_f( *plist.begin() );
-
-//     RegionList<trajx_point>::iterator itr = plist.begin();
-//     RegionList<trajx_point>::iterator itr_next(itr); itr_next++;
-
-//     double dx_p[6] = {0}, x_p[6] = {0};
-//     {
-//         double r[4];
-//         aa_tf_duqu2qv( plist.begin()->S, r, x_p );
-//         aa_tf_quat2rotvec( r, x_p+3 );
-//     }
-
-//     for(; itr_next != plist.end(); itr++, itr_next++ ) {
-//         double t_b = itr->tb;
-//         /* current point */
-//         double x[6];
-//         point2vector( &(*itr), x_p, x );
-
-//         /* next point point */
-//         double x_n[6];
-//         point2vector( &(*itr_next), x, x_n );
-
-//         /* compute velocity and acceleration */
-//         double ddx[6], dx[6] = {0};
-//         for( size_t j = 0; j < 6; j ++ ) {
-//             dx[j] = (x_n[j] - x[j]) / (itr_next->t - itr->t);
-//             ddx[j] = (dx[j] - dx_p[j]) / t_b;
-//         }
-
-//         /* add blend about current point */
-//         slist.push_back( rfx_trajx_seg_blend_rv_alloc(reg, itr->t-t_b/2, itr->t+t_b/2,
-//                                                       itr->t-t_b/2, x_p, dx_p, ddx) );
-
-//         /* add linear to next point */
-//         slist.push_back( rfx_trajx_seg_lerp_rv_alloc(reg, itr->t+t_b/2, itr_next->t-t_b/2,
-//                                                      itr->t, x,
-//                                                      itr_next->t, x_n) );
-//         /* previous is end of current linear segment */
-//         double r[4];
-//         rfx_trajx_get_x( (struct rfx_trajx*)*slist.rbegin(), itr_next->t-t_b/2, x_p, r );
-//         aa_tf_quat2rotvec_near(r, x+3, x_p+3 );
-
-//         /* copy current to prev */
-//         AA_MEM_CPY(dx_p, dx, 6);
-//     }
-//    /* add terminal blend */
-
-// }
+    return seg_list;
+}
 
 // struct rfx_trajx_seg_list *
 // rfx_trajx_splend_generate( struct rfx_trajx_point_list *points, aa_mem_region_t *reg )

@@ -457,3 +457,202 @@ void rfx_trajx_plot( struct rfx_trajx *cx, double dt, const struct rfx_trajx_plo
     }
 
 }
+
+
+
+
+void rfx_trajx_seglist_plot( struct rfx_trajx_seg_list *cx, double dt, const struct rfx_trajx_plot_opts *xopts ) {
+
+    double t_i = rfx_trajx_seg_list_get_t_i(cx);
+    double t_f = rfx_trajx_seg_list_get_t_f(cx);
+
+    if( NULL == xopts ) xopts = &default_trajx_plot_opts;
+
+    size_t n = (size_t) ( (t_f - t_i) / dt );
+
+    double T[n]; // time
+    // matrices for points in the trajectory.
+    // each column is a point.
+    // the rows are the time series for each axis.
+    double X[n*3];     // translation
+    double Q[n*4];     // Orientation
+    double dXt[n*3];   // translational vel
+    double dXr[n*3];   // rotational vel
+
+    double sdQ[n*4];   // Integrated Quatenion Derivative (orientation)
+    double sdX[n*3];   // Integrated translation
+
+    double dQ[n*4];    // Quaternion Derivative
+
+    /* double ddX[n*6];  // acc */
+    /* double sddX[n*6]; // integrated acc (vel) */
+
+    // get actuals
+    {
+        double t;
+        size_t i;
+        for( i = 0, t = t_i; t < t_f && i < n; i++, t+=dt ) {
+            T[i] = t;
+            double dx[6], S[8];
+            rfx_trajx_seg_list_get_dx_duqu( cx, t, S, dx );
+            aa_tf_duqu2qv( S, Q+4*i, X+3*i );
+
+            AA_MEM_CPY( dXt + 3*i, dx, 3 );
+            AA_MEM_CPY( dXr + 3*i, dx+3, 3 );
+            aa_tf_qvel2diff( Q+4*i, dx+3, dQ+4*i );
+        }
+    }
+    // integrate
+    {
+        //aa_fzero( sdX, 6 );
+        //aa_fzero( sddX, 6 );
+        AA_MEM_CPY( sdQ, X, 4 );
+        AA_MEM_CPY( sdX, Q, 3 );
+
+        for( size_t k = 1; k < n; k ++ ) {
+            // orientation
+            for( size_t i = 0; i < 4; i ++ ) {
+                sdQ[ k*4 + i ] = sdQ[ (k-1)*4 + i ] + dt*dQ[ k*4 + i ];
+            }
+
+            // translation
+            for( size_t i = 0; i < 3; i ++ ) {
+                sdX[ k*3 + i ] = sdX[ (k-1)*3 + i ] + dt*dXt[ k*3 + i ];
+            }
+        }
+    }
+
+
+    static const char *XYZW[] = {"x", "y", "z", "w"};
+    { // plot position
+        aa_plot_opts_t opts = {0};
+        opts.title="Translation";
+        opts.ylabel="translation (m)";
+        opts.xlabel="time (s)";
+        opts.axis_label = XYZW;
+        if( xopts->to_file ) opts.script_file = "x.gnuplot";
+        aa_plot_row_series( 3, n, T, X,
+                            & opts );
+
+    }
+
+    { // plot orientation
+        aa_plot_opts_t opts = {0};
+        opts.title="Orientation";
+        opts.ylabel="orientation";
+        opts.xlabel="time (s)";
+        opts.axis_label = XYZW;
+        if( xopts->to_file ) opts.script_file = "q.gnuplot";
+        aa_plot_row_series( 4, n, T, Q,
+                            & opts );
+
+    }
+
+
+    { // plot integrated quaternion derivative
+        aa_plot_opts_t opts = {0};
+        opts.title="Orientation (integrated derivative)";
+        opts.ylabel="quaternion";
+        opts.xlabel="time (s)";
+        opts.axis_label = XYZW;
+        if( xopts->to_file ) opts.script_file = "sum_dq.gnuplot";
+        aa_plot_row_series( 4, n, T, sdQ,
+                            & opts );
+
+    }
+
+    { // plot integrated translational velocity
+        aa_plot_opts_t opts = {0};
+        opts.title="Position (integrated velocity)";
+        opts.ylabel="position (m)";
+        opts.xlabel="time (s)";
+        opts.axis_label = XYZW;
+        if( xopts->to_file ) opts.script_file = "sum_dx.gnuplot";
+        aa_plot_row_series( 3, n, T, sdX,
+                            & opts );
+
+    }
+
+    { // plot translational velocity
+        aa_plot_opts_t opts = {0};
+        opts.title="Translational Velocity";
+        opts.ylabel="velocity (m/s)";
+        opts.xlabel="time (s)";
+        opts.axis_label = XYZW;
+        if( xopts->to_file ) opts.script_file = "dx.gnuplot";
+        aa_plot_row_series( 3, n, T, dXt,
+                            & opts );
+
+    }
+
+    { // plot rotational velocity
+        aa_plot_opts_t opts = {0};
+        opts.title="Rotational Velocity";
+        opts.ylabel="velocity (rad/s)";
+        opts.xlabel="time (s)";
+        opts.axis_label = XYZW;
+        if( xopts->to_file ) opts.script_file = "omega.gnuplot";
+        aa_plot_row_series( 3, n, T, dXr,
+                            & opts );
+
+    }
+    { // plot quaternion derivative
+        aa_plot_opts_t opts = {0};
+        opts.title="Orientation Derivative";
+        opts.ylabel="quaternion derivative";
+        opts.xlabel="time (s)";
+        opts.axis_label = XYZW;
+        if( xopts->to_file ) opts.script_file = "dq.gnuplot";
+        aa_plot_row_series( 4, n, T, dQ,
+                            & opts );
+
+    }
+
+    // // joints
+
+    // if ( xopts && xopts->ctrlx && xopts->q_0 ) {
+    //     size_t n_q = xopts->ctrlx->ctrl->n_q;
+    //     double phi[ xopts->ctrlx->ctrl->n_q * (n+1) ];
+    //     double dphi[ n_q * n ];
+    //     AA_MEM_CPY( phi, xopts->q_0, n_q );
+
+    //     for( size_t i = 0; i < n; i ++ ) {
+    //         rfx_trajx_set_ctrl( cx, T[i], xopts->ctrlx );
+    //         rfx_ctrlx_lin_vfwd( xopts->ctrlx, phi + i*n_q, dphi+i*n_q );
+    //         // integrate
+    //         for( size_t j = 0; j < n_q; j ++ ) {
+    //             phi[ (i+1)*n_q + j ] = phi[i*n_q + j] + dt * dphi[i*n_q + j];
+    //         }
+    //     }
+    //     char lbl[n_q][32];
+    //     const char *plbl[n_q];
+    //     for( size_t j = 0; j < n_q; j ++ ) {
+    //         sprintf( lbl[j], "%lu", j );
+    //         plbl[j] = lbl[j];
+    //     }
+
+    //     { // plot joint position
+    //         aa_plot_opts_t opts = {0};
+    //         opts.title="Joint Position";
+    //         opts.ylabel="position (rad)";
+    //         opts.xlabel="time (s)";
+    //         opts.axis_label = plbl;
+    //         if( xopts->to_file ) opts.script_file = "phi.gnuplot";
+    //         aa_plot_row_series( n_q, n, T, phi,
+    //                             & opts );
+
+    //     }
+    //     { // plot joint velocity
+    //         aa_plot_opts_t opts = {0};
+    //         opts.title="Joint Velocity";
+    //         opts.ylabel="velocity (rad/s)";
+    //         opts.xlabel="time (s)";
+    //         opts.axis_label = plbl;
+    //         if( xopts->to_file ) opts.script_file = "dphi.gnuplot";
+    //         aa_plot_row_series( n_q, n, T, dphi,
+    //                             & opts );
+
+    //     }
+    // }
+
+}

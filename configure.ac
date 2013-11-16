@@ -15,6 +15,15 @@ AC_PROG_CC_C99
 AM_PROG_CC_C_O
 AC_PROG_FC
 
+
+# Enable C++11
+dnl AC_LANG([C++])
+dnl AC_LANG_CPLUSPLUS
+m4_ifdef([AX_CXX_HEADER_STDCXX_11],
+         [AX_CXX_HEADER_STDCXX_11],
+         [AX_CXX_COMPILE_STDCXX_0X
+         if test x"$ax_cv_cxx_compile_cxx0x_gxx" = xyes; then CXXFLAGS="$CXXFLAGS -std=gnu++0x"; fi])
+
 # Checks for libraries.
 AC_SEARCH_LIBS([cblas_dgemm],[blas], [true], [echo "Failed: need BLAS library" && exit 1])
 AC_SEARCH_LIBS([dgesvd_],[lapack], [true], [echo "Failed: need LAPACK library" && exit 1])
