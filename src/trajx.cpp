@@ -48,14 +48,13 @@ using namespace amino;
 struct trajx_point {
     double t;
     double tb;
-    double S[8];
+    DualQuat S;
     trajx_point() {}
     trajx_point( double a_t, double a_tb, const double a_S[8] ) :
         t(a_t),
-        tb(a_tb)
-    {
-        memcpy(S, a_S, sizeof(S) );
-    }
+        tb(a_tb),
+        S(a_S)
+    { }
 };
 
 /*--- Point Lists ---*/
@@ -94,9 +93,8 @@ int
 rfx_trajx_point_list_addb_xr( struct rfx_trajx_point_list *list,
                               double t, double t_blend, const double x[3], const double r[4] )
 {
-    double S[8];
-    aa_tf_qv2duqu( r, x, S );
-    rfx_trajx_point_list_addb_duqu( list, t, t_blend, S );
+    DualQuat S(r,x);
+    rfx_trajx_point_list_addb_duqu( list, t, t_blend, S.data );
 }
 int
 rfx_trajx_point_list_addb_duqu( struct rfx_trajx_point_list *list,
@@ -303,7 +301,7 @@ rfx_trajx_seg_list_get_ddx_qv( struct rfx_trajx_seg_list *seg,
 static void point2vector( const struct trajx_point *pt, double x_last[6], double x[6] )
 {
     double r[4];
-    aa_tf_duqu2qv( pt->S, r, x );
+    aa_tf_duqu2qv( pt->S.data, r, x );
     if( x_last )
         aa_tf_quat2rotvec_near(r, x_last+3, x+3 );
     else
@@ -421,8 +419,54 @@ rfx_trajx_parablend_generate( struct rfx_trajx_point_list *points, aa_mem_region
     return seg_list;
 }
 
-// struct rfx_trajx_seg_list *
-// rfx_trajx_splend_generate( struct rfx_trajx_point_list *points, aa_mem_region_t *reg )
-// {
 
-// }
+struct rfx_trajx_seg_list *
+rfx_trajx_splend_generate( struct rfx_trajx_point_list *points, aa_mem_region_t *reg )
+{
+    RegionList<trajx_point>::type &plist = points->list;
+
+    if( plist.empty() ) return NULL;
+    if( 1 == plist.size() ) return NULL; /* TODO: return constant segment */
+
+    struct rfx_trajx_seg_list * seg_list = rfx_trajx_seg_list_alloc( reg );
+
+    auto itr_j = plist.begin();
+    while ( plist.end() != itr_j ) {
+        struct trajx_point pt_i, pt_j, pt_k;
+        virtpoints( &plist, itr_j, &pt_i, &pt_j, &pt_k );
+        /* Convert Dual Quaternions to quaternion, vector */
+        QuatVec qv_i(pt_i.S), qv_j(pt_j.S), qv_k(pt_k.S);
+        double r_j[4], x_j[3];
+        /* Blend About Current point */
+        if( rfx_trajx_seg_list_add(seg_list,
+                                   rfx_trajx_seg_blend_q_alloc(reg,
+                                                               pt_j.t-pt_j.tb/2,
+                                                               pt_j.t+pt_j.tb/2,
+                                                               pt_j.tb,
+                                                               pt_i.t, qv_i.v.data, pt_i.S.real.data,
+                                                               pt_j.t, qv_j.v.data, pt_j.S.real.data,
+                                                               pt_k.t, qv_k.v.data, pt_k.S.real.data)) )
+        {
+            return NULL;
+        }
+
+        /* Linear to next point */
+        if( plist.end() != amino::next(itr_j) ) {
+            double t0 = pt_j.t + pt_j.tb/2;
+            double t1 = pt_k.t - pt_k.tb/2;
+
+            if( rfx_trajx_seg_list_add( seg_list,
+                                        rfx_trajx_seg_lerp_slerp_alloc( reg, t0, t1,
+                                                                        pt_j.t, qv_j.v.data, pt_j.S.real.data,
+                                                                        pt_k.t, qv_k.v.data, pt_k.S.real.data)) )
+            {
+                return NULL;
+            }
+
+        }
+
+        itr_j++;
+    }
+
+    return seg_list;
+}

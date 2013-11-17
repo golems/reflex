@@ -506,8 +506,8 @@ void rfx_trajx_seglist_plot( struct rfx_trajx_seg_list *cx, double dt, const str
     {
         //aa_fzero( sdX, 6 );
         //aa_fzero( sddX, 6 );
-        AA_MEM_CPY( sdQ, X, 4 );
-        AA_MEM_CPY( sdX, Q, 3 );
+        AA_MEM_CPY( sdQ, Q, 4 );
+        AA_MEM_CPY( sdX, X, 3 );
 
         for( size_t k = 1; k < n; k ++ ) {
             // orientation

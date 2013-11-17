@@ -166,9 +166,9 @@ void plot_viax() {
 
     struct rfx_trajx_point_list *plist = rfx_trajx_point_list_alloc( &reg );
 
-    double X[4][3] = { {0,0,0}, {1,0,0}, {1,1,0}, {1,1,1} };
-    double E[4][3] = { {0,0,0}, {M_PI_2,0,0}, {M_PI_2,M_PI_2,0}, {M_PI_2,M_PI_2,M_PI_2} };
-    double R[4][4];
+    double X[5][3] = { {0,0,0}, {1,0,0}, {1,1,0}, {1,1,1}, {0,0,0} };
+    double E[5][3] = { {0,0,0}, {M_PI_2,0,0}, {M_PI_2,M_PI_2,0}, {M_PI_2,M_PI_2,M_PI_2}, {0,0,0} };
+    double R[5][4];
     for( size_t i = 0; i < sizeof(E)/sizeof(E[0]); i ++ ) {
         aa_tf_eulerzyx2quat( E[i][0], E[i][1], E[i][2], R[i] );
         rfx_trajx_add( pT, 5.0*(double)i, X[i], R[i] );
@@ -180,7 +180,7 @@ void plot_viax() {
     //rfx_trajx_plot( pT, .001, NULL );
 
     struct rfx_trajx_seg_list *seglist =
-        rfx_trajx_parablend_generate( plist, &reg );
+        rfx_trajx_splend_generate( plist, &reg );
 
     rfx_trajx_seglist_plot( seglist, .001, NULL );
 
