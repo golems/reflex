@@ -166,11 +166,20 @@ void plot_viax() {
 
     struct rfx_trajx_point_list *plist = rfx_trajx_point_list_alloc( &reg );
 
-    double X[5][3] = { {0,0,0}, {1,0,0}, {1,1,0}, {1,1,1}, {0,0,0} };
-    double E[5][3] = { {0,0,0}, {M_PI_2,0,0}, {M_PI_2,M_PI_2,0}, {M_PI_2,M_PI_2,M_PI_2}, {0,0,0} };
+    //double X[5][5] = { {0,0,0}, {1,0,0}, {1,1,0}, {1,1,1}, {0,0,0} };
+    //double E[5][5] = { {0,0,0}, {M_PI_2,0,0}, {M_PI_2,M_PI_2,0}, {M_PI_2,M_PI_2,M_PI_2}, {0,0,0} };
+    //double X[2][5] = { {0,0,0}, {0,0,0} };
+    //double E[2][5] = { {M_PI_2,0,0}, {M_PI_2,M_PI,0} };
+    double theta = M_PI;
+    double X[2][3] = { {0,0,0}, {0,0,0} };
+    //double E[2][5] = { {theta,0,0}, {theta,theta,0} };
+    double E[2][3] = { {theta,0,0}, {theta,theta,0} };
     double R[5][4];
-    for( size_t i = 0; i < sizeof(E)/sizeof(E[0]); i ++ ) {
+    double RV[5][3];
+    size_t n = 2;
+    for( size_t i = 0; i < n; i ++ ) {
         aa_tf_eulerzyx2quat( E[i][0], E[i][1], E[i][2], R[i] );
+        aa_tf_quat2rotvec( R[i], RV[i] );
         rfx_trajx_add( pT, 5.0*(double)i, X[i], R[i] );
 
         rfx_trajx_point_list_addb_xr( plist, 5*(double)i, 1, X[i], R[i] );
@@ -179,10 +188,44 @@ void plot_viax() {
     //rfx_trajx_generate( pT );
     //rfx_trajx_plot( pT, .001, NULL );
 
-    struct rfx_trajx_seg_list *seglist =
-        rfx_trajx_splend_generate( plist, &reg );
+    // struct rfx_trajx_seg_list *seglist =
+    //     rfx_trajx_splend_generate( plist, &reg );
+    //rfx_trajx_parablend_generate( plist, &reg );
 
-    rfx_trajx_seglist_plot( seglist, .001, NULL );
+    struct rfx_trajx_seg_list *testlist =
+        rfx_trajx_seg_list_alloc( &reg );
+    {
+        double x_i[6], x_f[6];
+
+        AA_MEM_CPY(x_i, X[0], 3 );
+        AA_MEM_CPY(x_i+3, RV[0], 3 );
+        AA_MEM_CPY(x_f, X[1], 3 );
+        AA_MEM_CPY(x_f+3, RV[1], 3 );
+        struct rfx_trajx_seg *test =
+            rfx_trajx_seg_lerp_rv_alloc( &reg, 0, 1,
+                                         0, x_i,
+                                         1, x_f ) ;
+        rfx_trajx_seg_list_add( testlist, test );
+    }
+    struct rfx_trajx_seg_list *testlist2 =
+        rfx_trajx_seg_list_alloc( &reg );
+    {
+        double x_i[6], x_f[6];
+
+        AA_MEM_CPY(x_i, X[0], 3 );
+        AA_MEM_CPY(x_i+3, RV[0], 3 );
+        AA_MEM_CPY(x_f, X[1], 3 );
+        AA_MEM_CPY(x_f+3, RV[1], 3 );
+        struct rfx_trajx_seg *test =
+            rfx_trajx_seg_lerp_slerp_alloc( &reg, 0, 1,
+                                            0, X[0], R[0],
+                                            1, X[1], R[1] ) ;
+        rfx_trajx_seg_list_add( testlist2, test );
+    }
+
+
+
+    rfx_trajx_seglist_plot( testlist, .001, NULL );
 
 
     aa_mem_region_destroy( &reg );

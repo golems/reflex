@@ -144,7 +144,7 @@ rfx_trajx_seg_list_alloc( aa_mem_region_t *region );
  * List storage allocated from previously region for the list.
  */
 int
-rfx_trajx_seg_list_add( struct rfx_trajx_seg_list seg_list,
+rfx_trajx_seg_list_add( struct rfx_trajx_seg_list *seg_list,
                         struct rfx_trajx_seg *seg );
 
 /** Get trajectory pose as dual quaternion */
