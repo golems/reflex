@@ -44,12 +44,12 @@
 #include "reflex.h"
 
 void rfx_trajq_seg_plot( struct rfx_trajq_seg_list *cx, double dt ) {
-    double t_i = cx->t_i;
-    double t_f = cx->t_f;
+    double t_i = rfx_trajq_seg_list_get_t_i(cx);
+    double t_f = rfx_trajq_seg_list_get_t_f(cx);
 
 
     size_t n = (size_t) ( (t_f - t_i) / dt );
-    size_t n_q = cx->n_q;
+    size_t n_q = rfx_trajq_seg_list_get_n_q(cx) ;
     double T[n]; // time
     // matrices for points in the trajectory.
     // each column is a point.

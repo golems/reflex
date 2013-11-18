@@ -49,100 +49,51 @@ extern "C" {
 
 /*--- Point List ---*/
 
-struct rfx_trajq_point {
-    double t;       ///< time
-    double q[1];    ///< points
-};
+struct rfx_trajq_point ;
+struct rfx_trajq_points;
 
-/** List of via points for a trajectory */
-typedef struct rfx_trajq_points {
-    aa_mem_region_t *reg;   ///< memory region for allocation
-    size_t n_q;             ///< number of joints
-    size_t n_t;             ///< number of points
-    double t_i, t_f;        ///< initial and final time
-    double *q_i, *q_f;      ///< inital and final joint configuration
-    aa_mem_rlist_t *point;  ///< list of points
-} rfx_trajq_points_t;
-
-rfx_trajq_points_t *
+struct rfx_trajq_points *
 rfx_trajq_points_alloc( aa_mem_region_t *reg, size_t n_q );
 
-void rfx_trajq_points_add( rfx_trajq_points_t *traj, double t, double *q );
+void rfx_trajq_points_add( struct rfx_trajq_points *traj, double t, double *q );
 
 /*--- Trajectory Segments ---*/
+struct rfx_trajq_seg;
 
-struct rfx_trajq_seg_vtab {
-    int (*get_q)(void *cx, double t, double *q);
-    int (*get_dq)(void *cx, double t, double *q, double *dq);
-    int (*get_ddq)(void *cx, double t, double *q, double *dq, double *ddq);
-};
-
-
-/** Segment of a configuration space trajectory
- */
-typedef struct rfx_trajq_seg {
-    struct rfx_trajq_seg_vtab *vtab;
-    double t_i; ///< initial time for this segment
-    double t_f; ///< final time for this segment
-    size_t n_q; ///< number of joints
-} rfx_trajq_seg_t;
+int
+rfx_trajq_seg_get_q( struct rfx_trajq_seg *seg, double t, double *q );
+int
+rfx_trajq_seg_get_dq( struct rfx_trajq_seg *seg, double t, double *q, double *dq );
+int
+rfx_trajq_seg_get_ddq( struct rfx_trajq_seg *seg, double t, double *q, double *dq, double *ddq );
 
 
-
-static inline int
-rfx_trajq_seg_get_q( rfx_trajq_seg_t *seg, double t, double *q ) {
-    return seg->vtab->get_q( seg, t, q );
-}
-static inline int
-rfx_trajq_seg_get_dq(  rfx_trajq_seg_t *seg, double t, double *q, double *dq ) {
-    return seg->vtab->get_dq( seg, t, q, dq );
-}
-static inline int
-rfx_trajq_seg_get_ddq( rfx_trajq_seg_t *seg, double t, double *q, double *dq, double *ddq ) {
-    return seg->vtab->get_ddq( seg, t, q, dq, ddq );
-}
-
-
-/** List of trajectory segments.
- */
-typedef struct rfx_trajq_seg_list {
-    struct rfx_trajq_seg_vtab *vtab;
-    double t_i;             ///< initial time for this segment
-    double t_f;             ///< final time for this segment
-    size_t n_q;             ///< number of joints
-    size_t n_t;             ///< number of segments
-    aa_mem_region_t *reg;   ///< memory region for allocation
-    aa_mem_rlist_t *seg;    ///< list of segments
-    struct aa_mem_cons *last_seg; ///< pointer to last referenced segment
-} rfx_trajq_seg_list_t;
+struct rfx_trajq_seg_list;
 
 /* Initialize struct, performing future alloctions out of reg */
 struct rfx_trajq_seg_list *
 rfx_trajq_seg_list_alloc( aa_mem_region_t *reg );
 
 /* Add a segment */
-void rfx_trajq_seg_list_add( rfx_trajq_seg_list_t *seglist, rfx_trajq_seg_t *seg );
+void rfx_trajq_seg_list_add( struct rfx_trajq_seg_list *seglist, struct rfx_trajq_seg*seg );
 
 
-static inline int
-rfx_trajq_seg_list_get_q( rfx_trajq_seg_list_t *seglist, double t, double *q ) {
-    return seglist->vtab->get_q( seglist, t, q );
-}
-static inline int
-rfx_trajq_seg_list_get_dq(  rfx_trajq_seg_list_t *seglist, double t, double *q, double *dq ) {
-    return seglist->vtab->get_dq( seglist, t, q, dq );
-}
-static inline int
-rfx_trajq_seg_list_get_ddq( rfx_trajq_seg_list_t *seglist, double t, double *q, double *dq, double *ddq ) {
-    return seglist->vtab->get_ddq( seglist, t, q, dq, ddq );
-}
+int
+rfx_trajq_seg_list_get_q( struct rfx_trajq_seg_list *seglist, double t, double *q ) ;
+int
+rfx_trajq_seg_list_get_dq(  struct rfx_trajq_seg_list *seglist, double t, double *q, double *dq ) ;
+int
+rfx_trajq_seg_list_get_ddq( struct rfx_trajq_seg_list *seglist, double t, double *q, double *dq, double *ddq ) ;
+
+double
+rfx_trajq_seg_list_get_t_i( struct rfx_trajq_seg_list *seglist );
+double
+rfx_trajq_seg_list_get_t_f( struct rfx_trajq_seg_list *seglist );
+size_t
+rfx_trajq_seg_list_get_n_q( struct rfx_trajq_seg_list *seglist );
 
 void rfx_trajq_seg_plot( struct rfx_trajq_seg_list *cx, double dt );
 
-struct rfx_trajq_seg_param {
-    rfx_trajq_seg_t parent;
-    double p[0];
-};
 
 
 /*--- Trajectory Generators ---*/
@@ -151,64 +102,52 @@ struct rfx_trajq_seg_param {
  *
  * Uses a single, given blend time to compute accelerations
  */
-rfx_trajq_seg_list_t *
-rfx_trajq_gen_pblend_tm1( aa_mem_region_t *reg, rfx_trajq_points_t *points, double t_blend );
+struct rfx_trajq_seg_list *
+rfx_trajq_gen_pblend_tm1( aa_mem_region_t *reg, struct rfx_trajq_points *points, double t_blend );
 
 
 /*--- LERP Segments (Constant Velocity) ---*/
 
-/** Linearly interpolate between initial and final configuration
- */
-typedef struct rfx_trajq_seg_param rfx_trajq_seg_dq_t;
-
 /** Allocate segment to LERP from q_i with given velocity */
-rfx_trajq_seg_dq_t *
+struct rfx_trajq_seg *
 rfx_trajq_seg_dq_alloc( aa_mem_region_t *reg, size_t n_q,
                         double t_i, double *q_i, double *dq,
                         double t_f );
 
 /** Allocate segment to LERP between q_i and q_f */
-rfx_trajq_seg_dq_t *
+struct rfx_trajq_seg *
 rfx_trajq_seg_dq_alloc2( aa_mem_region_t *reg, size_t n_q,
                          double t_i, double *q_i,
                          double t_f, double *q_f );
 
 
 /** Add a constant velocity segment to end of trajectory. */
-int rfx_trajq_seg_dq_link( rfx_trajq_seg_list_t *seglist, double *dq, double t_f );
+int rfx_trajq_seg_dq_link( struct rfx_trajq_seg_list *seglist, double *dq, double t_f );
 
 /*--- Constant Acceleration Segments ---*/
 typedef struct rfx_trajq_seg_param rfx_trajq_seg_2dq_t;
 
 /** Allocate a constant acceleration segment */
-rfx_trajq_seg_2dq_t *
+struct rfx_trajq_seg *
 rfx_trajq_seg_2dq_alloc( aa_mem_region_t *reg, size_t n_q,
                          double t_i, double *q_i,
                          double *dq, double *ddq,
                          double t_f );
 
 /** Allocate a constant acceleration segment */
-rfx_trajq_seg_2dq_t *
+struct rfx_trajq_seg *
 rfx_trajq_seg_2dq_alloc2( aa_mem_region_t *reg,
                           size_t n_q,
                           double t_i, double *q_i, double *dq_i,
                           double t_f, double *q_f );
 
 /** Add a constant acceleration segment to end of trajectory. */
-int rfx_trajq_seg_2dq_link( rfx_trajq_seg_list_t *seglist, double *ddq, double t_f );
+int rfx_trajq_seg_2dq_link( struct rfx_trajq_seg_list *seglist, double *ddq, double t_f );
 
 /*--- Constant Jerk Segments ---*/
-struct rfx_trajq_seg_3dq {
-    rfx_trajq_seg_t parent;
-    size_t n_q;
-    double *q_i;
-    double *dq_i;
-    double *ddq_i;
-    double *dddq;
-};
 
 /** Allocate a constant acceleration segment */
-struct rfx_trajq_seg_3dq *
+struct rfx_trajq_seg *
 rfx_trajq_seg_3dq_alloc( aa_mem_region_t *reg, size_t n_q,
                          double t_i, double *q_i,
                          double *dq, double *ddq, double *dddq,
@@ -216,7 +155,7 @@ rfx_trajq_seg_3dq_alloc( aa_mem_region_t *reg, size_t n_q,
 
 
 /** Allocate a constant acceleration segment */
-struct rfx_trajq_seg_3dq *
+struct rfx_trajq_seg *
 rfx_trajq_seg_3dq_alloc2( aa_mem_region_t *reg, size_t n_q,
                           double t_i, double *q_i,
                           double *dq, double *ddq,

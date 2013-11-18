@@ -43,6 +43,23 @@
 #include <amino.h>
 #include "reflex.h"
 
+
+struct rfx_trajq_point {
+    double t;       ///< time
+    double q[1];    ///< points
+};
+
+/** List of via points for a trajectory */
+typedef struct rfx_trajq_points {
+    aa_mem_region_t *reg;   ///< memory region for allocation
+    size_t n_q;             ///< number of joints
+    size_t n_t;             ///< number of points
+    double t_i, t_f;        ///< initial and final time
+    double *q_i, *q_f;      ///< inital and final joint configuration
+    aa_mem_rlist_t *point;  ///< list of points
+} rfx_trajq_points_t;
+
+
 rfx_trajq_points_t *
 rfx_trajq_points_alloc( aa_mem_region_t *reg, size_t n_q ) {
     rfx_trajq_points_t *x = AA_MEM_REGION_NEW( reg, rfx_trajq_points_t );
@@ -72,6 +89,74 @@ void rfx_trajq_points_add( rfx_trajq_points_t *pts, double t, double *q ) {
 
 
 /*--- Segment List ---*/
+
+
+struct rfx_trajq_seg_vtab {
+    int (*get_q)(void *cx, double t, double *q);
+    int (*get_dq)(void *cx, double t, double *q, double *dq);
+    int (*get_ddq)(void *cx, double t, double *q, double *dq, double *ddq);
+};
+
+
+/** Segment of a configuration space trajectory
+ */
+typedef struct rfx_trajq_seg {
+    struct rfx_trajq_seg_vtab *vtab;
+    double t_i; ///< initial time for this segment
+    double t_f; ///< final time for this segment
+    size_t n_q; ///< number of joints
+} rfx_trajq_seg_t;
+
+int
+rfx_trajq_seg_get_q( struct rfx_trajq_seg*seg, double t, double *q ) {
+    return seg->vtab->get_q( seg, t, q );
+}
+int
+rfx_trajq_seg_get_dq(  struct rfx_trajq_seg*seg, double t, double *q, double *dq ) {
+    return seg->vtab->get_dq( seg, t, q, dq );
+}
+int
+rfx_trajq_seg_get_ddq( struct rfx_trajq_seg*seg, double t, double *q, double *dq, double *ddq ) {
+    return seg->vtab->get_ddq( seg, t, q, dq, ddq );
+}
+
+
+
+
+/** List of trajectory segments.
+ */
+typedef struct rfx_trajq_seg_list {
+    struct rfx_trajq_seg_vtab *vtab;
+    double t_i;             ///< initial time for this segment
+    double t_f;             ///< final time for this segment
+    size_t n_q;             ///< number of joints
+    size_t n_t;             ///< number of segments
+    aa_mem_region_t *reg;   ///< memory region for allocation
+    aa_mem_rlist_t *seg;    ///< list of segments
+    struct aa_mem_cons *last_seg; ///< pointer to last referenced segment
+} rfx_trajq_seg_list_t;
+
+
+int
+rfx_trajq_seg_list_get_q( struct rfx_trajq_seg_list *seglist, double t, double *q ) {
+    return seglist->vtab->get_q( seglist, t, q );
+}
+int
+rfx_trajq_seg_list_get_dq(  struct rfx_trajq_seg_list *seglist, double t, double *q, double *dq ) {
+    return seglist->vtab->get_dq( seglist, t, q, dq );
+}
+int
+rfx_trajq_seg_list_get_ddq( struct rfx_trajq_seg_list *seglist, double t, double *q, double *dq, double *ddq ) {
+    return seglist->vtab->get_ddq( seglist, t, q, dq, ddq );
+}
+
+double
+rfx_trajq_seg_list_get_t_i( struct rfx_trajq_seg_list *seglist ) { return seglist->t_i; }
+double
+rfx_trajq_seg_list_get_t_f( struct rfx_trajq_seg_list *seglist ) { return seglist->t_f; }
+size_t
+rfx_trajq_seg_list_get_n_q( struct rfx_trajq_seg_list *seglist ) { return seglist->n_q; }
+
 
 static struct rfx_trajq_seg*
 seg_list_lookup( struct rfx_trajq_seg_list *list, double t ) {
@@ -156,6 +241,10 @@ void rfx_trajq_seg_list_add( rfx_trajq_seg_list_t *seglist, rfx_trajq_seg_t *seg
 }
 
 
+struct rfx_trajq_seg_param {
+    struct rfx_trajq_seg parent;
+    double p[0];
+};
 
 /*--- Parabolic Blends ---*/
 rfx_trajq_seg_list_t *
@@ -280,6 +369,10 @@ rfx_trajq_seg_init( struct rfx_trajq_seg *seg, struct rfx_trajq_seg_vtab *vtab,
 
 /*--- Constant Velocity ---*/
 
+/** Linearly interpolate between initial and final configuration
+ */
+typedef struct rfx_trajq_seg_param rfx_trajq_seg_dq_t;
+
 static inline void dq_parm( rfx_trajq_seg_dq_t *cx, double t,
                             size_t *n_q, double **p_q_i, double **p_dq, double *dt ) {
     *n_q = cx->parent.n_q;
@@ -330,7 +423,7 @@ static struct rfx_trajq_seg_vtab seg_dq_vtab = {
     .get_ddq = dq_get_ddq
 };
 
-rfx_trajq_seg_dq_t *
+struct rfx_trajq_seg *
 rfx_trajq_seg_dq_alloc( aa_mem_region_t *reg, size_t n_q,
                         double t_i, double *q_i, double *dq,
                         double t_f ) {
@@ -340,10 +433,10 @@ rfx_trajq_seg_dq_alloc( aa_mem_region_t *reg, size_t n_q,
     double *p_dq = x->p + n_q;
     AA_MEM_CPY(p_q_i, q_i, n_q );
     AA_MEM_CPY(p_dq, dq, n_q );
-    return x;
+    return &x->parent;
 }
 
-rfx_trajq_seg_dq_t *
+struct rfx_trajq_seg *
 rfx_trajq_seg_dq_alloc2( aa_mem_region_t *reg, size_t n_q,
                          double t_i, double *q_i,
                          double t_f, double *q_f ) {
@@ -434,7 +527,7 @@ static struct rfx_trajq_seg_vtab seg_2dq_vtab = {
 };
 
 
-rfx_trajq_seg_2dq_t *
+struct rfx_trajq_seg *
 rfx_trajq_seg_2dq_alloc( aa_mem_region_t *reg, size_t n_q,
                          double t_i, double *q_i,
                          double *dq, double *ddq,
@@ -447,10 +540,10 @@ rfx_trajq_seg_2dq_alloc( aa_mem_region_t *reg, size_t n_q,
     AA_MEM_CPY(p_q_i, q_i, n_q );
     AA_MEM_CPY(p_dq,  dq,  n_q );
     AA_MEM_CPY(p_ddq, ddq, n_q );
-    return x;
+    return &x->parent;
 }
 
-rfx_trajq_seg_2dq_t *
+struct rfx_trajq_seg *
 rfx_trajq_seg_2dq_alloc2( aa_mem_region_t *reg, size_t n_q,
                           double t_i, double *q_i, double *dq_i,
                           double t_f, double *q_f );
@@ -472,13 +565,22 @@ int rfx_trajq_seg_2dq_link( rfx_trajq_seg_list_t *seglist, double *ddq, double t
 
 /*--- Constant Jerk ---*/
 
+struct rfx_trajq_seg_3dq {
+    struct rfx_trajq_seg parent;
+    size_t n_q;
+    double *q_i;
+    double *dq_i;
+    double *ddq_i;
+    double *dddq;
+};
+
 static struct rfx_trajq_seg_vtab seg_3dq_vtab = {
     .get_q   = NULL,
     .get_dq  = NULL,
     .get_ddq = NULL
 };
 
-struct rfx_trajq_seg_3dq *
+struct rfx_trajq_seg *
 rfx_trajq_seg_3dq_alloc( aa_mem_region_t *reg, size_t n_q,
                          double t_i, double *q_i,
                          double *dq, double *ddq, double *dddq,
@@ -490,11 +592,11 @@ rfx_trajq_seg_3dq_alloc( aa_mem_region_t *reg, size_t n_q,
     x->ddq_i = ddq;
     x->dddq = dddq;
     // TODO: vtable
-    return x;
+    return &x->parent;
 }
 
 
-struct rfx_trajq_seg_3dq *
+struct rfx_trajq_seg *
 rfx_trajq_seg_3dq_alloc2( aa_mem_region_t *reg, size_t n_q,
                           double t_i, double *q_i,
                           double *dq, double *ddq,

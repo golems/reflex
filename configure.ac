@@ -15,6 +15,11 @@ AC_PROG_CC_C99
 AM_PROG_CC_C_O
 AC_PROG_FC
 
+m4_ifdef([AX_CXX_HEADER_STDCXX_11],
+         [AX_CXX_HEADER_STDCXX_11],
+         [AX_CXX_COMPILE_STDCXX_0X
+         if test x"$ax_cv_cxx_compile_cxx0x_gxx" = xyes; then CXXFLAGS="$CXXFLAGS -std=gnu++0x"; fi])
+
 
 # Enable C++11
 dnl AC_LANG([C++])

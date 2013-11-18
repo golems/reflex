@@ -178,8 +178,7 @@ seg_search( struct rfx_trajx_seg_list *seglist, double t )
 
     /* check next segment */
     if( seglist->itr != seglist->list.end() ) {
-        RegionList<rfx_trajx_seg*>::iterator next = seglist->itr;
-        next++;
+        RegionList<rfx_trajx_seg*>::iterator next = amino::next(seglist->itr);
         if( next != seglist->list.end() &&
             t >= (*next)->t_i &&
             t <= (*next)->t_f )

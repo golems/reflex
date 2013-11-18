@@ -104,16 +104,16 @@ void plot_qseg () {
 
     size_t n_q = sizeof(q0)/sizeof(q0[0]);
 
-    rfx_trajq_points_t *points = rfx_trajq_points_alloc( &reg, n_q );
+    struct rfx_trajq_points *points = rfx_trajq_points_alloc( &reg, n_q );
     rfx_trajq_points_add( points, 0, q0 );
     rfx_trajq_points_add( points, 10, q1 );
     rfx_trajq_points_add( points, 20, q2 );
 
-    printf("n points: %lu\n", points->n_t );
-    printf("points 0: %lx\n", points->point->head );
-    printf("points 1: %lx\n", points->point->head->next );
+    //printf("n points: %lu\n", points->n_t );
+    //printf("points 0: %lx\n", points->point->head );
+    //printf("points 1: %lx\n", points->point->head->next );
 
-    rfx_trajq_seg_list_t *seglist = rfx_trajq_gen_pblend_tm1( &reg, points, 1 );
+    struct rfx_trajq_seg_list *seglist = rfx_trajq_gen_pblend_tm1( &reg, points, 1 );
 
     rfx_trajq_seg_plot( seglist, .001 );
 
@@ -234,9 +234,10 @@ void plot_viax() {
 int main( void ) {
     /* /rfx_trajq_plot( &traj.traj, 0.01 ); */
     //plotx2();
-    plot_viax();
-    //plot_qseg();
+    //plot_viax();
+    plot_qseg();
     //plotq();
+
 
 
 }
