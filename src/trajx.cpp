@@ -53,7 +53,7 @@ struct trajx_point {
     trajx_point( double a_t, double a_tb, const double a_S[8] ) :
         t(a_t),
         tb(a_tb),
-        S(a_S)
+        S(DualQuat::from_duqu(a_S))
     { }
 };
 
@@ -73,9 +73,9 @@ rfx_trajx_point_list_alloc( aa_mem_region_t *reg )
 }
 
 int
-rfx_trajx_point_list_add_xr( struct rfx_trajx_point_list *list, double t, const double x[3], const double r[4] )
+rfx_trajx_point_list_add_qv( struct rfx_trajx_point_list *list, double t, const double r[4], const double v[3] )
 {
-    rfx_trajx_point_list_addb_xr( list, t, -1, x, r );
+    rfx_trajx_point_list_addb_qv( list, t, -1, r, v );
 }
 int
 rfx_trajx_point_list_add_duqu( struct rfx_trajx_point_list *list, double t, const double S[8] )
@@ -90,10 +90,10 @@ rfx_trajx_point_list_add_tfmat( struct rfx_trajx_point_list *list, double t, con
 
 
 int
-rfx_trajx_point_list_addb_xr( struct rfx_trajx_point_list *list,
-                              double t, double t_blend, const double x[3], const double r[4] )
+rfx_trajx_point_list_addb_qv( struct rfx_trajx_point_list *list,
+                              double t, double t_blend, const double r[4], const double v[3] )
 {
-    DualQuat S(r,x);
+    DualQuat S( DualQuat::from_qv(r,v) );
     rfx_trajx_point_list_addb_duqu( list, t, t_blend, S.data );
 }
 int
@@ -295,6 +295,41 @@ rfx_trajx_seg_list_get_ddx_qv( struct rfx_trajx_seg_list *seg,
     return i;
 }
 
+
+int
+rfx_trajx_seg_list_get_x_tfmat( struct rfx_trajx_seg_list *seg,
+                                double t, double T[12] )
+{
+    double S[8];
+    int i = rfx_trajx_seg_list_get_x_duqu( seg, t, S );
+    if( RFX_OK == i ) {
+        aa_tf_duqu2tfmat( S, T );
+    }
+    return i;
+}
+int
+rfx_trajx_seg_list_get_dx_tfmat( struct rfx_trajx_seg_list *seg,
+                                 double t, double T[12], double dx[6] )
+{
+    double S[8];
+    int i = rfx_trajx_seg_list_get_x_duqu( seg, t, S );
+    if( RFX_OK == i ) {
+        aa_tf_duqu2tfmat( S, T );
+    }
+    return i;
+}
+int
+rfx_trajx_seg_list_get_ddx_tfmat( struct rfx_trajx_seg_list *seg,
+                                  double t,double T[12], double dx[6], double ddx[6] )
+{
+    double S[8];
+    int i = rfx_trajx_seg_list_get_ddx_duqu( seg, t, S, dx, ddx );
+    if( RFX_OK == i ) {
+        aa_tf_duqu2tfmat( S, T );
+    }
+    return i;
+}
+
 /*--- Generators ---*/
 
 static void point2vector( const struct trajx_point *pt, double x_last[6], double x[6] )
@@ -434,17 +469,16 @@ rfx_trajx_splend_generate( struct rfx_trajx_point_list *points, aa_mem_region_t 
         struct trajx_point pt_i, pt_j, pt_k;
         virtpoints( &plist, itr_j, &pt_i, &pt_j, &pt_k );
         /* Convert Dual Quaternions to quaternion, vector */
-        QuatVec qv_i(pt_i.S), qv_j(pt_j.S), qv_k(pt_k.S);
-        double r_j[4], x_j[3];
+        Vec3 v_i(pt_i.S), v_j(pt_j.S), v_k(pt_k.S);
         /* Blend About Current point */
         if( rfx_trajx_seg_list_add(seg_list,
                                    rfx_trajx_seg_blend_q_alloc(reg,
                                                                pt_j.t-pt_j.tb/2,
                                                                pt_j.t+pt_j.tb/2,
                                                                pt_j.tb,
-                                                               pt_i.t, qv_i.v.data, pt_i.S.real.data,
-                                                               pt_j.t, qv_j.v.data, pt_j.S.real.data,
-                                                               pt_k.t, qv_k.v.data, pt_k.S.real.data)) )
+                                                               pt_i.t, v_i.data, pt_i.S.real.data,
+                                                               pt_j.t, v_j.data, pt_j.S.real.data,
+                                                               pt_k.t, v_k.data, pt_k.S.real.data)) )
         {
             return NULL;
         }
@@ -456,8 +490,8 @@ rfx_trajx_splend_generate( struct rfx_trajx_point_list *points, aa_mem_region_t 
 
             if( rfx_trajx_seg_list_add( seg_list,
                                         rfx_trajx_seg_lerp_slerp_alloc( reg, t0, t1,
-                                                                        pt_j.t, qv_j.v.data, pt_j.S.real.data,
-                                                                        pt_k.t, qv_k.v.data, pt_k.S.real.data)) )
+                                                                        pt_j.t, v_j.data, pt_j.S.real.data,
+                                                                        pt_k.t, v_k.data, pt_k.S.real.data)) )
             {
                 return NULL;
             }

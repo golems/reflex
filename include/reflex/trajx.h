@@ -75,8 +75,8 @@ rfx_trajx_point_list_alloc( aa_mem_region_t *region );
  * list.
  */
 int
-rfx_trajx_point_list_add_xr( struct rfx_trajx_point_list *list,
-                             double t, const double x[3], const double r[4] );
+rfx_trajx_point_list_add_qv( struct rfx_trajx_point_list *list,
+                             double t, const double r[4], const double v[3] );
 /** Add a point given as dual quaternion to the list.
  *
  * Arguments are copied into memory allocated of the the region for
@@ -95,17 +95,18 @@ rfx_trajx_point_list_add_duqu( struct rfx_trajx_point_list *list,
  */
 int
 rfx_trajx_point_list_add_tfmat( struct rfx_trajx_point_list *list,
-                             double t, const double T[12] );
+                                double t, const double T[12] );
 
 
-/** Add a blend point given as vector and quaternion to the list.
+/** Add a blend point given as quaternion and vector to the list.
  *
  * Arguments are copied into memory allocated of the the region for
  * list.
  */
 int
-rfx_trajx_point_list_addb_xr( struct rfx_trajx_point_list *list,
-                              double t, double t_blend, const double x[3], const double r[4] );
+rfx_trajx_point_list_addb_qv( struct rfx_trajx_point_list *list,
+                              double t, double t_blend, const double r[4], const double v[3] );
+
 /** Add a blend point given as dual quaternion to the list.
  *
  * Arguments are copied into memory allocated of the the region for
@@ -174,6 +175,20 @@ rfx_trajx_seg_list_get_dx_qv( struct rfx_trajx_seg_list *seg,
 int
 rfx_trajx_seg_list_get_ddx_qv( struct rfx_trajx_seg_list *seg,
                                double t, double r[4], double x[3], double dx[6], double ddx[6] );
+
+/** Get trajectory pose as transformation matrix */
+int
+rfx_trajx_seg_list_get_x_tfmat( struct rfx_trajx_seg_list *seg,
+                                double t, double T[12] );
+/** Get trajectory pose as transformation matrix, and get velocity */
+int
+rfx_trajx_seg_list_get_dx_tfmat( struct rfx_trajx_seg_list *seg,
+                                 double t, double T[12], double dx[6] );
+/** Get trajectory pose as transformation matrix, and get velocity and acceleration */
+int
+rfx_trajx_seg_list_get_ddx_tfmat( struct rfx_trajx_seg_list *seg,
+                                  double t,double T[12], double dx[6], double ddx[6] );
+
 
 /** Get trajectory pose [translation log(quaternion)] */
 int

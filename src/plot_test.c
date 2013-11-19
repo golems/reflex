@@ -182,15 +182,18 @@ void plot_viax() {
         aa_tf_quat2rotvec( R[i], RV[i] );
         rfx_trajx_add( pT, 5.0*(double)i, X[i], R[i] );
 
-        rfx_trajx_point_list_addb_xr( plist, 5*(double)i, 1, X[i], R[i] );
+        rfx_trajx_point_list_addb_qv( plist, 5*(double)i, 1, R[i], X[i] );
     }
 
     //rfx_trajx_generate( pT );
     //rfx_trajx_plot( pT, .001, NULL );
 
-    // struct rfx_trajx_seg_list *seglist =
-    //     rfx_trajx_splend_generate( plist, &reg );
+    struct rfx_trajx_seg_list *seglist =
+        rfx_trajx_splend_generate( plist, &reg );
     //rfx_trajx_parablend_generate( plist, &reg );
+
+    rfx_trajx_seglist_plot( seglist, .001, NULL );
+    return;
 
     struct rfx_trajx_seg_list *testlist =
         rfx_trajx_seg_list_alloc( &reg );
@@ -234,8 +237,8 @@ void plot_viax() {
 int main( void ) {
     /* /rfx_trajq_plot( &traj.traj, 0.01 ); */
     //plotx2();
-    //plot_viax();
-    plot_qseg();
+    plot_viax();
+    //plot_qseg();
     //plotq();
 
 
