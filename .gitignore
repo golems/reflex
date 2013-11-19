@@ -44,3 +44,6 @@
 /compile
 .dirstamp
 /reflex_kin.mod
+*.class
+*.jar
+/org_golems_reflex_Lib.h

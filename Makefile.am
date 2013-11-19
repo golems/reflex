@@ -57,4 +57,46 @@ cp.eps: cartpend cartpend.gnuplot
 	./cartpend
 	gnuplot ./cartpend.gnuplot
 
+
+## JAVA ##
+JSOURCES =                                        \
+	$(top_srcdir)/java/Lib.java               \
+	$(top_srcdir)/java/Test.java
+
+EXTRA_DIST += $(JSOURCES)
+
+if HAVE_JAVAC
+
+BUILT_SOURCES = org_golems_reflex_Lib.h
+
+JCLASSES =                                        \
+	org/golems/reflex/Lib.class               \
+	org/golems/reflex/Test.class
+
+org/golems/reflex/Lib.class: $(JSOURCES)
+	$(JAVAC) -d $(top_builddir) $(JSOURCES)
+
+org_golems_reflex_Lib.h: $(top_builddir)/org/golems/reflex/Lib.class
+	$(JAVAH) org.golems.reflex.Lib
+	touch $@
+
+$(top_builddir)/org/golems/reflex/Lib.class: org.golems.reflex.jar
+
+org.golems.reflex.jar: $(JSOURCES)
+	$(JAVAC) -d $(top_builddir) $(JSOURCES)
+	$(JAR) cf $@ $(JCLASSES)
+
+
+# install the jar file somewhere reasonable
+javadir = $(datadir)/java
+java_DATA = org.golems.reflex.jar
+
+lib_LTLIBRARIES += libreflexj.la
+libreflexj_la_CPPFLAGS = $(CPPFLAGS) $(JNICPPFLAGS)
+libreflexj_la_SOURCES = java/reflexj.c
+libreflexj_la_LIBADD = libreflex.la
+
+endif
+
+
 include aminclude.am

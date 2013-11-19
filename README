@@ -1,6 +1,5 @@
-************
-* OVERVIEW *
-************
+OVERVIEW
+========
 
 Reflex is a package for Real-Time control.  It includes the following:
 
@@ -12,24 +11,23 @@ Reflex is a package for Real-Time control.  It includes the following:
   - LQR Controller
 
 
-****************
-* INSTALLATION *
-****************
+INSTALLATION
+============
 
-./configure && make && make install
+    ./configure && make && make install
 
 See the INSTALL file for details.
 
-****************
-* Dependencies *
-****************
+You may need to manually set your CLASSPATH variable for java.
+
+Dependencies
+============
 
 - amino: https://github.com/golems/amino
 - BLAS/LAPACK
 
-***********
-* Example *
-***********
+Example
+=======
 
 See the file cartpend.c for an example of how to do LQG filtering and
 control.

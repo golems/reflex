@@ -192,7 +192,7 @@ void plot_viax() {
         rfx_trajx_splend_generate( plist, &reg );
     //rfx_trajx_parablend_generate( plist, &reg );
 
-    rfx_trajx_seglist_plot( seglist, .001, NULL );
+    rfx_trajx_seg_list_plot( seglist, .001, NULL );
     return;
 
     struct rfx_trajx_seg_list *testlist =
@@ -228,7 +228,7 @@ void plot_viax() {
 
 
 
-    rfx_trajx_seglist_plot( testlist, .001, NULL );
+    rfx_trajx_seg_list_plot( testlist, .001, NULL );
 
 
     aa_mem_region_destroy( &reg );

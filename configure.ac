@@ -99,6 +99,46 @@ APPEND_FCFLAG([-Wtabs])
 APPEND_FCFLAG([-Wunused-parameter])
 APPEND_FCFLAG([-Wintrinsic-shadow])
 
+dnl JAVA
+AS_IF( [test "x$JAVAPREFIX" = x],
+       [
+        AS_IF( [test "x$JAVA" = x],  [AC_CHECK_PROGS(JAVA, java kaffe)],  )
+        AS_IF( [test "x$JAVAC" = x], [AC_CHECK_PROGS(JAVAC, javac "gcj -C" jikes guavac)] )
+        AS_IF( [test "x$JAVAH" = x], [AC_CHECK_PROGS(JAVAH, javah)] )
+        AS_IF( [test "x$JAR" = x],   [AC_CHECK_PROGS(JAR, jar)] )
+       ],
+       [
+        AS_IF( [test "x$JAVA" = x],  [AC_CHECK_PROGS(JAVA, java kaffe)],
+               [$JAVAPREFIX] )
+        AS_IF( [test "x$JAVAC" = x], [AC_CHECK_PROGS(JAVAC, javac "gcj -C" jikes guavac)],
+               [$JAVAPREFIX] )
+        AS_IF( [test "x$JAVAH" = x], [AC_CHECK_PROGS(JAVAH, javah)],
+               [$JAVAPREFIX] )
+        AS_IF( [test "x$JAR" = x],   [AC_CHECK_PROGS(JAR, jar)],
+               [$JAVAPREFIX] )
+       ]
+)
+
+AS_IF([test "x$JAVAC" = "x"],
+      [BUILD_JAVA=no],
+      [
+       BUILD_JAVA=yes
+       AX_JNI_INCLUDE_DIR
+       for JNI_INCLUDE_DIR in $JNI_INCLUDE_DIRS
+       do
+           JNICPPFLAGS="$JNICPPFLAGS -I$JNI_INCLUDE_DIR"
+       done
+      ])
+
+AC_SUBST([JNICPPFLAGS])
+AM_CONDITIONAL([HAVE_JAVAC],   [test "x$JAVAC" != x])
+
+dnl TODO: better (any) handling of CLASSPATH variable
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
+
+AC_MSG_NOTICE([CONFIGURATION SUMMARY])
+AC_MSG_NOTICE([=====================])
+AC_MSG_NOTICE([PREFIX:          $prefix])
+AC_MSG_NOTICE([BUILD JAVA LIB:  $BUILD_JAVA])

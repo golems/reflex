@@ -461,7 +461,7 @@ void rfx_trajx_plot( struct rfx_trajx *cx, double dt, const struct rfx_trajx_plo
 
 
 
-void rfx_trajx_seglist_plot( struct rfx_trajx_seg_list *cx, double dt, const struct rfx_trajx_plot_opts *xopts ) {
+void rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt, const struct rfx_trajx_plot_opts *xopts ) {
 
     double t_i = rfx_trajx_seg_list_get_t_i(cx);
     double t_f = rfx_trajx_seg_list_get_t_f(cx);

@@ -206,8 +206,8 @@ rfx_trajx_seg_list_get_t_f( struct rfx_trajx_seg_list *seg );
 
 /** Plot trajectory */
 void
-rfx_trajx_seglist_plot( struct rfx_trajx_seg_list *cx, double dt,
-                        const struct rfx_trajx_plot_opts *xopts ) ;
+rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt,
+                         const struct rfx_trajx_plot_opts *xopts ) ;
 
 /*--- Segment Types ---*/
 
