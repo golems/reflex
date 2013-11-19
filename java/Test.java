@@ -40,8 +40,6 @@
 
 package org.golems.reflex;
 
-import org.golems.amino.Lib;
-
 class Test
 {
     public static void main( String[] args ) {

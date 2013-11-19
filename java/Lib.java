@@ -39,6 +39,8 @@
  */
 
 package org.golems.reflex;
+
+/** Wrapper class for libreflex */
 public class Lib
 {
 
@@ -48,31 +50,79 @@ public class Lib
 
     /* Native Function Wrappers */
 
+    /** Allocate a point list out of mem_region.
+     *
+     * All points added to list will be allocated out of the provided
+     * memory region.
+     *
+     * @param mem_region Handle to an org.golems.amino memory region
+     *
+     * @return A handle to the point list
+     */
     public static native long
-    trajx_point_list_alloc( long mem_region_handle );
+    trajx_point_list_alloc( long mem_region );
 
+    /** Add blend point to the list.
+     *
+     * @param point_list Handle to point list from trajx_point_list_alloc()
+     * @param t Time to reach this point
+     * @param tb Blend time for this point
+     * @param q Unit quaternion orientation, in xyzw order
+     * @param v Translation, xyz
+     */
     public static native int
     trajx_point_list_addb_qv( long point_list, double t, double tb,
                               double[] q, double[] v );
 
+    /** Generate spherical blend trajectory.
+     *
+     * @param point_list List of way points in the trajectory.
+     * @param mem_region Handle to an org.golems.amino memory region
+     * to allocation the trajectory segments out of.
+     *
+     * @return Handle to the trajectory segment list.
+     */
     public static native long
     trajx_splend_generate( long point_list, long mem_region );
 
+
+    /** Get trajectory pose at given time.
+     *
+     * @param seg_list Handle to trajectory segments.
+     * @param q Output for orientation is unit quaternion, xyzw order
+     * @param v Output for translation as array xyz
+     */
     public static native int
     trajx_seg_list_get_x_qv( long seg_list, double t,
                              double[] q, double[] v );
 
+    /** Get trajectory pose and velocity at given time.
+     *
+     * @param seg_list Handle to trajectory segments.
+     * @param q Output for orientation is unit quaternion, xyzw order
+     * @param v Output for translation as array xyz
+     * @param dx Output for velocity, xyz translation followed by xyz rotation
+     */
     public static native int
     trajx_seg_list_get_dx_qv( long seg_list, double t,
                               double[] q, double[] v,
                               double[] dx);
 
+    /** Get trajectory pose, velocity, and acceleration at given time.
+     *
+     * @param seg_list Handle to trajectory segments.
+     * @param q Output for orientation is unit quaternion, xyzw order
+     * @param v Output for translation as array xyz
+     * @param dx Output for velocity, xyz translation followed by xyz rotation
+     * @param ddx Output for orientation, xyz translation followed by xyz rotation
+     */
     public static native int
     trajx_seg_list_get_ddx_qv( long seg_list, double t,
                                double[] q, double[] v,
                                double[] dx, double ddx[] );
 
 
+    /** Plot the trajectory */
     public static native int
     trajx_seg_list_plot( long seg_list, double dt );
 

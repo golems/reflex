@@ -63,7 +63,7 @@ JSOURCES =                                        \
 	$(top_srcdir)/java/Lib.java               \
 	$(top_srcdir)/java/Test.java
 
-EXTRA_DIST += $(JSOURCES)
+EXTRA_DIST += $(JSOURCES) doc/javadoc
 
 if HAVE_JAVAC
 
@@ -95,6 +95,16 @@ lib_LTLIBRARIES += libreflexj.la
 libreflexj_la_CPPFLAGS = $(CPPFLAGS) $(JNICPPFLAGS)
 libreflexj_la_SOURCES = java/reflexj.c
 libreflexj_la_LIBADD = libreflex.la
+
+# Javadocs
+doc/.javadoc.stamp: $(JSOURCES)
+	javadoc -d doc/javadoc $(JSOURCES)
+	touch $@
+
+doc/javadoc: doc/.javadoc.stamp
+
+javadoc: doc/.javadoc.stamp
+
 
 endif
 
