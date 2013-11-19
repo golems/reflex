@@ -70,15 +70,13 @@ JNIEXPORT jint JNICALL Java_org_golems_reflex_Lib_trajx_1point_1list_1addb_1qv
 (JNIEnv *env, jclass clazz, jlong point_list, jdouble t, jdouble tb, jdoubleArray jq, jdoubleArray jv)
 {
     (void)clazz;
-    // TODO: check sizes
-    double *q = (*env)->GetDoubleArrayElements(env,jq,0);
-    double *v = (*env)->GetDoubleArrayElements(env,jv,0);
+    double q[4];
+    double v[3];
+    (*env)->GetDoubleArrayRegion(env, jq, 0, 4, q);
+    (*env)->GetDoubleArrayRegion(env, jv, 0, 3, v);
 
     rfx_trajx_point_list_addb_qv( (struct rfx_trajx_point_list*)point_list,
                                   t, tb, q, v );
-
-    (*env)->ReleaseDoubleArrayElements(env,jq,q,0);
-    (*env)->ReleaseDoubleArrayElements(env,jv,v,0);
 
     return RFX_OK;
 }
