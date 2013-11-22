@@ -234,13 +234,64 @@ void plot_viax() {
     aa_mem_region_destroy( &reg );
 }
 
+
+int better_example(void) {
+    // create a regeion memory allocator
+    aa_mem_region_t reg;
+    aa_mem_region_init( &reg, 1024*32 );
+
+    // Create list for way points
+    struct rfx_trajx_point_list *plist = rfx_trajx_point_list_alloc( &reg );
+
+    // waypoint translations
+    double X[5][5] = { {0,0,0}, {1,0,0}, {1,1,0}, {1,1,1}, {0,0,0} };
+    // waypoint euler angles
+    double E[5][5] = { {0,0,0}, {M_PI_2,0,0}, {M_PI_2,M_PI_2,0}, {M_PI_2,M_PI_2,M_PI_2}, {0,0,0} };
+
+    // storage for waypoint quaternions
+    double R[5][4];
+
+    // Add waypoints to point list
+    for( size_t i = 0; i < sizeof(X)/sizeof(X[0]); i ++ ) {
+        aa_tf_eulerzyx2quat( E[i][0], E[i][1], E[i][2], R[i] );
+        rfx_trajx_point_list_addb_qv( plist, 5*(double)i, 1, R[i], X[i] );
+    }
+
+
+    // generate trajectory
+    struct rfx_trajx_seg_list *seglist =
+        rfx_trajx_splend_generate( plist, &reg );
+
+
+    // plot trajectory
+    //rfx_trajx_seg_list_plot( seglist, .001, NULL );
+
+    // print points
+    for( double t = 0; t < 10; t += .05 ) {
+        double T[12]; // column major [R | t]
+        double dx[6]; // xyz translational velocity, xyz rotational velocity
+
+        rfx_trajx_seg_list_get_dx_tfmat( seglist, t, T, dx );
+
+        printf("--\n");
+        aa_dump_vec( stdout, T, 12 );
+        aa_dump_vec( stdout, dx, 6 );
+    }
+
+
+    aa_mem_region_destroy( &reg );
+
+    return 0;
+}
+
 int main( void ) {
     /* /rfx_trajq_plot( &traj.traj, 0.01 ); */
     //plotx2();
-    plot_viax();
+    //plot_viax();
     //plot_qseg();
     //plotq();
 
 
+    better_example();
 
 }
