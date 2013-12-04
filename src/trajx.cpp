@@ -395,6 +395,7 @@ rfx_trajx_parablend_generate( struct rfx_trajx_point_list *points, aa_mem_region
 
     struct rfx_trajx_seg_list * seg_list = rfx_trajx_seg_list_alloc( reg );
 
+    double dx_p[6] = {0};
     auto itr_j = plist.begin();
     while ( plist.end() != itr_j ) {
         struct trajx_point pt_i, pt_j, pt_k;
@@ -406,13 +407,13 @@ rfx_trajx_parablend_generate( struct rfx_trajx_point_list *points, aa_mem_region
 
         /* get start position */
         double x_p[6];
-        double dx_p[6];
         if( itr_j == plist.begin() ) {
             memcpy( x_p, x_i, sizeof(x_p) );
-            memset( dx_p, 0, sizeof(x_p) );
+            //memset( dx_p, 0, sizeof(x_p) );
         } else {
             double  r[4];
-            int i = rfx_trajx_seg_list_get_dx_qv( seg_list, seg_list->t_f, r, x_p, dx_p );
+            //int i = rfx_trajx_seg_list_get_dx_qv( seg_list, seg_list->t_f, r, x_p, dx_p );
+            int i = rfx_trajx_seg_list_get_x_qv( seg_list, seg_list->t_f, r, x_p );
             aa_tf_quat2rotvec_near(r, x_j+3, x_p+3 );
         }
 
@@ -445,6 +446,7 @@ rfx_trajx_parablend_generate( struct rfx_trajx_point_list *points, aa_mem_region
             {
                 return NULL;
             }
+            memcpy(dx_p, dx, sizeof(dx_p));
 
         }
         itr_j++;

@@ -511,9 +511,10 @@ void rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt, const st
 
         for( size_t k = 1; k < n; k ++ ) {
             // orientation
-            for( size_t i = 0; i < 4; i ++ ) {
-                sdQ[ k*4 + i ] = sdQ[ (k-1)*4 + i ] + dt*dQ[ k*4 + i ];
-            }
+            // for( size_t i = 0; i < 4; i ++ ) {
+            //     sdQ[ k*4 + i ] = sdQ[ (k-1)*4 + i ] + dt*dQ[ k*4 + i ];
+            // }
+            aa_tf_qsvel( sdQ+(k-1)*4, dXr+(k-1)*3, dt, sdQ+k*4 );
             aa_tf_qnormalize( sdQ + k*4 );
 
             // translation

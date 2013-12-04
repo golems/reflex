@@ -4,7 +4,7 @@ EXTRA_DIST = cartpend.gnuplot
 
 include_HEADERS = include/reflex.h include/reflex.hpp
 
-pkginclude_HEADERS = include/reflex/kinematics.h include/reflex/trajectory.h
+pkginclude_HEADERS = include/reflex/kinematics.h include/reflex/trajectory.h include/reflex/trajx.h
 
 nodist_include_HEADERS = reflex_kin.mod
 
