@@ -144,6 +144,7 @@ int
 rfx_trajx_seg_list_add( struct rfx_trajx_seg_list *seg_list,
                         struct rfx_trajx_seg *seg )
 {
+    assert( seg->t_i < seg->t_f );
     if( seg_list->list.empty() ) {
         /* add to empty list */
         seg_list->t_i = seg->t_i;
@@ -397,6 +398,8 @@ rfx_trajx_parablend_generate( struct rfx_trajx_point_list *points, aa_mem_region
 
     double dx_p[6] = {0};
     auto itr_j = plist.begin();
+    seg_list->t_i = itr_j->t;
+    seg_list->t_f = itr_j->t;
     while ( plist.end() != itr_j ) {
         struct trajx_point pt_i, pt_j, pt_k;
         virtpoints( &plist, itr_j, &pt_i, &pt_j, &pt_k );
@@ -424,7 +427,7 @@ rfx_trajx_parablend_generate( struct rfx_trajx_point_list *points, aa_mem_region
             ddx[j] = (dx[j] - dx_p[j]) / pt_j.tb;
         }
         /* blend */
-        assert( seg_list->t_f == pt_j.t - pt_j.tb/2 );
+        //assert( seg_list->t_f == pt_j.t - pt_j.tb/2 );
         if( rfx_trajx_seg_list_add( seg_list,
                                     rfx_trajx_seg_blend_rv_alloc( reg,
                                                                   seg_list->t_f,
