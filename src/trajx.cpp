@@ -396,29 +396,20 @@ rfx_trajx_parablend_generate( struct rfx_trajx_point_list *points, aa_mem_region
 
     struct rfx_trajx_seg_list * seg_list = rfx_trajx_seg_list_alloc( reg );
 
-    double dx_p[6] = {0};
     auto itr_j = plist.begin();
     seg_list->t_i = itr_j->t;
     seg_list->t_f = itr_j->t;
+    double dx_p[6] = {0};
+    double x_p[6];
+    point2vector( &(*itr_j), NULL, x_p );
     while ( plist.end() != itr_j ) {
         struct trajx_point pt_i, pt_j, pt_k;
         virtpoints( &plist, itr_j, &pt_i, &pt_j, &pt_k );
+
         double x_i[6], x_j[6], x_k[6];
-        point2vector( &pt_i, NULL, x_i );
+        point2vector( &pt_i, x_p, x_i );
         point2vector( &pt_j, x_i, x_j );
         point2vector( &pt_k, x_j, x_k );
-
-        /* get start position */
-        double x_p[6];
-        if( itr_j == plist.begin() ) {
-            memcpy( x_p, x_i, sizeof(x_p) );
-            //memset( dx_p, 0, sizeof(x_p) );
-        } else {
-            double  r[4];
-            //int i = rfx_trajx_seg_list_get_dx_qv( seg_list, seg_list->t_f, r, x_p, dx_p );
-            int i = rfx_trajx_seg_list_get_x_qv( seg_list, seg_list->t_f, r, x_p );
-            aa_tf_quat2rotvec_near(r, x_j+3, x_p+3 );
-        }
 
         /* compute velocity and acceleration */
         double ddx[6], dx[6];
@@ -449,8 +440,13 @@ rfx_trajx_parablend_generate( struct rfx_trajx_point_list *points, aa_mem_region
             {
                 return NULL;
             }
-            memcpy(dx_p, dx, sizeof(dx_p));
 
+            // carry previous values
+            memcpy(dx_p, dx, sizeof(dx_p));
+            aa_la_d_lerp( 6, 1 - 0.5 * pt_k.tb / (pt_k.t - pt_j.t),
+                          x_j, 1,
+                          x_k, 1,
+                          x_p, 1 );
         }
         itr_j++;
     }

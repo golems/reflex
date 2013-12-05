@@ -617,18 +617,12 @@ static int x_seg_lerp_rv_get_x( struct rfx_trajx *cx, double t, double x[3], dou
 }
 
 static int x_seg_lerp_rv_get_dx( struct rfx_trajx *cx, double t, double dx[6] ) {
-    (void)t;
     rfx_trajx_seg_lerp_rv_t *S = (rfx_trajx_seg_lerp_rv_t*)cx;
-
-    double dv[3];
-
-    double x[3], r[4], v[3];
-    x_seg_lerp_rv_get_x( cx, t, x, r );
-    aa_tf_quat2rotvec( r, v );
-
+    double dv[3], v[3];
     for( size_t i = 0; i < 3; i ++ ) {
         dx[i] = (S->x_f[i] - S->x_i[i]) / S->dt;
         dv[i] = (S->x_f[i+3] - S->x_i[i+3]) / S->dt;
+        v[i]  = S->x_i[i+3] + dv[i]*(t-S->tau_i);
     }
 
     aa_tf_rotvec_diff2vel( v, dv, dx+3 );
@@ -674,15 +668,11 @@ static int x_seg_blend_rv_get_x( struct rfx_trajx *cx, double t, double x[3], do
 static int x_seg_blend_rv_get_dx( struct rfx_trajx *cx, double t, double dx[6] ) {
     rfx_trajx_seg_blend_rv_t *S = (rfx_trajx_seg_blend_rv_t*)cx;
     double dt = t - S->tau_i;
-    double dv[3];
-
-    double x[3], r[4], v[3];
-    x_seg_blend_rv_get_x( cx, t, x, r );
-    aa_tf_quat2rotvec( r, v );
-
+    double dv[3], v[3];
     for( size_t i = 0; i < 3; i ++ ) {
         dv[i] = S->dx_i[i+3] + dt*S->ddx[i+3];
         dx[i] = S->dx_i[i] + dt*S->ddx[i];
+        v[i] = S->x_i[i+3] + dt*S->dx_i[i+3] + 0.5*dt*dt*S->ddx[i+3];
     }
     aa_tf_rotvec_diff2vel( v, dv, dx+3 );
     return 0;

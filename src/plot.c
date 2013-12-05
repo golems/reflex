@@ -496,6 +496,7 @@ void rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt, const st
             double dx[6], S[8];
             rfx_trajx_seg_list_get_dx_duqu( cx, t, S, dx );
             aa_tf_duqu2qv( S, Q+4*i, X+3*i );
+            //aa_tf_qminimize( Q+4*i );
 
             AA_MEM_CPY( dXt + 3*i, dx, 3 );
             AA_MEM_CPY( dXr + 3*i, dx+3, 3 );
@@ -516,6 +517,7 @@ void rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt, const st
             // }
             aa_tf_qsvel( sdQ+(k-1)*4, dXr+(k-1)*3, dt, sdQ+k*4 );
             aa_tf_qnormalize( sdQ + k*4 );
+            //aa_tf_qminimize( sdQ + k*4 );
 
             // translation
             for( size_t i = 0; i < 3; i ++ ) {

@@ -156,14 +156,6 @@ void plot_viax() {
     aa_mem_region_t reg;
     aa_mem_region_init( &reg, 1024*32 );
 
-    /* rfx_trajx_via_t T; */
-    /* rfx_trajx_via_init( &T, &reg ); */
-    rfx_trajx_parablend_t T;
-    //rfx_trajx_splend_init( &T, &reg, 1 );
-    rfx_trajx_parablend_init( &T, &reg, 1 );
-
-    rfx_trajx_t *pT = (rfx_trajx_t*)&T;
-
     struct rfx_trajx_point_list *plist = rfx_trajx_point_list_alloc( &reg );
 
     double theta = M_PI*.9;
@@ -180,8 +172,6 @@ void plot_viax() {
     for( size_t i = 0; i < n; i ++ ) {
         aa_tf_eulerzyx2quat( E[i][0], E[i][1], E[i][2], R[i] );
         aa_tf_quat2rotvec( R[i], RV[i] );
-        rfx_trajx_add( pT, 5.0*(double)i, X[i], R[i] );
-
         rfx_trajx_point_list_addb_qv( plist, 5*(double)i, 1, R[i], X[i] );
     }
 
@@ -190,10 +180,10 @@ void plot_viax() {
 
     struct rfx_trajx_seg_list *seglist =
         //rfx_trajx_splend_generate( plist, &reg );
-        rfx_trajx_parablend_generate( plist, &reg );
+    rfx_trajx_parablend_generate( plist, &reg );
 
-    //rfx_trajx_seg_list_plot( seglist, .001, NULL );
-    //return;
+    rfx_trajx_seg_list_plot( seglist, .001, NULL );
+    return;
 
     struct rfx_trajx_seg_list *testlist =
         rfx_trajx_seg_list_alloc( &reg );
@@ -222,7 +212,7 @@ void plot_viax() {
 
 
 
-    rfx_trajx_seg_list_plot( testlist2, .001, NULL );
+    rfx_trajx_seg_list_plot( testlist, .001, NULL );
 
 
     aa_mem_region_destroy( &reg );
@@ -278,13 +268,72 @@ int better_example(void) {
     return 0;
 }
 
+void regress_1() {
+
+
+    aa_mem_region_t reg;
+    aa_mem_region_init( &reg, 1024*32 );
+
+    // Create list for way points
+    struct rfx_trajx_point_list *plist = rfx_trajx_point_list_alloc( &reg );
+
+    double r0[4] = {0,1,0,0};
+    double rr[6][4];
+    double rrel[4][4];
+    double x0[3] = {0};
+
+    aa_tf_zangle2quat(.5*M_PI, rrel[0]);
+    aa_tf_eulerzyx2quat(0, 0, .10*M_PI, rrel[1]);
+    aa_tf_eulerzyx2quat(0, 0, -.2*M_PI, rrel[2]);
+    aa_tf_eulerzyx2quat(-.5*M_PI, 0, 0, rrel[3]);
+
+    AA_MEM_CPY(rr[0], r0, 4);
+    for( size_t i = 0; i < 4; i ++ ) {
+        aa_tf_qmul( rr[i], rrel[i], rr[i+1] );
+    }
+    AA_MEM_CPY(rr[5], r0, 4);
+
+    size_t diff = 2;
+    for( size_t i = 0; i < sizeof(rr)/sizeof(rr[0])-diff; i ++ ) {
+        rfx_trajx_point_list_addb_qv( plist, 5*(double)i, 1, rr[i+diff], x0 );
+    }
+
+    // generate trajectory
+    struct rfx_trajx_seg_list *seglist =
+        //rfx_trajx_splend_generate( plist, &reg );
+        rfx_trajx_parablend_generate( plist, &reg );
+
+
+    // plot trajectory
+    rfx_trajx_seg_list_plot( seglist, .001, NULL );
+}
+
+void regress_2() {
+    aa_mem_region_t reg;
+    aa_mem_region_init( &reg, 1024*32 );
+    struct rfx_trajx_seg_list *segs = rfx_trajx_seg_list_alloc( &reg );
+
+    double x0[6] = {0.000000,0.000000,0.000000,-3.017866,0.477983,0.477983};
+    double x1[6] = {0.000000,0.000000,0.000000,-3.455752,-0.000000,-0.000000};
+
+    struct rfx_trajx_seg *seg =
+        rfx_trajx_seg_lerp_rv_alloc( &reg, 0, 1,
+                                     0, x0,
+                                     1, x1 ) ;
+    rfx_trajx_seg_list_add( segs, seg );
+
+    rfx_trajx_seg_list_plot( segs, .001, NULL );
+}
+
 int main( void ) {
     /* /rfx_trajq_plot( &traj.traj, 0.01 ); */
     //plotx2();
-    plot_viax();
+    //plot_viax();
     //plot_qseg();
     //plotq();
 
+    regress_1();
+    //regress_2();
 
     //better_example();
 
