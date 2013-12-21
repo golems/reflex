@@ -4,7 +4,11 @@ EXTRA_DIST = cartpend.gnuplot
 
 include_HEADERS = include/reflex.h include/reflex.hpp
 
-pkginclude_HEADERS = include/reflex/kinematics.h include/reflex/trajectory.h include/reflex/trajx.h
+pkginclude_HEADERS = \
+	include/reflex/kinematics.h \
+	include/reflex/trajectory.h \
+	include/reflex/trajx.h \
+	include/reflex/body.h
 
 nodist_include_HEADERS = reflex_kin.mod
 
@@ -35,6 +39,7 @@ libreflex_la_SOURCES =              \
 	src/trajq.c                 \
 	src/kin.c                   \
 	src/trajx.c                 \
+	src/body/body.cpp           \
 	src/traj.c
 
 libreflex_la_LIBADD =               \
