@@ -48,17 +48,6 @@
 
 using namespace amino;
 
-struct rfx_body_vtab {
-    //double (*distance_point)( void *cx /* more */ );
-    //double (*distance_line)( void *cx /* more */ );
-    //double (*distance_sphere)( void *cx /* more */ );
-    //double (*distance_capsule)( void *cx /* more */ );
-    void (*tf_rel)( void *cx, double q, rfx_tf *tf );
-    //void (*jacobian_col)( void *cx, double q, const double S_abs[8], const double pe[3], double J[6] );
-    //enum rfx_joint_type (*joint_type)(void *cx);
-};
-
-
 /// Contains fixed parameters for a body
 struct rfx_body {
     struct rfx_body_vtab *vtab;
@@ -70,6 +59,7 @@ struct rfx_body {
     rfx_body(enum rfx_joint_type t) : joint_type(t) {}
 
     virtual void tf_rel( const double *q, rfx_tf *tf) const = 0;
+    virtual rfx_body *clone( rfx_body_id parent, rfx_body_id delta_id, size_t delta_i ) const = 0;
 };
 
 /*-------------*/
@@ -85,6 +75,13 @@ struct rfx_body_fix : rfx_body {
         (void)q;
         memcpy( tf, &this->tf, sizeof(*tf) );
     }
+
+    virtual rfx_body *clone( rfx_body_id parent, rfx_body_id delta_id, size_t delta_i ) const
+    {
+        return rfx_body_alloc_fixed_qv( parent, this->id + delta_id,
+                                        tf.r.data, tf.v.data );
+    }
+
 };
 
 struct rfx_body *
@@ -115,6 +112,11 @@ struct rfx_body_revolute : rfx_body {
         *tf = QuatVec( Quat::from_axang(this->axis, q[i] + this->angle_offset),
                        Vec3(this->translation) );
     }
+    virtual rfx_body *clone( rfx_body_id parent, rfx_body_id delta_id, size_t delta_i ) const
+    {
+        rfx_body_alloc_revolute( parent, this->id + delta_id, this->i+delta_i,
+                                 this->angle_offset, this->axis, this->translation );
+    }
 };
 
 struct rfx_body *
@@ -135,12 +137,12 @@ rfx_body_alloc_revolute( rfx_body_id id_parent, rfx_body_id id, size_t i,
 /* Calc TF Trees */
 /*---------------*/
 
-void rfx_bodies_calc_tf( size_t n,
-                         const struct rfx_body **bodies,
-                         const double *q,
-                         const rfx_tf *tf0,
-                         rfx_tf *tf_rel,
-                         rfx_tf *tf_abs )
+int rfx_bodies_calc_tf( size_t n,
+                        const struct rfx_body **bodies,
+                        const double *q,
+                        const rfx_tf *tf0,
+                        rfx_tf *tf_rel,
+                        rfx_tf *tf_abs )
 {
     /* Relative TFs */
     for( size_t i = 0; i < n; i ++ ) {
@@ -154,4 +156,32 @@ void rfx_bodies_calc_tf( size_t n,
         rfx_body_id j = bodies[i]->id_parent;
         tf_abs[i] =  tf_abs[j] * tf_rel[i];
     }
+
+    return RFX_OK;
+}
+
+int rfx_bodies_clone( size_t n,
+                      struct rfx_body **bodies,
+                      rfx_body_id old_id0, rfx_body_id old_id1, size_t old_i,
+                      rfx_body_id new_parent,
+                      rfx_body_id new_id0, rfx_body_id new_id1, size_t new_i )
+{
+    printf("xx\n");
+    // TODO: error checking
+    assert( new_id1 - new_id0 == old_id1 - old_id0 );
+    size_t delta_id = new_id0 - old_id0;
+    size_t delta_i = new_i - old_i;
+
+    bodies[new_id0] = bodies[old_id0]->clone( new_parent, delta_id, delta_i );
+
+    for( size_t j = 1+new_id0, k = 1+old_id0; k < old_id1; j++,k++ ) {
+        rfx_body *old = bodies[k];
+        printf("id: %lu\n", old->id);
+        printf("> parent: %lu\n", old->id_parent );
+        assert( old->id_parent >= old_id0 );
+        assert(old->id_parent < old_id1 );
+        bodies[j] = old->clone( old->id_parent+delta_id, delta_id, delta_i );
+    }
+
+    return RFX_OK;
 }

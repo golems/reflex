@@ -157,12 +157,23 @@ rfx_body_alloc_revolute( rfx_body_id id_parent, rfx_body_id id,
 /* Lists of bodies.
  * Must be sorted by ID.
  */
-void rfx_bodies_calc_tf( size_t n,
-                         const struct rfx_body **bodies,
-                         const double *q,
-                         const rfx_tf *tf0,
-                         rfx_tf *tf_rel,
-                         rfx_tf *tf_abs );
+int rfx_bodies_calc_tf( size_t n,
+                        const struct rfx_body **bodies,
+                        const double *q,
+                        const rfx_tf *tf0,
+                        rfx_tf *tf_rel,
+                        rfx_tf *tf_abs );
+
+
+/* Clone a contiguous block of bodies.
+ *
+ *  \pre body[old_id0] must be the root of all cloned bodies
+ */
+int rfx_bodies_clone( size_t n,
+                      struct rfx_body **bodies,
+                      rfx_body_id old_id0, rfx_body_id old_id1, size_t old_i,
+                      rfx_body_id new_parent,
+                      rfx_body_id new_id0, rfx_body_id new_id1,  size_t new_i );
 
 #ifdef __cplusplus
 }
