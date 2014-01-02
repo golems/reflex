@@ -128,7 +128,6 @@ typedef struct aa_tf_qv rfx_tf;
 /** Identifier for a body.
  *
  * Constraints:
- * - ID 0: Fixed TF
  * - Ordering: child frames must have IDs greater than all
  *   parent frames.
  */
@@ -142,13 +141,17 @@ enum rfx_joint_type {
     RFX_JOINT_PRISMATIC
 };
 
+
+/** Opaque struct for a body (rigid member) */
 struct rfx_body;
 
+/** Allocate a body at a fixed transform from parent */
 struct rfx_body *
 rfx_body_alloc_fixed_qv( rfx_body_id id_parent, rfx_body_id id,
                          const double q[4],
                          const double v[3] );
 
+/** Allocate a body with rotating joint from parent */
 struct rfx_body *
 rfx_body_alloc_revolute( rfx_body_id id_parent, rfx_body_id id,
                          size_t i, double angle_offset,
@@ -157,6 +160,8 @@ rfx_body_alloc_revolute( rfx_body_id id_parent, rfx_body_id id,
 /* Lists of bodies.
  * Must be sorted by ID.
  */
+
+/** Calculate all relative and absolute transforms */
 int rfx_bodies_calc_tf( size_t n,
                         const struct rfx_body **bodies,
                         const double *q,
@@ -174,6 +179,15 @@ int rfx_bodies_clone( size_t n,
                       rfx_body_id old_id0, rfx_body_id old_id1, size_t old_i,
                       rfx_body_id new_parent,
                       rfx_body_id new_id0, rfx_body_id new_id1,  size_t new_i );
+
+
+/** Compute jacobian for a subset of the bodies */
+int rfx_bodies_jacobian( size_t n,
+                         const struct rfx_body **bodies,
+                         const rfx_tf *tf_rel,
+                         const rfx_tf *tf_abs,
+                         size_t n_indices, const size_t *indices,
+                         double *J, size_t ldJ );
 
 #ifdef __cplusplus
 }

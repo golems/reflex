@@ -60,6 +60,7 @@ struct rfx_body {
 
     virtual void tf_rel( const double *q, rfx_tf *tf) const = 0;
     virtual rfx_body *clone( rfx_body_id parent, rfx_body_id delta_id, size_t delta_i ) const = 0;
+    virtual double *jacobian( const rfx_tf *tf_abs, const rfx_tf *pe, double *J, size_t ldJ ) const = 0;
 };
 
 /*-------------*/
@@ -80,6 +81,13 @@ struct rfx_body_fix : rfx_body {
     {
         return rfx_body_alloc_fixed_qv( parent, this->id + delta_id,
                                         tf.r.data, tf.v.data );
+    }
+    virtual double *jacobian( const rfx_tf *tf_abs, const rfx_tf *pe_abs, double *J, size_t ldJ ) const
+    {
+        (void)ldJ;
+        (void)tf_abs;
+        (void)pe_abs;
+        return J;
     }
 
 };
@@ -116,6 +124,19 @@ struct rfx_body_revolute : rfx_body {
     {
         rfx_body_alloc_revolute( parent, this->id + delta_id, this->i+delta_i,
                                  this->angle_offset, this->axis, this->translation );
+    }
+    virtual double *jacobian( const rfx_tf *tf_abs, const rfx_tf *pe_abs, double *J, size_t ldJ ) const
+    {
+
+        // rotation
+        aa_tf_qrot( tf_abs->r.data, this->axis, J+3 );
+
+        // translation
+        double tmp[3];
+        for( size_t i = 0; i < 3; i++ ) tmp[i] = pe_abs->v.data[i] - tf_abs->v.data[i];
+        aa_tf_cross( J+3, tmp, J );
+
+        return J+ldJ;
     }
 };
 
@@ -181,6 +202,24 @@ int rfx_bodies_clone( size_t n,
         assert( old->id_parent >= old_id0 );
         assert(old->id_parent < old_id1 );
         bodies[j] = old->clone( old->id_parent+delta_id, delta_id, delta_i );
+    }
+
+    return RFX_OK;
+}
+
+int rfx_bodies_jacobian( size_t n,
+                         const struct rfx_body **bodies,
+                         const rfx_tf *tf_rel,
+                         const rfx_tf *tf_abs,
+                         size_t n_indices, const size_t *indices,
+                         double *J, size_t ldJ )
+{
+    const rfx_tf *pe_abs = tf_abs + indices[n_indices - 1];
+    double *A = J;
+
+    for( size_t i = 0; i < n_indices; i ++ ) {
+        size_t j = indices[i];
+        A = bodies[j]->jacobian( tf_abs+j, pe_abs, A, ldJ );
     }
 
     return RFX_OK;
