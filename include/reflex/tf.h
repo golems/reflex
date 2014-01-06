@@ -48,10 +48,21 @@ extern "C" {
 #endif //__cplusplus
 
 struct rfx_tf_filter_state {
-    double r[4];   ///< rotation quaternion
-    double v[3];   ///< translation vector
-    double dv[3];  ///< translational velocity
-    double w[3];   ///< rotational velocity
+    union {
+        struct {
+            double r[4];   ///< rotation quaternion
+            double v[3];   ///< translation vector
+        };
+        double e[7];
+    };
+
+    union {
+        struct {
+            double dv[3];  ///< translational velocity
+            double w[3];   ///< rotational velocity
+        };
+        double dx[6];
+    };
 };
 
 struct rfx_tf_filter {
@@ -71,6 +82,9 @@ struct rfx_tf_filter {
  * @post: current state estimate (X) written to F
  */
 int rfx_tf_filter_update( struct rfx_tf_filter *F);
+
+void rfx_tf_filter_update_work
+( double dt, double *XX, const double *UU, const double *ZZ, double *P, const double *V, const double *W );
 
 #ifdef __cplusplus
 }

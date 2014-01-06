@@ -8,6 +8,7 @@ pkginclude_HEADERS = \
 	include/reflex/kinematics.h \
 	include/reflex/trajectory.h \
 	include/reflex/trajx.h \
+	include/reflex/tf.h \
 	include/reflex/body.h
 
 nodist_include_HEADERS = reflex_kin.mod
@@ -18,7 +19,7 @@ nodist_include_HEADERS = reflex_kin.mod
 
 lib_LTLIBRARIES = libreflex.la
 
-noinst_PROGRAMS = lqgtest cartpend
+noinst_PROGRAMS = lqgtest cartpend test-tf-filter
 
 cartpend_SOURCES = src/cartpend.c
 cartpend_LDADD = libreflex.la
@@ -43,6 +44,9 @@ libreflex_la_SOURCES =              \
 	reflex_mod.f90
 
 
+test_tf_filter_SOURCES = src/test/test-tf-filter.c
+test_tf_filter_LDADD = libreflex.la
+
 reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/lqgf.f90 src/lqg_tf_f.f90
 	$(CPP) $(INCLUDES) -x c  $< -o $@
 
@@ -57,6 +61,11 @@ cp.eps: cartpend cartpend.gnuplot
 	./cartpend
 	gnuplot ./cartpend.gnuplot
 
+
+
+tf-filter.eps: test-tf-filter src/test/plot-tf-filter
+	./test-tf-filter
+	gnuplot ./src/test/plot-tf-filter
 
 ## JAVA ##
 JSOURCES =                                        \

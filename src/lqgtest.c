@@ -117,6 +117,7 @@ void kf() {
     aa_la_scal(4, dt, kf_lqg.A);
     kf_lqg.A[0] += 1;
     kf_lqg.A[3] += 1;
+    kf_lqg.W[0] = 100;
 
     // optimal kalman-bucy gain
     rfx_lqg_kbf_gain(&kbf_lqg);

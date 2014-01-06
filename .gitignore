@@ -48,3 +48,7 @@
 /org_golems_reflex_Lib.h
 /*.mod
 /reflex_mod.f90
+/test-tf-filter
+/tf-filter-x-est.eps
+/tf-filter-z.eps
+/tf-filter.eps

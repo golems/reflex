@@ -752,6 +752,7 @@ void rfx_trajx_splend_init( rfx_trajx_splend_t *cx, aa_mem_region_t *reg, double
 #include "reflex/trajectory.h"
 #include "reflex/trajx.h"
 #include "reflex/body.h"
+#include "reflex/tf.h"
 
 #ifdef __cplusplus
 }

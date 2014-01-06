@@ -1,0 +1,36 @@
+#!/usr/bin/gnuplot
+
+set term postscript enhanced eps color
+
+set output "tf-filter.eps"
+set xlabel  "time (s)"
+set title "True State"
+plot 'xtrue0.dat' title 'q_x' with lines, \
+     'xtrue1.dat' title 'q_y' with lines, \
+     'xtrue2.dat' title 'q_z' with lines, \
+     'xtrue3.dat' title 'q_w' with lines, \
+     'xtrue4.dat' title 'x' with lines, \
+     'xtrue5.dat' title 'y' with lines, \
+     'xtrue6.dat' title 'z' with lines
+
+set output "tf-filter-z.eps"
+set xlabel  "time (s)"
+set title "Measured State"
+plot 'z0.dat' title 'q_x' with lines, \
+     'z1.dat' title 'q_y' with lines, \
+     'z2.dat' title 'q_z' with lines, \
+     'z3.dat' title 'q_w' with lines, \
+     'z4.dat' title 'x' with lines, \
+     'z5.dat' title 'y' with lines, \
+     'z6.dat' title 'z' with lines
+
+set output "tf-filter-x-est.eps"
+set xlabel  "time (s)"
+set title "Estimated State"
+plot 'xest0.dat' title 'q_x' with lines, \
+     'xest1.dat' title 'q_y' with lines, \
+     'xest2.dat' title 'q_z' with lines, \
+     'xest3.dat' title 'q_w' with lines, \
+     'xest4.dat' title 'x' with lines, \
+     'xest5.dat' title 'y' with lines, \
+     'xest6.dat' title 'z' with lines

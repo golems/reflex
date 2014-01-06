@@ -262,9 +262,10 @@ void rfx_lqg_kbf_gain_work
         aa_la_transpose2(n_x, n_x, A, ric_A );
 
         // solve ARE with dP = 0, result is P
-
+        //aa_tick("laub: ");
         aa_la_care_laub( n_x, n_x, n_x,
                          ric_A, ric_B, V, P );
+        //aa_tock();
     }
 
     // K = P * C' * W^{-1}

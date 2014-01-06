@@ -53,8 +53,8 @@
 #define TF_DV 8:10
 #define TF_W 11:13
 
-subroutine rfx_tf_filter_update( dt, XX, UU, ZZ, P, V, W ) &
-     bind( C, name="rfx_tf_filter_update" )
+subroutine rfx_tf_filter_update_work( dt, XX, UU, ZZ, P, V, W ) &
+     bind( C, name="rfx_tf_filter_update_work" )
   ! type :: rfx_tf_state
   !    real(C_DOUBLE) :: r(4)
   !    real(C_DOUBLE) :: v(3)
@@ -62,8 +62,10 @@ subroutine rfx_tf_filter_update( dt, XX, UU, ZZ, P, V, W ) &
   !    real(C_DOUBLE) :: w(3)
   ! end type rfx_tf_state
   real(C_DOUBLE), intent(in), value :: dt
-  real(C_DOUBLE), dimension(13) :: XX, ZZ, UU
-  real(C_DOUBLE), dimension(13,13) :: P, V, W
+  real(C_DOUBLE), intent(inout), dimension(13) :: XX
+  real(C_DOUBLE), intent(in), dimension(13) :: ZZ, UU
+  real(C_DOUBLE), intent(inout), dimension(13,13) :: P
+  real(C_DOUBLE), intent(in), dimension(13,13) :: V, W
 
   real(C_DOUBLE), dimension(13) :: dx, zh, dxh, XX2
   real(C_DOUBLE), dimension(13,13) ::  A, C, K
@@ -95,7 +97,15 @@ subroutine rfx_tf_filter_update( dt, XX, UU, ZZ, P, V, W ) &
      C(i,i) = real(1,C_DOUBLE)
   end forall
 
+
+  !print *, "A"
+  !print *, A
+  !print *, "C"
+  !print *, C
+
+  !print *, "call kbf gain"
   call rfx_lqg_kbf_gain_work( int(13,C_SIZE_T), int(13,C_SIZE_T), A, C, V, W, P, K )
+  !print *, "got kbf gain", K
 
   !! Update
 
@@ -116,18 +126,20 @@ subroutine rfx_tf_filter_update( dt, XX, UU, ZZ, P, V, W ) &
   dx = dx + dxh
 
   !! Integrate
+  !! TODO: better integration (consider the twist)
   call aa_tf_qsdiff( XX(TF_R), dx(TF_R), dt, XX2(TF_R) )
   XX2(TF_V) = XX(TF_V) + dt*dx(TF_V)
   XX2(TF_DV) = XX(TF_DV) + dt*dx(TF_DV)
   XX2(TF_W) = XX(TF_W) + dt*dx(TF_W)
 
+  XX = XX2
 contains
 
   subroutine innovate_r( r_est, r_obs, rh )
     real(C_DOUBLE), intent(in), dimension(4) :: r_est, r_obs
     real(C_DOUBLE), intent(out), dimension(4) :: rh
     real(C_DOUBLE), dimension(4) :: a, b, c
-    call aa_tf_qmul( r_est, r_obs, a ) ! a = r_est * r_obs
+    call aa_tf_qmulc( r_obs, r_est, a ) ! a = r_est * r_obs
     call aa_tf_qln( a, b)              ! b = log( r_est * r_obs )
     c = b / 2                          ! c = 1/2 * log( r_est * r_obs )
     call aa_tf_qmul(c, r_est, rh )     ! c = 1/2 * log( r_est * r_obs ) * r_est
@@ -151,7 +163,7 @@ contains
   !   x(11:13) = s%w
   ! end subroutine extract
 
-end subroutine rfx_tf_filter_update
+end subroutine rfx_tf_filter_update_work
 
 
 
