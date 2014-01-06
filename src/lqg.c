@@ -228,45 +228,55 @@ AA_API void rfx_lqg_kf_correct( rfx_lqg_t *lqg ) {
 }
 
 // kalman-bucy gain
-void rfx_lqg_kbf_gain( rfx_lqg_t *lqg ) {
+void rfx_lqg_kbf_gain( rfx_lqg_t *lqg )
+{
+    rfx_lqg_kbf_gain_work( lqg->n_x, lqg->n_z,
+                           lqg->A, lqg->C, lqg->V, lqg->W, lqg->P, lqg->K );
+}
+
+
+// kalman-bucy gain
+void rfx_lqg_kbf_gain_work
+( size_t n_x, size_t n_z,
+  const double *A, const double *C, const double *V, const double *W, double *P, double *K )
+{
     // dP = A*P + P*A' - P*C'*W^{-1}*C*P + V
     // K = P * C' * W^{-1}
 
-    double ric_X[lqg->n_x*lqg->n_x];
-
-    double Winv[lqg->n_z*lqg->n_z];
-    memcpy(Winv, lqg->W, sizeof(Winv));
-    aa_la_inv( lqg->n_z, Winv);
+    double Winv[n_z*n_z];
+    memcpy(Winv, W, sizeof(Winv));
+    aa_la_inv( n_z, Winv);
 
     {
-        double ric_B[lqg->n_x*lqg->n_x];
+        double ric_B[n_x*n_x];
 
         // ric_B := C' * W^{-1} * C
-        matmul3( lqg->n_x, lqg->n_x, lqg->n_z, lqg->n_z,
+        matmul3( n_x, n_x, n_z, n_z,
                  CblasTrans, CblasNoTrans, CblasNoTrans,
-                 lqg->C, lqg->n_z,
-                 Winv, lqg->n_z,
-                 lqg->C, lqg->n_z,
-                 0.0, ric_B, lqg->n_x );
+                 C, n_z,
+                 Winv, n_z,
+                 C, n_z,
+                 0.0, ric_B, n_x );
 
-        double ric_A[lqg->n_x*lqg->n_x];
-        aa_la_transpose2(lqg->n_x, lqg->n_x, lqg->A, ric_A );
+        double ric_A[n_x*n_x];
+        aa_la_transpose2(n_x, n_x, A, ric_A );
 
         // solve ARE with dP = 0, result is P
 
-        aa_la_care_laub( lqg->n_x, lqg->n_x, lqg->n_x,
-                         ric_A, ric_B, lqg->V, ric_X );
+        aa_la_care_laub( n_x, n_x, n_x,
+                         ric_A, ric_B, V, P );
     }
 
     // K = P * C' * W^{-1}
-    matmul3( lqg->n_x, lqg->n_z, lqg->n_x, lqg->n_z,
+    matmul3( n_x, n_z, n_x, n_z,
              CblasNoTrans, CblasTrans, CblasNoTrans,
-             ric_X, lqg->n_x,
-             lqg->C, lqg->n_z,
-             Winv, lqg->n_z,
-             0.0, lqg->K, lqg->n_x );
+             P, n_x,
+             C, n_z,
+             Winv, n_z,
+             0.0, K, n_x );
 
 }
+
 
 void rfx_lqg_lqr_gain( rfx_lqg_t *lqg ) {
     // A'*S + S*A - S*B*R^{-1}*B'*S + Q = 0

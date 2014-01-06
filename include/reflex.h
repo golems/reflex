@@ -332,11 +332,37 @@ AA_API void rfx_lqg_destroy( rfx_lqg_t *lqg );
  *   - lqg.C contains the measurement model matrix, size n_z*n_x
  *   - lqg.V contains the process noise model matrix, size n_x*n_x
  *   - lqg.W contains the measurement noise model matrix, size n_z*n_z
+ *   - lqg.P contains space for the covariance matrix, size n_x*n_x
  *   - lqg.K contains space for the kalman gain matrix, size n_x*n_z
  * \post
  *   - lqg.K overwritten with the kalman gain
+ *   - lqg.P overwritten with the covariance
  */
 AA_API void rfx_lqg_kbf_gain( rfx_lqg_t *lqg );
+
+/** Kalman-Bucy optimal gain.
+ *
+ * \f[ \dot{P} = AP + PA^T - PC^TW^{-1}CP + V = 0 \f]
+ * \f[ K \leftarrow PC^TW^{-1} \f]
+ *
+ * Computes optimal K by solving the algebraic Riccati equation.
+ *
+ * \pre
+ *   - n_x contains the state-space size
+ *   - n_z contains the state-space size
+ *   - A contains the process model matrix, size n_x*n_x
+ *   - C contains the measurement model matrix, size n_z*n_x
+ *   - V contains the process noise model matrix, size n_x*n_x
+ *   - W contains the measurement noise model matrix, size n_z*n_z
+ *   - P contains space for the covariance matrix, size n_x*n_x
+ *   - K contains space for the kalman gain matrix, size n_x*n_z
+ * \post
+ *   - K overwritten with the kalman gain
+ *   - P overwritten with the covariance
+ */
+void rfx_lqg_kbf_gain_work
+( size_t n_x, size_t n_z,
+  const double *A, const double *C, const double *V, const double *W, double *P, double *K );
 
 /** Kalman-Bucy filter, Euler-integrate
  *

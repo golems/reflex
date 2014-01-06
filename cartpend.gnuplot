@@ -1,4 +1,4 @@
-#!/usr/bin/gnuplot
+#!/usr/bin/gnuplot -persist
 
 set term postscript enhanced eps color
 set output "cp.eps"
