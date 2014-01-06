@@ -34,23 +34,18 @@ libreflex_la_SOURCES =              \
 	src/control.c               \
 	src/trajectory.cpp          \
 	src/lqg.c                   \
-	src/lqgf.f90                \
 	src/plot.c                  \
 	src/trajq.c                 \
 	src/kin.c                   \
 	src/trajx.c                 \
 	src/body/body.cpp           \
-	src/traj.c
+	src/traj.c                  \
+	reflex_mod.f90
 
-libreflex_la_LIBADD =               \
-	libreflex_kin.la
 
-noinst_LTLIBRARIES =                \
-	libreflex_kin.la
+reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/lqgf.f90 src/lqg_tf_f.f90
+	$(CPP) $(INCLUDES) -x c  $< -o $@
 
-libreflex_kin_la_SOURCES = src/kinematics.f90
-
-reflex_kin.mod: $(libreflex_kin_la_OBJECTS)
 
 clean-local:
 	-rm -rf debian/tmp debian/files debian/libreflex? debian/libreflex-dev debian/*.log debian/*.substvars texput.log debian/*.debhelper
