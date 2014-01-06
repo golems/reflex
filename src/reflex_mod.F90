@@ -59,5 +59,6 @@ contains
 
 #include "kinematics.f90"
 #include "lqgf.f90"
+#include "lqg_tf_f.f90"
 
 end module reflex
