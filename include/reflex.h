@@ -136,6 +136,12 @@
 extern "C" {
 #endif //__cplusplus
 
+
+
+typedef struct aa_tf_qv rfx_tf;
+typedef struct aa_tf_qv_dx rfx_tf_dx;
+
+
 // FIXME: controller should return these codes
 typedef enum {
     RFX_OK = 0,

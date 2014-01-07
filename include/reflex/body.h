@@ -123,7 +123,6 @@
 extern "C" {
 #endif //__cplusplus
 
-typedef struct aa_tf_qv rfx_tf;
 
 /** Identifier for a body.
  *
