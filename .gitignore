@@ -1,6 +1,8 @@
 /lqgtest
 /rfx_test
-/doc
+/doc/javadoc
+/doc/html
+/doc/man/*.1
 /.deps
 /cartpend
 /*.dat
@@ -53,3 +55,6 @@
 /tf-filter-z.eps
 /tf-filter.eps
 /rfx-trajgen
+/doc/.javadoc.stamp
+/doc/Makefile
+/doc/Makefile.in
