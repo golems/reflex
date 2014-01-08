@@ -35,6 +35,7 @@ libreflex_la_SOURCES =              \
 	src/control.c               \
 	src/trajectory.cpp          \
 	src/lqg.c                   \
+	src/lqg_tf.c                \
 	src/plot.c                  \
 	src/trajq.c                 \
 	src/kin.c                   \

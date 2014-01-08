@@ -46,13 +46,14 @@
 #define TF_RV 1:7
 #define TF_DX 8:13
 
-subroutine rfx_tf_filter_update_work( dt, XX, UU, ZZ, P, V, W ) &
+function rfx_tf_filter_update_work( dt, XX, UU, ZZ, P, V, W ) result(info) &
      bind( C, name="rfx_tf_filter_update_work" )
   real(C_DOUBLE), intent(in), value :: dt
   real(C_DOUBLE), intent(inout), dimension(13) :: XX
   real(C_DOUBLE), intent(in), dimension(13) :: ZZ, UU
   real(C_DOUBLE), intent(inout), dimension(13,13) :: P
   real(C_DOUBLE), intent(in), dimension(13,13) :: V, W
+  integer(C_INT) :: info
 
   real(C_DOUBLE), dimension(13) :: dx, zh, dxh, XX2
   real(C_DOUBLE), dimension(13,13) ::  A, C, K
@@ -106,6 +107,9 @@ subroutine rfx_tf_filter_update_work( dt, XX, UU, ZZ, P, V, W ) &
 
   XX = XX2
   call aa_tf_qnormalize( XX(TF_R) )
+
+  !! TODO: actually check that things worked out
+  info = 0
 contains
 
   subroutine innovate_r( r_est, r_obs, rh )
@@ -118,7 +122,7 @@ contains
     call aa_tf_qmul( w_2, r_est, rh )
   end subroutine innovate_r
 
-end subroutine rfx_tf_filter_update_work
+end function rfx_tf_filter_update_work
 
 
 

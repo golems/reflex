@@ -63,9 +63,9 @@ struct rfx_tf_filter {
  * @pre: current measurement (Z) and input (U) written to F
  * @post: current state estimate (X) written to F
  */
-int rfx_tf_filter_update( struct rfx_tf_filter *F);
+int rfx_tf_filter_update( double dt, struct rfx_tf_filter *F);
 
-void rfx_tf_filter_update_work
+int rfx_tf_filter_update_work
 ( double dt, double *XX, const double *UU, const double *ZZ, double *P, const double *V, const double *W );
 
 #ifdef __cplusplus
