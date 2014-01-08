@@ -89,10 +89,10 @@ void e_corrupt( double theta_max, double x_max, const double e0[7], double e1[7]
 int main(void)
 {
     // state
-    struct rfx_tf_filter_state XX_true;
-    struct rfx_tf_filter_state XX_est;
-    struct rfx_tf_filter_state ZZ;
-    struct rfx_tf_filter_state UU;
+    rfx_tf_dx XX_true;
+    rfx_tf_dx XX_est;
+    rfx_tf_dx ZZ;
+    rfx_tf_dx UU;
     memset(&XX_true,0,sizeof(XX_true));
     memset(&XX_est,0,sizeof(XX_est));
     memset(&ZZ,0,sizeof(ZZ));
@@ -113,8 +113,8 @@ int main(void)
     x_fopen("z", ".dat", fout_z);
     x_fopen("xest", ".dat", fout_x_est);
 
-    memcpy(XX_true.r, aa_tf_quat_ident, 4*sizeof(XX_true.r[0]));
-    memcpy(XX_est.r, aa_tf_quat_ident, 4*sizeof(XX_true.r[0]));
+    memcpy(XX_true.tf.r.data, aa_tf_quat_ident, 4*sizeof(XX_true.tf.r.data[0]));
+    memcpy(XX_est.tf.r.data, aa_tf_quat_ident, 4*sizeof(XX_true.tf.r.data[0]));
 
     double dt = .01;
     for( double t = 0.0; t < 2.0; t += dt ) {
@@ -122,28 +122,28 @@ int main(void)
         // pristine velocity
         double dx[6] = {cos(t*M_PI), 0, 0,
                         0, 0, sin(t*M_PI)};
-        AA_MEM_CPY(XX_true.dx, dx, 6);
+        AA_MEM_CPY(XX_true.dx.data, dx, 6);
 
         // integrate true
         {
             double e_next[7];
-            aa_tf_qutr_svel(XX_true.e, XX_true.dx, dt, e_next );
-            memcpy( XX_true.e, e_next, sizeof(e_next) );
+            aa_tf_qutr_svel(XX_true.tf.data, XX_true.dx.data, dt, e_next );
+            memcpy( XX_true.tf.data, e_next, sizeof(e_next) );
         }
 
 
         // corrupt measurement
-        e_corrupt( 10*M_PI/180, 2e-2, XX_true.e, ZZ.e );
+        e_corrupt( 10*M_PI/180, 2e-2, XX_true.tf.data, ZZ.tf.data );
 
         // filter
         aa_tick("filter time: ");
-        rfx_tf_filter_update_work( dt, XX_est.e, UU.e, ZZ.e, P, V, W );
+        rfx_tf_filter_update_work( dt, XX_est.tf.data, UU.tf.data, ZZ.tf.data, P, V, W );
         aa_tock();
 
         // print
-        x_write( t, XX_true.e, fout_x_true );
-        x_write( t, XX_est.e, fout_x_est );
-        x_write( t, ZZ.e, fout_z );
+        x_write( t, XX_true.tf.data, fout_x_true );
+        x_write( t, XX_est.tf.data, fout_x_est );
+        x_write( t, ZZ.tf.data, fout_z );
     }
 
 

@@ -47,28 +47,10 @@
 extern "C" {
 #endif //__cplusplus
 
-struct rfx_tf_filter_state {
-    union {
-        struct {
-            double r[4];   ///< rotation quaternion
-            double v[3];   ///< translation vector
-        };
-        double e[7];
-    };
-
-    union {
-        struct {
-            double dv[3];  ///< translational velocity
-            double w[3];   ///< rotational velocity
-        };
-        double dx[6];
-    };
-};
-
 struct rfx_tf_filter {
-    struct rfx_tf_filter_state X;  ///< state
-    struct rfx_tf_filter_state Z;  ///< measurement
-    struct rfx_tf_filter_state U;  ///< input
+    rfx_tf_dx X;  ///< state
+    rfx_tf_dx Z;  ///< measurement
+    rfx_tf_dx U;  ///< input
 
     double P[13*13];   ///< covariance
     double V[13*13];   ///< process noise
