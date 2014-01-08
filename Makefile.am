@@ -1,5 +1,7 @@
 INCLUDES = -I$(top_srcdir)/include
 
+SUBDIRS = . doc
+
 EXTRA_DIST = cartpend.gnuplot
 
 include_HEADERS = include/reflex.h include/reflex.hpp
@@ -47,6 +49,13 @@ libreflex_la_SOURCES =              \
 
 test_tf_filter_SOURCES = src/test/test-tf-filter.c
 test_tf_filter_LDADD = libreflex.la
+
+
+
+bin_PROGRAMS = rfx-trajgen
+
+rfx_trajgen_SOURCES = src/demo/rfx-trajgen.c
+rfx_trajgen_LDADD = libreflex.la
 
 reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/lqgf.f90 src/lqg_tf_f.f90
 	$(CPP) $(INCLUDES) -x c  $< -o $@

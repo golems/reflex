@@ -3,7 +3,7 @@
 /doc
 /.deps
 /cartpend
-*.dat
+/*.dat
 /cp.e
 /Makefile.in
 /aclocal.m4
@@ -52,3 +52,4 @@
 /tf-filter-x-est.eps
 /tf-filter-z.eps
 /tf-filter.eps
+/rfx-trajgen

@@ -99,6 +99,18 @@ APPEND_FCFLAG([-Wtabs])
 APPEND_FCFLAG([-Wunused-parameter])
 APPEND_FCFLAG([-Wintrinsic-shadow])
 
+
+AC_CHECK_PROGS([HELP2MAN], [help2man])
+AC_CHECK_PROGS([MAN2HTML], [man2html])
+AM_CONDITIONAL([HAVE_HELP2MAN], [test x$HELP2MAN != x])
+AM_CONDITIONAL([HAVE_MAN2HTML], [test x$MAN2HTML != x])
+
+AC_CHECK_FILE( [$srcdir/doc/man/rfx-trajgen.1],           [FOUND_MANPAGES=yes])
+AC_CHECK_FILE( [$srcdir/doc/man/rfx-trajgen.html],        [FOUND_MANHTML=yes])
+AM_CONDITIONAL([HAVE_MANPAGES], [test x$HELP2MAN != x -o x$FOUND_MANPAGES = xyes])
+AM_CONDITIONAL([HAVE_MANHTML],  [test '(' x$HELP2MAN != x -a x$MAN2HTML != x ')' -o x$FOUND_MANHTML = xyes])
+
+
 dnl JAVA
 AS_IF( [test "x$JAVAPREFIX" = x],
        [
@@ -135,7 +147,7 @@ AM_CONDITIONAL([HAVE_JAVAC],   [test "x$JAVAC" != x])
 
 dnl TODO: better (any) handling of CLASSPATH variable
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile doc/Makefile])
 AC_OUTPUT
 
 AC_MSG_NOTICE([CONFIGURATION SUMMARY])

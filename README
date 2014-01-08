@@ -20,11 +20,11 @@ See the INSTALL file for details.
 
 You may need to manually set your CLASSPATH variable for java.
 
-Dependencies
-============
+DEMOS
+=====
 
-- amino: https://github.com/golems/amino
-- BLAS/LAPACK
+The rfx-trajgen program will covert a set of waypoints to a dense
+trajecory.  See `man rfx-trajgen` for details.
 
 Example
 =======
