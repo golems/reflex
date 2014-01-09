@@ -140,6 +140,10 @@ AS_IF([test "x$JAVAC" = "x"],
        do
            JNICPPFLAGS="$JNICPPFLAGS -I$JNI_INCLUDE_DIR"
        done
+       dnl Guess the classpath
+       AS_IF([test "x$CLASSPATH" = x],
+             [CLASSPATH=.:$prefix/share/java/\*])
+       AC_SUBST([CLASSPATH])
       ])
 
 AC_SUBST([JNICPPFLAGS])
@@ -154,3 +158,4 @@ AC_MSG_NOTICE([CONFIGURATION SUMMARY])
 AC_MSG_NOTICE([=====================])
 AC_MSG_NOTICE([PREFIX:          $prefix])
 AC_MSG_NOTICE([BUILD JAVA LIB:  $BUILD_JAVA])
+AC_MSG_NOTICE([CLASSPATH:       $CLASSPATH])

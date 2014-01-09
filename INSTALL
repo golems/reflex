@@ -7,26 +7,31 @@ initialize the autotools build scripts.  This requires the autotools
 and the autoconf macro archive. To install these on Debian or Ubuntu
 GNU/Linux, you can do
 
-`$ sudo apt-get install autoconf automake libtool autoconf-archive'
+    sudo apt-get install autoconf automake libtool autoconf-archive
 
 Then, initialize autotools with
 
-`$ autoreconf -i'
+    autoreconf -i
 
 This whole step is not necessary when you have obtained a distribution
 tarball which already contains the autoconf-generated configure script.
 
 1) Configure for your system:
 
-`$ ./configure'
+    ./configure
+
+To build the java libraries, you man need to specify the classpath if
+it is not under your installation prefix:
+
+    ./configure --prefix=/my/prefix CLASSPATH=.:/path/to/org.golems.amino.jar
 
 2) Build:
 
-`$ ./make'
+    ./make
 
 3) Install:
 
-`$ sudo ./make install'
+    sudo ./make install
 
 
 ***************************************

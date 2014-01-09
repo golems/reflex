@@ -13,7 +13,7 @@ pkginclude_HEADERS = \
 	include/reflex/tf.h \
 	include/reflex/body.h
 
-nodist_include_HEADERS = reflex_kin.mod
+nodist_include_HEADERS = reflex.mod
 
 # pkginclude_HEADERS =
 
@@ -62,7 +62,7 @@ reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/lqgf.f90 src/lqg_tf_f.
 
 
 clean-local:
-	-rm -rf debian/tmp debian/files debian/libreflex? debian/libreflex-dev debian/*.log debian/*.substvars texput.log debian/*.debhelper
+	-rm -rf debian/tmp debian/files debian/libreflex? debian/libreflex-dev debian/*.log debian/*.substvars texput.log debian/*.debhelper *.jar org
 
 distclean-local:
 	-rm -rf doxygen-doc
@@ -93,7 +93,7 @@ JCLASSES =                                        \
 	org/golems/reflex/Test.class
 
 org/golems/reflex/Lib.class: $(JSOURCES)
-	$(JAVAC) -d $(top_builddir) $(JSOURCES)
+	$(JAVAC) -classpath $(CLASSPATH)  -d $(top_builddir) $(JSOURCES)
 
 org_golems_reflex_Lib.h: $(top_builddir)/org/golems/reflex/Lib.class
 	$(JAVAH) org.golems.reflex.Lib
@@ -102,7 +102,7 @@ org_golems_reflex_Lib.h: $(top_builddir)/org/golems/reflex/Lib.class
 $(top_builddir)/org/golems/reflex/Lib.class: org.golems.reflex.jar
 
 org.golems.reflex.jar: $(JSOURCES)
-	$(JAVAC) -d $(top_builddir) $(JSOURCES)
+	$(JAVAC) -classpath $(CLASSPATH) -d $(top_builddir) $(JSOURCES)
 	$(JAR) cf $@ $(JCLASSES)
 
 
