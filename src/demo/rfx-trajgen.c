@@ -140,26 +140,38 @@ read_points( struct rfx_trajx_point_list *points, FILE *in)
     double t, tb;
     rfx_tf tf;
 
-    size_t n = 1024;
-    char *line = (char*)malloc(n);
-
     if( opt_verbosity ) fprintf(stderr, "WAYPOINTS\n");
 
-    ssize_t s;
-    while( (s = getline(&line, &n, in)) > 0 ) {
-        int i = sscanf( line, "%lf%lf%lf%lf%lf%lf%lf%lf%lf",
-                        &t, &tb,
-                        &tf.r.x,
-                        &tf.r.y,
-                        &tf.r.z,
-                        &tf.r.w,
-                        &tf.v.x,
-                        &tf.v.y,
-                        &tf.v.z );
+    struct aa_mem_region reg;
+    aa_mem_region_init(&reg, 1);
+
+    while( !feof(in) ) {
+        aa_mem_region_release(&reg);
+
+        char *line = aa_io_getline(in, &reg);
+        if( NULL == line ) continue;
+
+        char *line2 = aa_io_skipblank(line);
+        if('\0' == *line2 || AA_IO_ISCOMMENT(*line2)) continue;
+
+        double x[9];
+        size_t i = aa_io_parsevector( line2, 9, x, 1, NULL );
+
         if( 9 != i ) {
-            fprintf(stderr, "Invalid line: %s", line );
+            fprintf(stderr, "Invalid line: `%s'\n", line );
             exit(EXIT_FAILURE);
         }
+
+        t      = x[0];
+        tb     = x[1];
+        tf.r.x = x[2];
+        tf.r.y = x[3];
+        tf.r.z = x[4];
+        tf.r.w = x[5];
+        tf.v.x = x[6];
+        tf.v.y = x[7];
+        tf.v.z = x[8];
+
         if( opt_verbosity ) {
             fprintf(stderr, "%f / %f: ", t, tb);
             aa_dump_vec( stderr, tf.data, 7 );
@@ -169,6 +181,8 @@ read_points( struct rfx_trajx_point_list *points, FILE *in)
         rfx_trajx_point_list_addb_qv( points, t, tb,
                                       tf.r.data, tf.v.data );
     }
+
+    aa_mem_region_destroy(&reg);
 }
 
 static void

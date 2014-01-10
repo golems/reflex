@@ -4,7 +4,8 @@ Each line of the input file contains one waypoint, given as
 space-separated floating point values.  The first value is the time to
 be at that waypoint.  The second value is the blend time for that
 waypoint.  The next four values are the orientation quaternion in xyzw
-order.  The next three values are the translation xyz.
+order.  The next three values are the translation xyz.  Comments can
+be added following the '#' character.
 
 The output file contains a dense trajectory, with positions, and
 optionally velocities at each timestep.  Each line contains the values

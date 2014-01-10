@@ -1,2 +1,4 @@
-0 1 0 0 0 1 0 0 0
-10 1 0 0 1 0 1 0 0
+# time  blend-time q_x q_y q_z q_w  x  y  z
+
+0        1         0   0   0   1    0  0  0  # comment
+10       1         0   0   1   0    1  0  0  # comment
