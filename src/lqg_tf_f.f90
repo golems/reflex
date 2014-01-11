@@ -69,7 +69,7 @@ function rfx_tf_filter_update_work( dt, XX, UU, ZZ, P, V, W ) result(info) &
   A = real(0,C_DOUBLE)
 
   r = 0.5 * XX(TF_R)
-  call aa_tf_qmatrix_r(r, R_r, int(4,C_SIZE_T))
+  call aa_tf_qmatrix_r(r, R_r)
   A(TF_R,TF_W) = R_r(1:4,1:3)
 
   forall (i=1:3)
@@ -150,7 +150,7 @@ function rfx_lqg_duqu_predict( dt, S, dx, P, V ) result(info) &
   ! X_1 = [ [exp(omega*dt/2)] 0 ] (S_0)
   !       [ 0                 1 ] (dx)
   A = real(0,C_DOUBLE)
-  call aa_tf_duqu_matrix_l( omega_exp, A(:,1:8), int(14,C_DOUBLE) )
+  call aa_tf_duqu_matrix_l( omega_exp, A(1:8,1:8) )
   forall (i=1:8)
      A(8+i,8+i) = real(1,C_DOUBLE)
   end forall
