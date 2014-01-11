@@ -43,13 +43,13 @@ libreflex_la_SOURCES =              \
 	src/kin.c                   \
 	src/trajx.c                 \
 	src/body/body.cpp           \
-	src/traj.c                  \
-	reflex_mod.f90
+	src/traj.c
+
+libreflex_la_LIBADD = libreflex_mod.la
 
 
 test_tf_filter_SOURCES = src/test/test-tf-filter.c
 test_tf_filter_LDADD = libreflex.la
-
 
 
 bin_PROGRAMS = rfx-trajgen
@@ -59,6 +59,10 @@ rfx_trajgen_LDADD = libreflex.la
 
 reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/lqgf.f90 src/lqg_tf_f.f90
 	$(CPP) $(INCLUDES) -x c  $< -o $@
+
+noinst_LTLIBRARIES = libreflex_mod.la
+libreflex_mod_la_SOURCES = reflex_mod.f90
+reflex.mod: $(libreflex_mod_la_OBJECTS)
 
 
 clean-local:
