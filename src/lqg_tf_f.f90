@@ -69,7 +69,7 @@ function rfx_tf_filter_update_work( dt, XX, UU, ZZ, P, V, W ) result(info) &
   A = real(0,C_DOUBLE)
 
   r = 0.5 * XX(TF_R)
-  call aa_tf_qmatrix_r(r, R_r)
+  call aa_tf_qmatrix_r(r, R_r, int(4,C_SIZE_T))
   A(TF_R,TF_W) = R_r(1:4,1:3)
 
   forall (i=1:3)
@@ -125,4 +125,106 @@ contains
 end function rfx_tf_filter_update_work
 
 
+function rfx_lqg_duqu_predict( dt, S, dx, P, V ) result(info) &
+     bind( C, name="rfx_lqg_duqu_predict" )
+  real(C_DOUBLE), intent(in), value :: dt
+  real(C_DOUBLE), intent(inout) :: S(8), dx(6), P(14,14)
+  real(C_DOUBLE), intent(in) :: V(14,14)
+  integer(C_INT) :: info
+
+  real(C_DOUBLE) :: A(14,14), AP(14,14)
+  real(C_DOUBLE) :: omega(8), omega_exp(8), S_1(8)
+  integer(C_INT) :: i
+
+  ! X = [S dx]^T
+
+  ! update state: x_1 = f(x_0)
+  ! S_1 = exp(omega*dt/2) * S_0
+  ! dx_1 = dx_0
+  call aa_tf_duqu_vel2twist(S, dx, omega)
+  omega = 0.5*dt*omega
+  call aa_tf_duqu_exp(omega, omega_exp)
+  call aa_tf_duqu_mul(omega_exp, S, S_1)
+
+  ! Linearize
+  ! X_1 = [ [exp(omega*dt/2)] 0 ] (S_0)
+  !       [ 0                 1 ] (dx)
+  A = real(0,C_DOUBLE)
+  call aa_tf_duqu_matrix_l( omega_exp, A(:,1:8), int(14,C_DOUBLE) )
+  forall (i=1:8)
+     A(8+i,8+i) = real(1,C_DOUBLE)
+  end forall
+
+  ! update covariance: P = F_0 P_0 F_0^T + V_0
+  AP = matmul(A,P)
+  P = matmul(AP,transpose(A)) + V
+
+  ! store result
+  info = 0
+  S = S_1
+end function rfx_lqg_duqu_predict
+
+function rfx_lqg_duqu_correct( dt, S_est, dx_est, S_obs, dx_obs, P, W ) result(info) &
+     bind( C, name="rfx_lqg_duqu_correct" )
+  real(C_DOUBLE), intent(in), value :: dt
+  real(C_DOUBLE), intent(inout) :: S_est(8), dx_est(6), P(14,14)
+  real(C_DOUBLE), intent(inout) :: S_obs(8), dx_obs(6)
+  real(C_DOUBLE), intent(in) :: W(14,14)
+  integer(C_INT) :: info
+
+  integer(C_INT) :: i
+
+  real (C_DOUBLE) :: y(14), S_rel(8), y_twist(8)
+  real(C_DOUBLE) :: H(14,14), K(14,14), Ky(14)
+  real(C_DOUBLE) :: PHT(14,14), E(14,14)
+  real(C_DOUBLE) :: S_1(8)
+  real(C_DOUBLE) :: KH(14,14), P_1(14,14)
+
+
+  ! y = z-h(x)
+  !
+  ! Rather than computing y as a difference, get a dual quaternion
+  ! derivative as the log of the relative dual quaternion
+
+  call aa_tf_duqu_mulc( S_obs, S_est, S_rel )
+  call aa_tf_duqu_minimize( S_rel )
+  call aa_tf_duqu_ln( S_rel, y_twist)
+  call aa_tf_duqu_mul( y_twist, S_est, y(1:8) ) ! y is a duqu derivative
+  y(9:14) = dx_obs - dx_est
+
+  ! H = [ [ln(S_obs S_est^*)]   0 ]
+  !     [            0          1 ]
+  H = real(0,C_DOUBLE)
+  !call aa_tf_duqu_matrix_l( y_twist, H(:,1:8), int(14, C_SIZE_T) )
+  ! forall (i = 1:6)
+  !    H(8+i,8+i) = real(1,C_DOUBLE)
+  ! end forall
+  forall (i = 1:14)
+     H(i,i) = real(1,C_DOUBLE)
+  end forall
+
+  ! E = HPH^T + W
+  PHT = matmul(P,transpose(H))
+  E = matmul(H,PHT) + W
+
+  ! K = PH^TE^{-1}
+  info = aa_la_inv(int(14,C_SIZE_T), E)
+  K = matmul(PHT, E)
+
+  ! x = x + Ky
+  Ky = matmul(K,y)
+  call aa_tf_duqu_sdiff(S_est, Ky(1:8), dt, S_1 )
+  S_est = S_1
+  call aa_tf_duqu_normalize(S_est)
+  dx_est  = dx_est + y(9:14)
+
+  ! P = (I - KH) P
+  KH = matmul(K,H)
+  KH = -KH
+  forall(i=1:14)
+     KH(i,i) = KH(i,i)+1
+  end forall
+  P_1 = matmul(KH,P)
+  P = P_1
+end function rfx_lqg_duqu_correct
 

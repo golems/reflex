@@ -68,6 +68,14 @@ int rfx_tf_filter_update( double dt, struct rfx_tf_filter *F);
 int rfx_tf_filter_update_work
 ( double dt, double *XX, const double *UU, const double *ZZ, double *P, const double *V, const double *W );
 
+int rfx_lqg_duqu_predict
+( double dt, double *S, double *dx, double *P, const double *V );
+
+int rfx_lqg_duqu_correct
+( double dt, double *S_est, double *dx_est,
+  const double *S_obs, const double *dx_obs,
+  double *P, const double *W );
+
 #ifdef __cplusplus
 }
 #endif //__cplusplus

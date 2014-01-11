@@ -98,12 +98,20 @@ int main(void)
     memset(&ZZ,0,sizeof(ZZ));
     memset(&UU,0,sizeof(UU));
 
-    double P[13*13] = {0};
-    double W[13*13] = {0};
-    double V[13*13] = {0};
-    aa_la_diag( 13, P, 1.0e-2 );
-    aa_la_diag( 13, W, 1.0 );
-    aa_la_diag( 13, V, 1.0e2 );
+    double P[14*14] = {0};
+    double W[14*14] = {0};
+    double V[14*14] = {0};
+    aa_la_diag( 14, P, 1.0 );
+    aa_la_diag( 14, W, 1.0 );
+    aa_la_diag( 14, V, 1.0e-2 );
+
+
+    double Pa[13*13] = {0};
+    double Wa[13*13] = {0};
+    double Va[13*13] = {0};
+    aa_la_diag( 13, Pa, 1.0e-2 );
+    aa_la_diag( 13, Wa, 1.0 );
+    aa_la_diag( 13, Va, 1.0e2 );
 
     // files
     FILE *fout_x_true[7];
@@ -133,12 +141,24 @@ int main(void)
 
 
         // corrupt measurement
-        e_corrupt( 10*M_PI/180, 2e-2, XX_true.tf.data, ZZ.tf.data );
+        e_corrupt( 10*M_PI/180, 7e-2, XX_true.tf.data, ZZ.tf.data );
 
         // filter
         aa_tick("filter time: ");
-        rfx_tf_filter_update_work( dt, XX_est.tf.data, UU.tf.data, ZZ.tf.data, P, V, W );
+        double S[8];
+        double Sz[8];
+        aa_tf_qutr2duqu( XX_est.tf.data, S);
+        aa_tf_qutr2duqu( ZZ.tf.data, Sz);
+        rfx_lqg_duqu_predict( dt, S, XX_est.dx.data, P, V );
+        rfx_lqg_duqu_correct( 1,
+                              S, XX_est.dx.data,
+                              Sz, ZZ.dx.data,
+                              P, W );
+        aa_tf_duqu2qutr( S, XX_est.tf.data);
+        /* rfx_tf_filter_update_work( dt, XX_est.tf.data, UU.tf.data, ZZ.tf.data, Pa, Va, Wa ); */
         aa_tock();
+        printf("--\n");
+        aa_dump_mat( stdout, P, 14, 14 );
 
         // print
         x_write( t, XX_true.tf.data, fout_x_true );
