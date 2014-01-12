@@ -151,7 +151,7 @@ function rfx_lqg_duqu_predict( dt, S, dx, P, V ) result(info) &
   !       [ 0                 1 ] (dx)
   A = real(0,C_DOUBLE)
   call aa_tf_duqu_matrix_l( omega_exp, A(1:8,1:8) )
-  forall (i=1:8)
+  forall (i=1:6)
      A(8+i,8+i) = real(1,C_DOUBLE)
   end forall
 
