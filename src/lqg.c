@@ -401,6 +401,50 @@ void rfx_lqg_kf_correct_cov
                  0.0, P, nxi );
 }
 
+
+int rfx_lqg_ekf_predict
+( void *cx, size_t n_x, double *x, const double *u, double *P, const double *V,
+  rfx_lqg_ekf_process_fun process )
+{
+    double F[n_x*n_x];
+    int i = process( cx, x, u, F );
+    rfx_lqg_kf_predict_cov( n_x, F, V, P );
+    return i;
+}
+
+
+int rfx_lqg_ekf_correct
+( void *cx, size_t n_x, size_t n_z, double *x, const double *z, double *P, const double *W,
+  rfx_lqg_ekf_measure_fun measure, rfx_lqg_ekf_innovate_fun innovate, rfx_lqg_ekf_update_fun update )
+{
+    int i;
+
+    double y[n_z];
+    double H[n_z*n_x];
+    i = measure(cx, x, y, H);
+    if(i) return i;
+
+    double K[n_x*n_z];
+    i = rfx_lqg_kf_correct_gain( n_x, n_z, H, P, W, K );
+    if(i) return i;
+
+    i = innovate(cx, x, z, y);
+    if(i) return i;
+
+    double Ky[n_x];
+    cblas_dgemv( CblasColMajor, CblasNoTrans,
+                 (int)n_x, (int)n_z,
+                 1.0, K, (int)n_x,
+                 y, 1,
+                 0.0, Ky, 1 );
+
+    i = update(cx, x, Ky);
+
+    rfx_lqg_kf_correct_cov( n_x, n_z, H, P, K );
+
+    return i;
+}
+
 //AA_API void rfx_lqg_observe_euler( rfx_lqg_t *lqg, double dt, aa_mem_region_t *reg ) {
     // --- calculate kalman gain ---
 

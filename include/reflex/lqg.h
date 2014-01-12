@@ -251,11 +251,39 @@ int rfx_lqg_kf_correct_gain
 void rfx_lqg_kf_correct_cov
 ( size_t n_x, size_t n_z, const double *C, double *P, double *K );
 
-typedef int (*rfx_lqg_ekf_process_fun)( void *cx, double dt, const double *x0, const double *u,
-                                        double *x1, double *F );
 
-typedef int (*rfx_lqg_ekf_measure_fun)( void *cx, double dt, const double *x, const double *z,
-                                        double *y, double *H );
+/** Function to compute process update and linearization. */
+typedef int (*rfx_lqg_ekf_process_fun)( void *cx, double *x, const double *u, double *F );
+
+/** Function to compute innovation and linearization.
+ *
+ * \f[ y = h(x) \f]
+ *
+ * \f[ y ~= Hx \f]
+ */
+typedef int (*rfx_lqg_ekf_measure_fun)( void *cx, const double *x, double *y, double *H );
+
+/** Function to compute innovation.
+ *
+ * \f[ y := z_obs - y \f]
+ *
+ */
+typedef int (*rfx_lqg_ekf_innovate_fun)( void *cx, const double *x, const double *z_obs, double *y );
+
+/** Function to compute state update. */
+typedef int (*rfx_lqg_ekf_update_fun)( void *cx, double *x, const double *Ky );
+
+/** Extended Kalman Filter prediction step
+ */
+int rfx_lqg_ekf_predict
+( void *cx, size_t n_x, double *x, const double *u, double *P, const double *V,
+  rfx_lqg_ekf_process_fun process );
+
+/** Extended Kalman Filter correction step
+ */
+int rfx_lqg_ekf_correct
+( void *cx, size_t n_x, size_t n_z, double *x, const double *z, double *P, const double *W,
+  rfx_lqg_ekf_measure_fun measure, rfx_lqg_ekf_innovate_fun innovate, rfx_lqg_ekf_update_fun udpate );
 
 #ifdef __cplusplus
 }
