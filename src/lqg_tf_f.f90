@@ -132,7 +132,7 @@ function rfx_lqg_duqu_predict( dt, S, dx, P, V ) result(info) &
   real(C_DOUBLE), intent(in) :: V(14,14)
   integer(C_INT) :: info
 
-  real(C_DOUBLE) :: A(14,14), AP(14,14)
+  real(C_DOUBLE) :: A(14,14)
   real(C_DOUBLE) :: omega(8), omega_exp(8), S_1(8)
   integer(C_INT) :: i
 
@@ -155,9 +155,7 @@ function rfx_lqg_duqu_predict( dt, S, dx, P, V ) result(info) &
      A(8+i,8+i) = real(1,C_DOUBLE)
   end forall
 
-  ! update covariance: P = F_0 P_0 F_0^T + V_0
-  AP = matmul(A,P)
-  P = matmul(AP,transpose(A)) + V
+  call rfx_lqg_kf_predict_cov( int(14, C_SIZE_T), A, V, P )
 
   ! store result
   info = 0
@@ -176,9 +174,7 @@ function rfx_lqg_duqu_correct( dt, S_est, dx_est, S_obs, dx_obs, P, W ) result(i
 
   real (C_DOUBLE) :: y(14), S_rel(8), y_twist(8)
   real(C_DOUBLE) :: H(14,14), K(14,14), Ky(14)
-  real(C_DOUBLE) :: PHT(14,14), E(14,14)
   real(C_DOUBLE) :: S_1(8)
-  real(C_DOUBLE) :: KH(14,14), P_1(14,14)
 
 
   ! y = z-h(x)
@@ -192,24 +188,12 @@ function rfx_lqg_duqu_correct( dt, S_est, dx_est, S_obs, dx_obs, P, W ) result(i
   call aa_tf_duqu_mul( y_twist, S_est, y(1:8) ) ! y is a duqu derivative
   y(9:14) = dx_obs - dx_est
 
-  ! H = [ [ln(S_obs S_est^*)]   0 ]
-  !     [            0          1 ]
   H = real(0,C_DOUBLE)
-  !call aa_tf_duqu_matrix_l( y_twist, H(:,1:8), int(14, C_SIZE_T) )
-  ! forall (i = 1:6)
-  !    H(8+i,8+i) = real(1,C_DOUBLE)
-  ! end forall
   forall (i = 1:14)
      H(i,i) = real(1,C_DOUBLE)
   end forall
 
-  ! E = HPH^T + W
-  PHT = matmul(P,transpose(H))
-  E = matmul(H,PHT) + W
-
-  ! K = PH^TE^{-1}
-  info = aa_la_inv(int(14,C_SIZE_T), E)
-  K = matmul(PHT, E)
+  info = rfx_lqg_kf_correct_gain( int(14, C_SIZE_T), int(14, C_SIZE_T), H, P, W, K )
 
   ! x = x + Ky
   Ky = matmul(K,y)
@@ -219,12 +203,6 @@ function rfx_lqg_duqu_correct( dt, S_est, dx_est, S_obs, dx_obs, P, W ) result(i
   dx_est  = dx_est + y(9:14)
 
   ! P = (I - KH) P
-  KH = matmul(K,H)
-  KH = -KH
-  forall(i=1:14)
-     KH(i,i) = KH(i,i)+1
-  end forall
-  P_1 = matmul(KH,P)
-  P = P_1
+  call rfx_lqg_kf_correct_cov( int(14, C_SIZE_T), int(14,C_SIZE_T), H, P, K )
 end function rfx_lqg_duqu_correct
 

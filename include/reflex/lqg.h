@@ -43,6 +43,10 @@
 #ifndef REFLEX_LQG_H
 #define REFLEX_LQG_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /****************************************/
 /* Linear Quadratic Gaussian Controller */
 /****************************************/
@@ -220,5 +224,41 @@ AA_API void rfx_lqg_lqr_ctrl( rfx_lqg_t *lqg );
 AA_API void rfx_lqg_sys( const void *lqg,
                          double t, const double *AA_RESTRICT x,
                          double *AA_RESTRICT dx );
+
+/** Update Kalman Filter covariance
+ *
+ * \f[ P = A*P*AR^ + V \f]
+ */
+void rfx_lqg_kf_predict_cov
+( size_t n, const double *A, const double *V, double *P );
+
+/** Compute kalman gain matrix
+ *
+ * \f[ K = P * C**T * (C * P * C**T + W)**-1 \f]
+ *
+ * C: n_z*n_x
+ * P: n_x*n_x
+ * W: n_z*n_z
+ * K: n_x*n_z
+ */
+int rfx_lqg_kf_correct_gain
+( size_t n_x, size_t n_z, const double *C, const double *P, const double *W, double *K );
+
+/** Update kalman filter covariance
+ *
+ * \f[ P = (I - K*C) * P \f]
+ */
+void rfx_lqg_kf_correct_cov
+( size_t n_x, size_t n_z, const double *C, double *P, double *K );
+
+typedef int (*rfx_lqg_ekf_process_fun)( void *cx, double dt, const double *x0, const double *u,
+                                        double *x1, double *F );
+
+typedef int (*rfx_lqg_ekf_measure_fun)( void *cx, double dt, const double *x, const double *z,
+                                        double *y, double *H );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // REFLEX_LQG_H

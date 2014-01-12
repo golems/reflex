@@ -55,10 +55,41 @@ module reflex
      end subroutine rfx_lqg_kbf_gain_work
   End Interface
 
+
+  Interface
+     subroutine rfx_lqg_kf_predict_cov(n, A, V, P) &
+          bind(C,name="rfx_lqg_kf_predict_cov")
+       use ISO_C_BINDING
+       integer(C_SIZE_T), intent(in), value :: n
+       real(C_DOUBLE), intent(in),    dimension(n,n) :: A, V
+       real(C_DOUBLE), intent(inout), dimension(n,n) :: P
+     end subroutine rfx_lqg_kf_predict_cov
+  End Interface
+
+  Interface
+     function rfx_lqg_kf_correct_gain(nx, nz, C, P, W, K) result(i) &
+          bind(C,name="rfx_lqg_kf_correct_gain")
+       use ISO_C_BINDING
+       integer(C_SIZE_T), intent(in), value :: nx, nz
+       real(C_DOUBLE), intent(in)  :: C(nz, nx), P(nx,nx), W(nz,nz)
+       real(C_DOUBLE), intent(out)  :: K(nx,nz)
+       integer(C_INT) :: i
+     end function rfx_lqg_kf_correct_gain
+  End Interface
+
+  Interface
+     subroutine rfx_lqg_kf_correct_cov(nx, nz, C, P, K) &
+          bind(C,name="rfx_lqg_kf_correct_cov")
+       use ISO_C_BINDING
+       integer(C_SIZE_T), intent(in), value :: nx, nz
+       real(C_DOUBLE), intent(in)  :: C(nz, nx), K(nx,nz)
+       real(C_DOUBLE), intent(inout)  :: P(nx,nx)
+       integer(C_INT) :: i
+     end subroutine rfx_lqg_kf_correct_cov
+  End Interface
 contains
 
 #include "kinematics.f90"
-#include "lqgf.f90"
 #include "lqg_tf_f.f90"
 
 end module reflex

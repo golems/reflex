@@ -11,6 +11,7 @@ pkginclude_HEADERS = \
 	include/reflex/trajectory.h \
 	include/reflex/trajx.h \
 	include/reflex/tf.h \
+	include/reflex/lqg.h \
 	include/reflex/body.h
 
 nodist_include_HEADERS = reflex.mod
@@ -57,7 +58,7 @@ bin_PROGRAMS = rfx-trajgen
 rfx_trajgen_SOURCES = src/demo/rfx-trajgen.c
 rfx_trajgen_LDADD = libreflex.la
 
-reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/lqgf.f90 src/lqg_tf_f.f90
+reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/lqg_tf_f.f90
 	$(CPP) $(INCLUDES) -x c  $< -o $@
 
 noinst_LTLIBRARIES = libreflex_mod.la

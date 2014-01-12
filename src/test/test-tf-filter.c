@@ -57,6 +57,7 @@ void x_fopen( const char *prefix, const char *suffix, FILE *f[7] ) {
 void x_write( double t, double e[7], FILE *f[7] ) {
     for( size_t i = 0; i < 7; i ++ ) {
         fprintf(f[i], "%f %f\n", t, e[i] );
+        //fprintf(stdout, "%f %f\n", t, e[i] );
     }
 }
 
@@ -86,37 +87,42 @@ void e_corrupt( double theta_max, double x_max, const double e0[7], double e1[7]
 
 }
 
+rfx_tf_dx XX_true;
+rfx_tf_dx XX_est;
+rfx_tf_dx ZZ;
+rfx_tf_dx UU;
+
+double P[14*14] = {0};
+double W[14*14] = {0};
+double V[14*14] = {0};
+
+double Pa[13*13] = {0};
+double Wa[13*13] = {0};
+double Va[13*13] = {0};
+
+FILE *fout_z[7];
+FILE *fout_x_true[7];
+FILE *fout_x_est[7];
+
 int main(void)
 {
     // state
-    rfx_tf_dx XX_true;
-    rfx_tf_dx XX_est;
-    rfx_tf_dx ZZ;
-    rfx_tf_dx UU;
     memset(&XX_true,0,sizeof(XX_true));
     memset(&XX_est,0,sizeof(XX_est));
     memset(&ZZ,0,sizeof(ZZ));
     memset(&UU,0,sizeof(UU));
 
-    double P[14*14] = {0};
-    double W[14*14] = {0};
-    double V[14*14] = {0};
     aa_la_diag( 14, P, 1.0 );
     aa_la_diag( 14, W, 1.0 );
     aa_la_diag( 14, V, 1.0e-2 );
 
 
-    double Pa[13*13] = {0};
-    double Wa[13*13] = {0};
-    double Va[13*13] = {0};
     aa_la_diag( 13, Pa, 1.0e-2 );
     aa_la_diag( 13, Wa, 1.0 );
     aa_la_diag( 13, Va, 1.0e2 );
 
     // files
-    FILE *fout_x_true[7];
-    FILE *fout_z[7];
-    FILE *fout_x_est[7];
+
     x_fopen("xtrue", ".dat", fout_x_true);
     x_fopen("z", ".dat", fout_z);
     x_fopen("xest", ".dat", fout_x_est);
@@ -155,7 +161,7 @@ int main(void)
                               Sz, ZZ.dx.data,
                               P, W );
         aa_tf_duqu2qutr( S, XX_est.tf.data);
-        /* rfx_tf_filter_update_work( dt, XX_est.tf.data, UU.tf.data, ZZ.tf.data, Pa, Va, Wa ); */
+        //rfx_tf_filter_update_work( dt, XX_est.tf.data, UU.tf.data, ZZ.tf.data, Pa, Va, Wa );
         aa_tock();
         printf("--\n");
         aa_dump_mat( stdout, P, 14, 14 );

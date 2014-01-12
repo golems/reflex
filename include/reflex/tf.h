@@ -68,6 +68,15 @@ int rfx_tf_filter_update( double dt, struct rfx_tf_filter *F);
 int rfx_tf_filter_update_work
 ( double dt, double *XX, const double *UU, const double *ZZ, double *P, const double *V, const double *W );
 
+
+struct rfx_lqg_duqu {
+    double S[8];       ///< state
+    double dx[6];      ///< state
+    double P[14*14];   ///< covariance
+    double V[14*14];   ///< process noise
+    double W[14*14];   ///< measurement noise
+};
+
 int rfx_lqg_duqu_predict
 ( double dt, double *S, double *dx, double *P, const double *V );
 
