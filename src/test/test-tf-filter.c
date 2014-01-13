@@ -46,16 +46,16 @@
 #include "reflex.h"
 
 
-void x_fopen( const char *prefix, const char *suffix, FILE *f[7] ) {
-    for( int i = 0; i < 7; i ++ ) {
+void x_fopen( const char *prefix, const char *suffix, size_t n, FILE *f[] ) {
+    for( size_t i = 0; i < n; i ++ ) {
         char buf[512];
-        sprintf(buf,"%s%d%s", prefix, i, suffix);
+        sprintf(buf,"%s%lu%s", prefix, i, suffix);
         f[i] = fopen(buf, "w");
     }
 }
 
-void x_write( double t, double e[7], FILE *f[7] ) {
-    for( size_t i = 0; i < 7; i ++ ) {
+void x_write( double t, size_t n, double e[], FILE *f[7] ) {
+    for( size_t i = 0; i < n; i ++ ) {
         fprintf(f[i], "%f %f\n", t, e[i] );
         //fprintf(stdout, "%f %f\n", t, e[i] );
     }
@@ -93,19 +93,24 @@ rfx_tf_dx ZZ;
 rfx_tf_dx UU;
 
 double P[14*14] = {0};
-double W[14*14] = {0};
 double V[14*14] = {0};
+double W[8*8] = {0};
 
 double Pa[13*13] = {0};
 double Wa[13*13] = {0};
 double Va[13*13] = {0};
 
-FILE *fout_z[7];
-FILE *fout_x_true[7];
-FILE *fout_x_est[7];
 
 int main(void)
 {
+
+    FILE *fout_z[7];
+    FILE *fout_x_true[7];
+    FILE *fout_x_est[7];
+
+    FILE *fout_dx_true[6];
+    FILE *fout_dx_est[6];
+
     // state
     memset(&XX_true,0,sizeof(XX_true));
     memset(&XX_est,0,sizeof(XX_est));
@@ -113,7 +118,7 @@ int main(void)
     memset(&UU,0,sizeof(UU));
 
     aa_la_diag( 14, P, 1.0 );
-    aa_la_diag( 14, W, 1.0 );
+    aa_la_diag( 8, W, 1.0 );
     aa_la_diag( 14, V, 1.0e-2 );
 
 
@@ -123,9 +128,11 @@ int main(void)
 
     // files
 
-    x_fopen("xtrue", ".dat", fout_x_true);
-    x_fopen("z", ".dat", fout_z);
-    x_fopen("xest", ".dat", fout_x_est);
+    x_fopen("xtrue", ".dat", 7,fout_x_true);
+    x_fopen("z", ".dat", 7,fout_z);
+    x_fopen("xest", ".dat", 7,fout_x_est);
+    x_fopen("dx_true", ".dat", 6,fout_dx_true);
+    x_fopen("dx_est", ".dat", 6,fout_dx_est);
 
     memcpy(XX_true.tf.r.data, aa_tf_quat_ident, 4*sizeof(XX_true.tf.r.data[0]));
     memcpy(XX_est.tf.r.data, aa_tf_quat_ident, 4*sizeof(XX_true.tf.r.data[0]));
@@ -158,8 +165,10 @@ int main(void)
         rfx_lqg_duqu_predict( dt, S, XX_est.dx.data, P, V );
         rfx_lqg_duqu_correct( 1,
                               S, XX_est.dx.data,
-                              Sz, ZZ.dx.data,
+                              Sz, /*ZZ.dx.data, */
                               P, W );
+
+        printf("foo\n");
         aa_tf_duqu2qutr( S, XX_est.tf.data);
         //rfx_tf_filter_update_work( dt, XX_est.tf.data, UU.tf.data, ZZ.tf.data, Pa, Va, Wa );
         aa_tock();
@@ -167,9 +176,11 @@ int main(void)
         aa_dump_mat( stdout, P, 14, 14 );
 
         // print
-        x_write( t, XX_true.tf.data, fout_x_true );
-        x_write( t, XX_est.tf.data, fout_x_est );
-        x_write( t, ZZ.tf.data, fout_z );
+        x_write( t, 7, XX_true.tf.data, fout_x_true );
+        x_write( t, 6, XX_true.dx.data, fout_dx_true );
+        x_write( t, 7, XX_est.tf.data, fout_x_est );
+        x_write( t, 6, XX_est.dx.data, fout_dx_est );
+        x_write( t, 7, ZZ.tf.data, fout_z );
     }
 
 

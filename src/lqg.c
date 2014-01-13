@@ -347,12 +347,13 @@ int rfx_lqg_kf_correct_gain
     int nzi = (int)n_z;
 
     // Kp := C * P * C**T + W
-    double PC_T[n_x*n_x];
+    double PC_T[n_x*n_z];
     cblas_dgemm( CblasColMajor, CblasNoTrans, CblasTrans,
-                 nxi, nxi, nzi,
+                 nxi, nzi, nxi,
                  1.0, P, nxi,
                  C, nzi,
                  0.0, PC_T, nxi );
+
     double Kp[n_z*n_z];
     memcpy( Kp, W, n_z*n_z*sizeof(Kp[0]) );
     cblas_dgemm( CblasColMajor, CblasNoTrans, CblasNoTrans,
@@ -365,7 +366,7 @@ int rfx_lqg_kf_correct_gain
 
     // K := P * C**T * Kp
     cblas_dgemm( CblasColMajor, CblasNoTrans, CblasNoTrans,
-                 nxi, nxi, nzi,
+                 nxi, nzi, nzi,
                  1.0, PC_T, nxi,
                  Kp, nzi,
                  0.0, K, nxi );
@@ -392,12 +393,12 @@ void rfx_lqg_kf_correct_cov
     for( size_t i = 0; i < n_x; i ++ )
         AA_MATREF(KC, n_x, i, i) += 1;
 
-    double PT[n_x*n_x];
-    memcpy(PT, P, n_x*n_x*sizeof(PT[0]));
+    double P0[n_x*n_x];
+    memcpy(P0, P, n_x*n_x*sizeof(P0[0]));
     cblas_dgemm( CblasColMajor, CblasNoTrans, CblasNoTrans,
                  nxi, nxi, nxi,
                  1.0, KC, nxi,
-                 PT, nxi,
+                 P0, nxi,
                  0.0, P, nxi );
 }
 

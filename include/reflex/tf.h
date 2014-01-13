@@ -82,7 +82,7 @@ int rfx_lqg_duqu_predict
 
 int rfx_lqg_duqu_correct
 ( double dt, double *S_est, double *dx_est,
-  const double *S_obs, const double *dx_obs,
+  const double *S_obs,
   double *P, const double *W );
 
 #ifdef __cplusplus

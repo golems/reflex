@@ -13,6 +13,16 @@ plot 'xtrue0.dat' title 'q_x' with lines, \
      'xtrue5.dat' title 'y' with lines, \
      'xtrue6.dat' title 'z' with lines
 
+set output "tf-filter-dx-true.eps"
+set xlabel  "time (s)"
+set title "True State"
+plot 'dx_true0.dat' title 'dx' with lines, \
+     'dx_true1.dat' title 'dy' with lines, \
+     'dx_true2.dat' title 'dz' with lines, \
+     'dx_true3.dat' title 'omega_x' with lines, \
+     'dx_true4.dat' title 'omega_y' with lines, \
+     'dx_true5.dat' title 'omega_z' with lines
+
 set output "tf-filter-z.eps"
 set xlabel  "time (s)"
 set title "Measured State"
@@ -34,3 +44,13 @@ plot 'xest0.dat' title 'q_x' with lines, \
      'xest4.dat' title 'x' with lines, \
      'xest5.dat' title 'y' with lines, \
      'xest6.dat' title 'z' with lines
+
+set output "tf-filter-dx-est.eps"
+set xlabel  "time (s)"
+set title "Estimated State"
+plot 'dx_est0.dat' title 'dx' with lines, \
+     'dx_est1.dat' title 'dy' with lines, \
+     'dx_est2.dat' title 'dz' with lines, \
+     'dx_est3.dat' title 'omega_x' with lines, \
+     'dx_est4.dat' title 'omega_y' with lines, \
+     'dx_est5.dat' title 'omega_z' with lines
