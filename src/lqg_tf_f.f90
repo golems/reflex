@@ -134,7 +134,7 @@ function rfx_lqg_duqu_predict( dt, S, dS, P, V ) result(info) &
 
   real(C_DOUBLE) :: A(16,16)
   real(C_DOUBLE) :: S_1(8)
-  real(C_DOUBLE) :: omega(8), omega_exp(8)
+  !real(C_DOUBLE) :: omega(8), omega_exp(8)
   integer(C_INT) :: i
 
   call aa_tf_duqu_sdiff( S, dS, dt, S_1 )
@@ -262,20 +262,61 @@ function rfx_lqg_duqu_correct( dt, S_est, dS_est, S_obs, P, W ) result(info) &
 end function rfx_lqg_duqu_correct
 
 
+subroutine rfx_lqg_qutr_process_noise( dt, dtheta, dx, E, V ) &
+     bind( C, name="rfx_lqg_qutr_process_noise" )
+  real(C_DOUBLE), intent(in), value :: dt, dtheta, dx
+  real(C_DOUBLE), intent(in) :: E(7)
+  real(C_DOUBLE), intent(out) :: V(13,13)
+  integer :: i
+  real(C_DOUBLE) :: qs(4), Q_R(4,4)
+  real(C_DOUBLE) :: qQ(4), vv(3), dvdv(3), dwdw(3)
+  real(C_DOUBLE) :: vdv(3), Qdw(4,3)
+  V = real(0,C_DOUBLE)
 
-function rfx_lqg_qutr_predict( dt, E, dE, P, V ) result(info) &
+  QQ = dtheta*dt**4 / 4
+  forall (i=1:4) V(i,i) = QQ(i)
+
+  vv = dx*dt**4 / 4
+  forall (i=1:3) V(i+4,i+4) = vv(i)
+
+  dvdv = dx*dt**2
+  forall (i=1:3) V(i+4+3,i+4+3) = dvdv(i)
+
+  dwdw = dtheta*dt**2
+  forall (i=1:3) V(i+4+3+3,i+4+3+3) = dwdw(i)
+
+  vdv = dx*dt**2 / 3
+  forall (i=1:3)
+     V(i+4,i+7) = vdv(i)
+     V(i+7,i+4) = vdv(i)
+  end forall
+
+  qs = (dt**2)/3*dtheta * E(1:4)
+  call aa_tf_qmatrix_r(qs, Q_r)
+  Qdw = Q_r(:,1:3)
+
+  V(1:4,11:13) = Qdw
+  V(11:13,1:4) = transpose(Qdw)
+
+end subroutine rfx_lqg_qutr_process_noise
+
+function rfx_lqg_qutr_predict( dt, E, dx, P, V ) result(info) &
      bind( C, name="rfx_lqg_qutr_predict" )
   real(C_DOUBLE), intent(in), value :: dt
-  real(C_DOUBLE), intent(inout) :: E(7), dE(7), P(14,14)
-  real(C_DOUBLE), intent(in) :: V(14,14)
+  real(C_DOUBLE), intent(inout) :: E(7), dx(6), P(13,13)
+  real(C_DOUBLE), intent(in) :: V(size(P,1),size(P,1))
   integer(C_INT) :: info
 
-  real(C_DOUBLE) :: A(14,14)
+  real(C_DOUBLE) :: A(size(P,1),size(P,1))
   real(C_DOUBLE) :: E_1(7)
-  real(C_DOUBLE) :: omega(4), omega_exp(4)
-  integer(C_INT) :: i
+  real(C_DOUBLE) :: Q_R(4,4)
+  integer(C_SIZE_T) :: i
 
-  call aa_tf_qutr_sdiff( E, dE, dt, E_1 )
+  integer(C_SIZE_T) :: nx
+
+  nx = size(P,1,C_SIZE_T)
+
+  call aa_tf_qutr_svel( E, dx, dt, E_1 )
   call aa_tf_qnormalize( E(1:4) )
   !call aa_tf_qminimize( E(1:4) )
 
@@ -290,53 +331,64 @@ function rfx_lqg_qutr_predict( dt, E, dE, P, V ) result(info) &
   ! call aa_tf_qexp(omega, omega_exp)
   ! call aa_tf_qmatrix_l( omega_exp, A(1:4,1:4) )
 
+
   forall (i=1:4)
      A(i,i) = real(1,C_DOUBLE)
-     A(i,7+i) = dt
   end forall
+  call aa_tf_qmatrix_r( E(1:4), Q_R)
+  A(1:4,11:13) = 0.5*dt*Q_R(:,1:3)
 
-  print *,"dE", dE
-  forall (i=5:7)
+  do i=5,7
      A(i,i) = real(1,C_DOUBLE)
-     A(i,7+i) = dt
-  end forall
-
-  forall (i=8:14)
-     A(i,i) = real(1,C_DOUBLE)
-  end forall
-
-
-  print *,"A"
-  do i=1,14
-     print *,real(A(i,:))
+     A(i,7+i-3-1) = dt
   end do
 
+  forall (i=7:nx)
+     A(i,i) = real(1,C_DOUBLE)
+  end forall
 
-  call rfx_lqg_kf_predict_cov(int(14,C_SIZE_T),  A, V, P )
 
-  print *,"P_p"
-  do i=1,14
-     print *,real(P(i,:))
-  end do
+
+  !call rfx_lqg_kf_predict_cov(int(14,C_SIZE_T),  A, V, P )
+  call rfx_lqg_kf_predict_cov(size(A,1,C_SIZE_T),  A, V, P )
+
+  ! print *,"V"
+  ! do i=1,nx
+  !    print *,real(V(i,:))
+  ! end do
+
+  ! print *,"A"
+  ! do i=1,nx
+  !    print *,real(A(i,:))
+  ! end do
+
+  ! print *,"P_p"
+  ! do i=1,nx
+  !    print *,real(P(i,:))
+  ! end do
 
   ! store result
   info = 0
   E = E_1
 end function rfx_lqg_qutr_predict
 
-function rfx_lqg_qutr_correct( dt, E_est, dE_est, E_obs, P, W ) result(info) &
+function rfx_lqg_qutr_correct( dt, E_est, dx_est, E_obs, P, W ) result(info) &
      bind( C, name="rfx_lqg_qutr_correct" )
   real(C_DOUBLE), intent(in), value :: dt
-  real(C_DOUBLE), intent(inout) :: E_est(7), dE_est(7), P(14,14)
+  real(C_DOUBLE), intent(inout) :: E_est(7), dx_est(6), P(13,13)
   real(C_DOUBLE), intent(inout) :: E_obs(7)
   real(C_DOUBLE), intent(in) :: W(7,7)
   integer(C_INT) :: info
 
-  integer(C_INT) :: i
+  integer(C_SIZE_T) :: i
 
   real (C_DOUBLE) :: y(7), E_rel(7), omega(4)
-  real(C_DOUBLE) :: H(7,14), K(14,7), Ky(14)
+  real(C_DOUBLE) :: H(7,13), K(13,7), Ky(13)
   real(C_DOUBLE) :: E_1(7)
+  integer(C_SIZE_T) :: nx, nz
+
+  nx = size(P,1,C_SIZE_T)
+  nz = size(W,1,C_SIZE_T)
 
   ! y = z-h(x)
   !
@@ -354,34 +406,34 @@ function rfx_lqg_qutr_correct( dt, E_est, dE_est, E_obs, P, W ) result(info) &
      H(i,i) = real(1,C_DOUBLE)
   end forall
 
-  info = rfx_lqg_kf_correct_gain( int(14, C_SIZE_T), int(7, C_SIZE_T), H, P, W, K )
-
-  print *,"info", info
-  print *,"K"
-  do i=1,14
-     print *,real(K(i,:))
-  end do
+  info = rfx_lqg_kf_correct_gain( nx, nz, H, P, W, K )
 
   ! x = x + Ky
   Ky = matmul(K,y)
 
-  print *,"E_est", real(E_est)
-  print *,"dE_est", real(dE_est)
-  print *,"E_obs", real(E_obs)
-  print *,"y", real(y)
-  print *,"KyE", real(Ky(1:7))
-  print *,"KydE", real(Ky(8:14))
-
   call aa_tf_qutr_sdiff(E_est, Ky(1:7), dt, E_1 )
-  !E_est = E_1
-  E_est = E_est + Ky(1:7)
-  call aa_tf_qnormalize( E_est(1:4) )
+  E_est = E_1
+  !E_est = E_est + Ky(1:7)
+  !call aa_tf_qnormalize( E_est(1:4) )
   !call aa_tf_qminimize( E_est(1:4) )
 
-  dE_est = dE_est + Ky(8:14)
+  dx_est = dx_est + Ky(8:13)
 
   ! P = (I - KH) P
-  call rfx_lqg_kf_correct_cov( int(14, C_SIZE_T), int(7,C_SIZE_T), H, P, K )
+  call rfx_lqg_kf_correct_cov( nx, nz, H, P, K )
+
+  ! print *,"info", info
+  ! print *,"K"
+  ! do i=1,nx
+  !    print *,real(K(i,:))
+  ! end do
+  ! print *,"E_est", real(E_est)
+  ! print *,"dx_est", real(dx_est)
+  ! print *,"E_obs", real(E_obs)
+  ! print *,"y", real(y)
+  ! print *,"KyE", real(Ky(1:7))
+  ! print *,"KydE", real(Ky(8:))
+
 end function rfx_lqg_qutr_correct
 
 

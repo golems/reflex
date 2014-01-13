@@ -100,18 +100,15 @@ double Pa[13*13] = {0};
 double Wa[13*13] = {0};
 double Va[13*13] = {0};
 
-double Pb[14*14] = {0};
+double Pb[13*13] = {0};
 double Wb[7*7] = {0};
-double Vb[14*14] = {0};
+double Vb[13*13] = {0};
 
 
 int main(void)
 {
 
     double dt = .01;
-    double dt_2 = dt*dt;
-    double dt_3 = dt*dt*dt;
-    double dt_4 = dt*dt*dt*dt;
 
     FILE *fout_z[7];
     FILE *fout_x_true[7];
@@ -129,34 +126,14 @@ int main(void)
     aa_la_diag( 16, P, 1.0 );
     aa_la_diag( 8, W, 1.0 );
     aa_la_diag( 16, V, 1.0e-2 );
+
     for( size_t i = 0; i < 8; i ++ ) {
         AA_MATREF(V,16, i, 8+i ) = 1e-2;
         AA_MATREF(V,16, 8+i, i ) = 1e-2;
     }
 
-    aa_la_diag( 14, Pb, 1.0 );
-    aa_la_diag( 7, Wb, 1.0 );
-    //aa_la_diag( 14, Vb, 1.0e-3 );
-    for( size_t i = 0; i < 4; i ++ ) {
-        double vbk = 1e-2;
-        AA_MATREF(Vb,14, i, i ) =  vbk;
-        AA_MATREF(Vb,14, i+7, i+7 ) = vbk;
-
-        AA_MATREF(Vb,14, i+7, i ) = .5*sqrt(vbk);
-        AA_MATREF(Vb,14, 7, i+7 ) = .5*sqrt(vbk);
-    }
-    for( size_t i = 4; i < 7; i ++ ) {
-        double vbk = 1e-2;
-        AA_MATREF(Vb,14, i, i ) =  vbk;
-        AA_MATREF(Vb,14, i+7, i+7 ) = vbk;
-
-        AA_MATREF(Vb,14, i+7, i ) = .5*sqrt(vbk);
-        AA_MATREF(Vb,14, 7, i+7 ) = .5*sqrt(vbk);
-
-    }
-
-    printf("Vb: \n");
-    aa_dump_mat( stdout, Vb, 14, 14 );
+    aa_la_diag( 13, Pb, 1 );
+    aa_la_diag( 7, Wb, dt*5e-1 );
 
 
     aa_la_diag( 13, Pa, 1.0e-2 );
@@ -177,8 +154,8 @@ int main(void)
     for( double t = 0.0; t < 10.0; t += dt ) {
         fprintf(stderr, "t: %f, ", t );
         // pristine velocity
-        double dx[6] = {cos(t*M_PI / 3), 0, 0,
-                        0, 0, sin(t*M_PI / 3)};
+        double dx[6] = {cos(t*M_PI / 1), 0, 0,
+                        0, 0, sin(t*M_PI / 1)};
         AA_MEM_CPY(XX_true.dx.data, dx, 6);
 
         // integrate true
@@ -198,13 +175,13 @@ int main(void)
         double Sz[8];
         double dS_est[8];
         double dS_true[8];
-        double dE_est[7];
+        //double dE_est[7];
         aa_tf_qutr2duqu( XX_est.tf.data, S);
         aa_tf_qutr2duqu( ZZ.tf.data, Sz);
         aa_tf_duqu_vel2diff( S, XX_est.dx.data, dS_est );
         aa_tf_duqu_vel2diff( S, XX_true.dx.data, dS_true );
 
-        aa_tf_qutr_vel2diff( XX_est.tf.data, XX_est.dx.data, dE_est );
+        //aa_tf_qutr_vel2diff( XX_est.tf.data, XX_est.dx.data, dE_est );
 
 
         /* rfx_lqg_duqu_predict( dt, S, dS_est, P, V ); */
@@ -216,12 +193,14 @@ int main(void)
         /* aa_tf_duqu2qutr( S, XX_est.tf.data); */
 
 
-        rfx_lqg_qutr_predict( dt, XX_est.tf.data, dE_est, Pb, Vb );
+        rfx_lqg_qutr_process_noise( dt, 1, 1, XX_est.tf.data, Vb );
+
+        rfx_lqg_qutr_predict( dt, XX_est.tf.data, XX_est.dx.data, Pb, Vb );
         rfx_lqg_qutr_correct( 1,
-                              XX_est.tf.data, dE_est,
+                              XX_est.tf.data, XX_est.dx.data,
                               ZZ.tf.data,
                               Pb, Wb );
-        aa_tf_qutr_diff2vel( XX_est.tf.data, dE_est, XX_est.dx.data );
+        //aa_tf_qutr_diff2vel( XX_est.tf.data, dE_est, XX_est.dx.data );
 
 
 

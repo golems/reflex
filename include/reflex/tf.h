@@ -86,6 +86,8 @@ int rfx_lqg_duqu_correct
   double *P, const double *W );
 
 
+void rfx_lqg_qutr_process_noise( double dt, double dx, double dtheta,
+                                 double *E, double *V );
 int rfx_lqg_qutr_predict
 ( double dt, double *E, double *dE, double *P, const double *V );
 
