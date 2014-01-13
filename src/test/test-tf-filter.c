@@ -92,8 +92,8 @@ rfx_tf_dx XX_est;
 rfx_tf_dx ZZ;
 rfx_tf_dx UU;
 
-double P[14*14] = {0};
-double V[14*14] = {0};
+double P[16*16] = {0};
+double V[16*16] = {0};
 double W[8*8] = {0};
 
 double Pa[13*13] = {0};
@@ -117,9 +117,15 @@ int main(void)
     memset(&ZZ,0,sizeof(ZZ));
     memset(&UU,0,sizeof(UU));
 
-    aa_la_diag( 14, P, 1.0 );
+    aa_la_diag( 16, P, 1.0 );
     aa_la_diag( 8, W, 1.0 );
-    aa_la_diag( 14, V, 1.0e-2 );
+    aa_la_diag( 16, V, 1.0e-2 );
+    for( size_t i = 0; i < 8; i ++ ) {
+        AA_MATREF(V,16, i, 8+i ) = 1e-2;
+        AA_MATREF(V,16, 8+i, i ) = 1e-2;
+    }
+    printf("V: \n");
+    aa_dump_mat( stdout, V, 16, 16 );
 
 
     aa_la_diag( 13, Pa, 1.0e-2 );
@@ -138,11 +144,11 @@ int main(void)
     memcpy(XX_est.tf.r.data, aa_tf_quat_ident, 4*sizeof(XX_true.tf.r.data[0]));
 
     double dt = .01;
-    for( double t = 0.0; t < 2.0; t += dt ) {
+    for( double t = 0.0; t < 10.0; t += dt ) {
         fprintf(stderr, "t: %f, ", t );
         // pristine velocity
-        double dx[6] = {cos(t*M_PI), 0, 0,
-                        0, 0, sin(t*M_PI)};
+        double dx[6] = {cos(t*M_PI / 2), 0, 0,
+                        0, 0, sin(t*M_PI / 2)};
         AA_MEM_CPY(XX_true.dx.data, dx, 6);
 
         // integrate true
@@ -160,26 +166,35 @@ int main(void)
         aa_tick("filter time: ");
         double S[8];
         double Sz[8];
+        double dS_est[8];
+        double dS_true[8];
         aa_tf_qutr2duqu( XX_est.tf.data, S);
         aa_tf_qutr2duqu( ZZ.tf.data, Sz);
-        rfx_lqg_duqu_predict( dt, S, XX_est.dx.data, P, V );
+        aa_tf_duqu_vel2diff( S, XX_est.dx.data, dS_est );
+        aa_tf_duqu_vel2diff( S, XX_true.dx.data, dS_true );
+        rfx_lqg_duqu_predict( dt, S, dS_est, P, V );
         rfx_lqg_duqu_correct( 1,
-                              S, XX_est.dx.data,
+                              S, dS_est,
                               Sz, /*ZZ.dx.data, */
                               P, W );
+        aa_tf_duqu_diff2vel( S, dS_est, XX_est.dx.data );
 
-        printf("foo\n");
         aa_tf_duqu2qutr( S, XX_est.tf.data);
         //rfx_tf_filter_update_work( dt, XX_est.tf.data, UU.tf.data, ZZ.tf.data, Pa, Va, Wa );
         aa_tock();
-        printf("--\n");
-        aa_dump_mat( stdout, P, 14, 14 );
+        //printf("--\n");
+        //printf("dS_true: "); aa_dump_vec( stdout, dS_true, 8 );
+        //printf("dS_est: "); aa_dump_vec(  stdout, dS_est, 8 );
+        //aa_dump_mat( stdout, P, 16, 16 );
 
+        //return 0;
         // print
         x_write( t, 7, XX_true.tf.data, fout_x_true );
         x_write( t, 6, XX_true.dx.data, fout_dx_true );
+
         x_write( t, 7, XX_est.tf.data, fout_x_est );
         x_write( t, 6, XX_est.dx.data, fout_dx_est );
+
         x_write( t, 7, ZZ.tf.data, fout_z );
     }
 

@@ -125,37 +125,40 @@ contains
 end function rfx_tf_filter_update_work
 
 
-function rfx_lqg_duqu_predict( dt, S, dx, P, V ) result(info) &
+function rfx_lqg_duqu_predict( dt, S, dS, P, V ) result(info) &
      bind( C, name="rfx_lqg_duqu_predict" )
   real(C_DOUBLE), intent(in), value :: dt
-  real(C_DOUBLE), intent(inout) :: S(8), dx(6), P(14,14)
-  real(C_DOUBLE), intent(in) :: V(14,14)
+  real(C_DOUBLE), intent(inout) :: S(8), dS(8), P(16,16)
+  real(C_DOUBLE), intent(in) :: V(16,16)
   integer(C_INT) :: info
 
-  real(C_DOUBLE) :: A(14,14)
-  real(C_DOUBLE) :: omega(8), omega_exp(8), S_1(8)
+  real(C_DOUBLE) :: A(16,16)
+  real(C_DOUBLE) :: S_1(8)
+  real(C_DOUBLE) :: omega(8), omega_exp(8)
   integer(C_INT) :: i
 
-  ! X = [S dx]^T
-
-  ! update state: x_1 = f(x_0)
-  ! S_1 = exp(omega*dt/2) * S_0
-  ! dx_1 = dx_0
-  call aa_tf_duqu_vel2twist(S, dx, omega)
-  omega = 0.5*dt*omega
-  call aa_tf_duqu_exp(omega, omega_exp)
-  call aa_tf_duqu_mul(omega_exp, S, S_1)
+  call aa_tf_duqu_sdiff( S, dS, dt, S_1 )
 
   ! Linearize
-  ! X_1 = [ [exp(omega*dt/2)] 0 ] (S_0)
-  !       [ 0                 1 ] (dx)
+  ! X_1 = [ 1 dt*dS ] (S_0)
+  !       [ 0     1 ] (dS)
   A = real(0,C_DOUBLE)
+  ! forall (i=1:8)
+  !    A(i,i) = real(1,C_DOUBLE)
+  !    A(i,8+i) = dt*dS(i)
+  ! end forall
+
+  call aa_tf_duqu_diff2twist(S, dS, omega)
+  omega = 0.5*dt*omega
+  call aa_tf_duqu_exp(omega, omega_exp)
+
   call aa_tf_duqu_matrix_l( omega_exp, A(1:8,1:8) )
-  forall (i=1:6)
-     A(8+i,8+i) = real(1,C_DOUBLE)
+
+  forall (i=9:16)
+     A(i,i) = real(1,C_DOUBLE)
   end forall
 
-  call rfx_lqg_kf_predict_cov( int(14, C_SIZE_T), A, V, P )
+  call rfx_lqg_kf_predict_cov(int(16,C_SIZE_T),  A, V, P )
 
   ! store result
   info = 0
@@ -214,20 +217,19 @@ end function rfx_lqg_duqu_predict
 
 
 
-function rfx_lqg_duqu_correct( dt, S_est, dx_est, S_obs, P, W ) result(info) &
+function rfx_lqg_duqu_correct( dt, S_est, dS_est, S_obs, P, W ) result(info) &
      bind( C, name="rfx_lqg_duqu_correct" )
   real(C_DOUBLE), intent(in), value :: dt
-  real(C_DOUBLE), intent(inout) :: S_est(8), dx_est(6), P(14,14)
+  real(C_DOUBLE), intent(inout) :: S_est(8), dS_est(8), P(16,16)
   real(C_DOUBLE), intent(inout) :: S_obs(8)
-  real(C_DOUBLE), intent(in) :: W(14,14)
+  real(C_DOUBLE), intent(in) :: W(8,8)
   integer(C_INT) :: info
 
   integer(C_INT) :: i
 
   real (C_DOUBLE) :: y(8), S_rel(8), y_twist(8)
-  real(C_DOUBLE) :: H(8,8), K(14,8), Ky(14)
+  real(C_DOUBLE) :: H(8,16), K(16,8), Ky(16)
   real(C_DOUBLE) :: S_1(8)
-
 
   ! y = z-h(x)
   !
@@ -244,18 +246,21 @@ function rfx_lqg_duqu_correct( dt, S_est, dx_est, S_obs, P, W ) result(info) &
      H(i,i) = real(1,C_DOUBLE)
   end forall
 
-  info = rfx_lqg_kf_correct_gain( int(14, C_SIZE_T), int(8, C_SIZE_T), H, P, W, K )
+  info = rfx_lqg_kf_correct_gain( int(16, C_SIZE_T), int(8, C_SIZE_T), H, P, W, K )
 
   ! x = x + Ky
   Ky = matmul(K,y)
   call aa_tf_duqu_sdiff(S_est, Ky(1:8), dt, S_1 )
   S_est = S_1
-  call aa_tf_duqu_normalize(S_est)
-  dx_est  = dx_est + Ky(9:14)
+  !S_est = S_est + Ky(1:8)
+  call aa_tf_duqu_normalize( S_est )
+
+  dS_est = dS_est + Ky(9:16)
 
   ! P = (I - KH) P
-  call rfx_lqg_kf_correct_cov( int(14, C_SIZE_T), int(8,C_SIZE_T), H, P, K )
+  call rfx_lqg_kf_correct_cov( int(16, C_SIZE_T), int(8,C_SIZE_T), H, P, K )
 end function rfx_lqg_duqu_correct
+
 
 
 ! function rfx_lqg_kf_correct_gain(nx, nz, C, P, W, K) result(i) &
@@ -269,11 +274,10 @@ end function rfx_lqg_duqu_correct
 !   PC_T = matmul(P,transpose(C))
 !   Kp = matmul(C, PC_T) + W
 !   i = aa_la_inv(nz,Kp)
+!   !K = real(0,C_DOUBLE)
 !   K = matmul(PC_T,Kp)
+!   print *,"info", i
 ! end function rfx_lqg_kf_correct_gain
-
-
-
 
 ! subroutine rfx_lqg_kf_correct_cov(nx, nz, C, P, K) &
 !      bind(C,name="rfx_lqg_kf_correct_cov")

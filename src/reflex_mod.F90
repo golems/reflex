@@ -87,7 +87,7 @@ module reflex
        integer(C_INT) :: i
      end subroutine rfx_lqg_kf_correct_cov
   End Interface
-contains
+ contains
 
 #include "kinematics.f90"
 #include "lqg_tf_f.f90"
