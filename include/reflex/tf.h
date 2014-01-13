@@ -78,11 +78,20 @@ struct rfx_lqg_duqu {
 };
 
 int rfx_lqg_duqu_predict
-( double dt, double *S, double *dx, double *P, const double *V );
+( double dt, double *S, double *dS, double *P, const double *V );
 
 int rfx_lqg_duqu_correct
-( double dt, double *S_est, double *dx_est,
+( double dt, double *S_est, double *dS_est,
   const double *S_obs,
+  double *P, const double *W );
+
+
+int rfx_lqg_qutr_predict
+( double dt, double *E, double *dE, double *P, const double *V );
+
+int rfx_lqg_qutr_correct
+( double dt, double *E_est, double *dE_est,
+  const double *E_obs,
   double *P, const double *W );
 
 #ifdef __cplusplus
