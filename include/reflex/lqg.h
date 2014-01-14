@@ -47,9 +47,188 @@
 extern "C" {
 #endif
 
+/** @file lqg.h
+ *  @author Neil T. Dantam
+ */
+
+/*********************************/
+/* Basic Kalman Filter Functions */
+/*********************************/
+
+/** Update Kalman Filter covariance.
+ *
+ * \f[ P = A*P*AR^ + V \f]
+ */
+void rfx_lqg_kf_predict_cov
+( size_t n, const double *A, const double *V, double *P );
+
+/** Compute kalman gain matrix.
+ *
+ * \f[ K = P * C^T * (C * P * C^T + W)^{-1} \f]
+ *
+ * @param n_x size of state space
+ * @param n_z size of measurement space
+ * @param C Measurement model, n_z*n_x
+ * @param P Coviariance, n_x*n_x
+ * @param W Measurement noise model, n_z*n_z
+ * @param K Kalman Gain, n_x*n_z
+ */
+int rfx_lqg_kf_correct_gain
+( size_t n_x, size_t n_z, const double *C, const double *P, const double *W, double *K );
+
+/** Update kalman filter covariance.
+ *
+ * \f[ P = (I - K*C) * P \f]
+ */
+void rfx_lqg_kf_correct_cov
+( size_t n_x, size_t n_z, const double *C, double *P, double *K );
+
+
+/**************************/
+/* Extended Kalman Filter */
+/**************************/
+
+/* The next few typedefs define functions for computing state updates,
+ * expected measurements, and linearizing the system */
+
+/** Function to compute process update and linearization.
+ *
+ * \f[ x \approx F x \f]
+ *
+ * @param cx context struct
+ * @param x state vector
+ * @param u input vector
+ * @param F linearized process model
+ *
+ * @pre
+ *  - x contains the prior state estimate
+ * @post
+ *  - x contains the predicted state estimate
+ *  - F contains the linearized system model
+ */
+typedef int (*rfx_lqg_ekf_process_fun)( void *cx, double *x, const double *u, double *F );
+
+/** Function to compute innovation and linearization.
+ *
+ * \f[ y = h(x) \f]
+ *
+ * \f[ y \approx Hx \f]
+ *
+ * @param cx context struct
+ * @param x state vector
+ * @param y predicted measurement
+ * @param F linearized measurement model
+ *
+ * @post
+ *  - y contains the predicted measurement for state x
+ *  - H contains the linearized measurement model at x
+ *
+ */
+typedef int (*rfx_lqg_ekf_measure_fun)( void *cx, const double *x, double *y, double *H );
+
+/** Function to compute innovation.
+ *
+ * \f[ y \approx z - y \f]
+ *
+ * @param cx context struct
+ * @param x state vector
+ * @param z actual measurement
+ * @param y predicted measurement, innovation
+ *
+ * @post
+ *  - y contains the predicted measurement for state x
+ *  - y contains the innovation
+ */
+typedef int (*rfx_lqg_ekf_innovate_fun)( void *cx, const double *x, const double *z, double *y );
+
+/** Function to compute state update.
+ *
+ * @param cx context struct
+ * @param x state vector
+ * @param Ky the product of the Kalman gain and measurement innovation
+ *
+ * @pre
+ *  - x contains the estimated state
+ *
+ * @post
+ *  - x contains the corrected state estimate
+ *
+ */
+typedef int (*rfx_lqg_ekf_update_fun)( void *cx, double *x, const double *Ky );
+
+/** Driver for Extended Kalman Filter prediction step.
+ *
+ * Compute the updated state estimate x and covariance P
+ *
+ * \f[ x = f(x,u) \f]
+ * \f[ x \approx Fx \f]
+ *
+ * \f[ P = FPF^T + V \f]
+ *
+ * @param cx context struct
+ * @param n_x size of state vector
+ * @param x state vector
+ * @param u input vector (size implicitly known by process())
+ * @param P covariance
+ * @param V process noise
+ * @param process The process model function
+ *
+ * @pre
+ *  - x contains the estimated state
+ *  - P contains the process covariance
+ *
+ * @post
+ *  - x contains the predicted state estimate
+ *  - P contains the updated process covariance
+ *
+ */
+int rfx_lqg_ekf_predict
+( void *cx, size_t n_x, double *x, const double *u, double *P, const double *V,
+  rfx_lqg_ekf_process_fun process );
+
+/** Driver for Extended Kalman Filter correction step.
+ *
+ * Compute the updated state estimate x and covariance P
+ *
+ * \f[ y = z - h(x) \f]
+ * \f[ y \approx z - Hx \f]
+ *
+ * \f[ S = HPH^T + R \f]
+ * \f[ K = PH^TS^{-1} \f]
+ *
+ * \f[ x := x + Ky \f]
+ * \f[ P := (I - KH)P \f]
+ *
+ * @param cx context struct
+ * @param n_x size of state vector
+ * @param n_z size of measurement vector
+ * @param x state vector
+ * @param z measurement vector
+ * @param P covariance
+ * @param W measurement noise
+ * @param measure The measurement model function
+ * @param innovate Function to compute the innovation
+ * @param update Function to update the state estimate
+ *
+ * @pre
+ *  - x contains the estimated state
+ *  - P contains the process covariance
+ *
+ * @post
+ *  - x contains the corrected state estimate
+ *  - P contains the updated process covariance
+ */
+int rfx_lqg_ekf_correct
+( void *cx, size_t n_x, size_t n_z, double *x, const double *z, double *P, const double *W,
+  rfx_lqg_ekf_measure_fun measure, rfx_lqg_ekf_innovate_fun innovate, rfx_lqg_ekf_update_fun update );
+
+
+
+
 /****************************************/
 /* Linear Quadratic Gaussian Controller */
 /****************************************/
+
 
 typedef struct {
     size_t n_x;  ///< state size
@@ -225,65 +404,7 @@ AA_API void rfx_lqg_sys( const void *lqg,
                          double t, const double *AA_RESTRICT x,
                          double *AA_RESTRICT dx );
 
-/** Update Kalman Filter covariance
- *
- * \f[ P = A*P*AR^ + V \f]
- */
-void rfx_lqg_kf_predict_cov
-( size_t n, const double *A, const double *V, double *P );
 
-/** Compute kalman gain matrix
- *
- * \f[ K = P * C**T * (C * P * C**T + W)**-1 \f]
- *
- * C: n_z*n_x
- * P: n_x*n_x
- * W: n_z*n_z
- * K: n_x*n_z
- */
-int rfx_lqg_kf_correct_gain
-( size_t n_x, size_t n_z, const double *C, const double *P, const double *W, double *K );
-
-/** Update kalman filter covariance
- *
- * \f[ P = (I - K*C) * P \f]
- */
-void rfx_lqg_kf_correct_cov
-( size_t n_x, size_t n_z, const double *C, double *P, double *K );
-
-
-/** Function to compute process update and linearization. */
-typedef int (*rfx_lqg_ekf_process_fun)( void *cx, double *x, const double *u, double *F );
-
-/** Function to compute innovation and linearization.
- *
- * \f[ y = h(x) \f]
- *
- * \f[ y ~= Hx \f]
- */
-typedef int (*rfx_lqg_ekf_measure_fun)( void *cx, const double *x, double *y, double *H );
-
-/** Function to compute innovation.
- *
- * \f[ y := z_obs - y \f]
- *
- */
-typedef int (*rfx_lqg_ekf_innovate_fun)( void *cx, const double *x, const double *z_obs, double *y );
-
-/** Function to compute state update. */
-typedef int (*rfx_lqg_ekf_update_fun)( void *cx, double *x, const double *Ky );
-
-/** Extended Kalman Filter prediction step
- */
-int rfx_lqg_ekf_predict
-( void *cx, size_t n_x, double *x, const double *u, double *P, const double *V,
-  rfx_lqg_ekf_process_fun process );
-
-/** Extended Kalman Filter correction step
- */
-int rfx_lqg_ekf_correct
-( void *cx, size_t n_x, size_t n_z, double *x, const double *z, double *P, const double *W,
-  rfx_lqg_ekf_measure_fun measure, rfx_lqg_ekf_innovate_fun innovate, rfx_lqg_ekf_update_fun udpate );
 
 #ifdef __cplusplus
 }
