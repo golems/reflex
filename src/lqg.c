@@ -62,7 +62,9 @@ AA_API void rfx_lqg_kf_predict_cov( size_t n, const double *A, const double *V, 
                  0.0, T, ni );
 
     // P := (A*P) * A**T + V
-    memcpy( P, V, n*n*sizeof(P[0]) );
+    dlacpy_( SYMM_PARTC, &ni, &ni,
+             V, &ni,
+             P, &ni );
     cblas_dgemm( CblasColMajor, CblasNoTrans, CblasTrans,
                  ni, ni, ni,
                  1.0, T, ni,
@@ -76,8 +78,11 @@ int rfx_lqg_kf_correct_gain
     int nxi = (int)n_x;
     int nzi = (int)n_z;
 
-    double *CP = (double*) aa_mem_region_local_alloc( sizeof(CP[0]) * n_z*n_x );
-    double *Kp = (double*) aa_mem_region_local_alloc( sizeof(Kp[0]) * n_z*n_z );
+    double *ptr = (double*) aa_mem_region_local_alloc( sizeof(ptr[0]) *
+                                                       (n_z*n_x + n_z*n_z) );
+
+    double *CP = ptr;
+    double *Kp = &ptr[n_z*n_x];
 
     // P is symmetric, so P*C^T == (C*P^T)^T == (C*P)^T
 
@@ -89,8 +94,9 @@ int rfx_lqg_kf_correct_gain
                  C, nzi,
                  0.0, CP, nzi );
 
-    memcpy( Kp, W, n_z*n_z*sizeof(Kp[0]) );
-
+    dlacpy_( SYMM_PARTC, &nzi, &nzi,
+             W, &nzi,
+             Kp, &nzi );
     cblas_dgemm( CblasColMajor, CblasNoTrans, CblasTrans,
                  nzi, nzi, nxi,
                  1.0, C, nzi,
@@ -102,18 +108,25 @@ int rfx_lqg_kf_correct_gain
     // CP = Kp^T K^T
     // Kp is symmetric
     // CP = Kp K^T
+    int info;
 
-    // TODO: use a symmetric-optimized least-squares solver (Cholesky)
-    aa_la_d_lls( n_z, n_z, n_x,
-                 Kp, n_z,
-                 CP, n_z,
-                 K, n_z );
-    memcpy( CP, K, n_x*n_z*sizeof(CP[0]) );
-    aa_la_transpose2(n_z, n_x, CP, K);
+    // Cholesky
+    dpotrf_( SYMM_PARTC, &nzi,
+             Kp, &nzi,
+             &info );
+
+    // Solve it!
+    dpotrs_( SYMM_PARTC, &nzi, &nxi,
+             Kp, &nzi,
+             CP, &nzi,
+             &info );
+
+    // Transpose
+    for( size_t j = 0; j < n_z; j ++ )
+        for( size_t i = 0; i < n_x; i ++ )
+            K[j*n_x+i] = CP[i*n_z+j];
 
     int i = 0;
-
-    aa_mem_region_local_pop(CP);
 
     return i;
 }
@@ -135,8 +148,8 @@ void rfx_lqg_kf_correct_cov
                  C, nzi,
                  0.0, KC, nxi );
     // KC += I
-    for( size_t i = 0; i < n_x; i ++ )
-        AA_MATREF(KC, n_x, i, i) += 1;
+    for( size_t i = 0; i < n_x*n_x; i = i + n_x + 1 )
+        KC[i] += 1;
 
     cblas_dsymm( CblasColMajor, CblasRight, SYMM_PART,
                  nxi, nxi,
@@ -144,16 +157,6 @@ void rfx_lqg_kf_correct_cov
                  KC, nxi,
                  0.0, P1, nxi );
     dlacpy_( SYMM_PARTC, &nxi, &nxi, P1, &nxi, P, &nxi );
-
-
-    /* double P0[n_x*n_x]; */
-    /* memcpy(P0, P, n_x*n_x*sizeof(P0[0])); */
-    /* cblas_dgemm( CblasColMajor, CblasNoTrans, CblasNoTrans, */
-    /*              nxi, nxi, nxi, */
-    /*              1.0, KC, nxi, */
-    /*              P0, nxi, */
-    /*              0.0, P, nxi ); */
-
 }
 
 
