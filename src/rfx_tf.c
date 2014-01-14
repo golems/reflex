@@ -40,71 +40,47 @@
  *
  */
 
-#ifndef REFLEX_TF_H
-#define REFLEX_TF_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif //__cplusplus
+#include <amino.h>
+#include "reflex.h"
 
-struct rfx_tf_filter {
-    rfx_tf_dx X;  ///< state
-    rfx_tf_dx Z;  ///< measurement
-    rfx_tf_dx U;  ///< input
-
-    double P[13*13];   ///< covariance
-    double V[13*13];   ///< process noise
-    double W[13*13];   ///< measurement noise
-};
-
-
-/** Update transform estimate.
- *
- * @pre: current measurement (Z) and input (U) written to F
- * @post: current state estimate (X) written to F
- */
-int rfx_tf_filter_update( double dt, struct rfx_tf_filter *F);
-
-int rfx_tf_filter_update_work
-( double dt, double *XX, const double *UU, const double *ZZ, double *P, const double *V, const double *W );
-
-
-struct rfx_lqg_duqu {
-    double S[8];       ///< state
-    double dx[6];      ///< state
-    double P[14*14];   ///< covariance
-    double V[14*14];   ///< process noise
-    double W[14*14];   ///< measurement noise
-};
-
-int rfx_lqg_duqu_predict
-( double dt, double *S, double *dS, double *P, const double *V );
-
-int rfx_lqg_duqu_correct
-( double dt, double *S_est, double *dS_est,
-  const double *S_obs,
-  double *P, const double *W );
-
-
-void rfx_lqg_qutr_process_noise( double dt, double dx, double dtheta,
-                                 double *E, double *V );
-
-
-int rfx_lqg_qutr_process( void *cx, double *x, const double *u, double *F );
-int rfx_lqg_qutr_measure( void *cx, const double *x, double *y, double *H );
-int rfx_lqg_qutr_innovate( void *cx, const double *x, const double *z, double *y );
-int rfx_lqg_qutr_update( void *cx, double *x, const double *Ky );
 
 int rfx_lqg_qutr_predict
-( double dt, double *E, double *dE, double *P, const double *V );
+( double dt, double *E, double *dx, double *P, const double *V )
+{
+    double x[13];
+    memcpy(x,    E, 7*sizeof(x[0]));
+    memcpy(x+7, dx, 6*sizeof(x[0]));
+
+
+    int i = rfx_lqg_ekf_predict( &dt, 13, x, NULL,
+                                 P, V,
+                                 rfx_lqg_qutr_process );
+
+    memcpy(E,  x,   7*sizeof(x[0]));
+    memcpy(dx, x+7, 6*sizeof(x[0]));
+
+    return i;
+}
 
 int rfx_lqg_qutr_correct
-( double dt, double *E_est, double *dE_est,
+( double dt, double *E_est, double *dx_est,
   const double *E_obs,
-  double *P, const double *W );
+  double *P, const double *W )
+{
+    double x[13];
+    memcpy(x,    E_est, 7*sizeof(x[0]));
+    memcpy(x+7, dx_est, 6*sizeof(x[0]));
 
-#ifdef __cplusplus
+    int i = rfx_lqg_ekf_correct( &dt, 13, 7, x, E_obs,
+                                 P, W,
+                                 rfx_lqg_qutr_measure,
+                                 rfx_lqg_qutr_innovate,
+                                 rfx_lqg_qutr_update );
+
+    memcpy(E_est,  x,   7*sizeof(x[0]));
+    memcpy(dx_est, x+7, 6*sizeof(x[0]));
+
+    return i;
+
 }
-#endif //__cplusplus
-
-#endif //REFLEX_TF_H
