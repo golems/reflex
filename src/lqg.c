@@ -45,6 +45,179 @@
 #include <cblas.h>
 #include "reflex.h"
 
+#define SYMM_PART CblasUpper
+#define SYMM_PARTC "U"
+
+AA_API void rfx_lqg_kf_predict_cov( size_t n, const double *A, const double *V, double *P )
+{
+    // P = A * P * A**T + V
+    int ni = (int)n;
+    double T[n*n];
+
+    // T := A*P
+    cblas_dsymm( CblasColMajor, CblasRight, SYMM_PART,
+                 ni, ni,
+                 1.0, P, ni,
+                 A, ni,
+                 0.0, T, ni );
+
+    // P := (A*P) * A**T + V
+    memcpy( P, V, n*n*sizeof(P[0]) );
+    cblas_dgemm( CblasColMajor, CblasNoTrans, CblasTrans,
+                 ni, ni, ni,
+                 1.0, T, ni,
+                 A, ni,
+                 1.0, P, ni );
+}
+
+int rfx_lqg_kf_correct_gain
+( size_t n_x, size_t n_z, const double *C, const double *P, const double *W, double *K )
+{
+    int nxi = (int)n_x;
+    int nzi = (int)n_z;
+
+    // P is symmetric, so P*C^T == (C*P^T)^T == (C*P)^T
+
+    // Kp := C * P * C**T + W = C*(C*P)^T
+    double CP[n_z*n_x];
+    cblas_dsymm( CblasColMajor, CblasRight, SYMM_PART,
+                 nzi, nxi,
+                 1.0, P, nxi,
+                 C, nzi,
+                 0.0, CP, nzi );
+
+    double Kp[n_z*n_z];
+    memcpy( Kp, W, n_z*n_z*sizeof(Kp[0]) );
+    cblas_dgemm( CblasColMajor, CblasNoTrans, CblasTrans,
+                 nzi, nzi, nxi,
+                 1.0, C, nzi,
+                 CP, nzi,
+                 1.0, Kp, nzi );
+
+    int i = aa_la_inv(n_z, Kp);
+
+    // K := P * C**T * Kp = (P*C)^T * Kp
+    cblas_dgemm( CblasColMajor, CblasTrans, CblasNoTrans,
+                 nxi, nzi, nzi,
+                 1.0, CP, nzi,
+                 Kp, nzi,
+                 0.0, K, nxi );
+
+
+
+
+    /* // Kp := C * P * C**T + W  */
+    /* double PC_T[n_x*n_z]; */
+    /* aa_la_transpose2( n_z, n_x, C, K); /\* Use K as temp space for C^T *\/ */
+    /* cblas_dsymm( CblasColMajor, CblasLeft, SYMM_PART, */
+    /*              nxi, nzi, */
+    /*              1.0, P, nxi, */
+    /*              K, nxi, */
+    /*              0.0, PC_T, nxi ); */
+
+    /* double Kp[n_z*n_z]; */
+    /* memcpy( Kp, W, n_z*n_z*sizeof(Kp[0]) ); */
+    /* cblas_dgemm( CblasColMajor, CblasNoTrans, CblasNoTrans, */
+    /*              nzi, nzi, nxi, */
+    /*              1.0, C, nzi, */
+    /*              PC_T, nxi, */
+    /*              1.0, Kp, nzi ); */
+
+    /* int i = aa_la_inv(n_z, Kp); */
+
+    /* // K := P * C**T * Kp  */
+    /* cblas_dgemm( CblasColMajor, CblasNoTrans, CblasNoTrans, */
+    /*              nxi, nzi, nzi, */
+    /*              1.0, PC_T, nxi, */
+    /*              Kp, nzi, */
+    /*              0.0, K, nxi ); */
+
+    return i;
+}
+
+void rfx_lqg_kf_correct_cov
+( size_t n_x, size_t n_z, const double *C, double *P, double *K )
+{
+    int nxi = (int)n_x;
+    int nzi = (int)n_z;
+
+    // P := (I - K*C) * P
+
+    double KC[n_x * n_x];
+    cblas_dgemm( CblasColMajor, CblasNoTrans, CblasNoTrans,
+                 nxi, nxi, nzi,
+                 -1.0, K, nxi,
+                 C, nzi,
+                 0.0, KC, nxi );
+    // KC += I
+    for( size_t i = 0; i < n_x; i ++ )
+        AA_MATREF(KC, n_x, i, i) += 1;
+
+    double P1[n_x*n_x];
+    cblas_dsymm( CblasColMajor, CblasRight, SYMM_PART,
+                 nxi, nxi,
+                 1.0, P, nxi,
+                 KC, nxi,
+                 0.0, P1, nxi );
+    dlacpy_( SYMM_PARTC, &nxi, &nxi, P1, &nxi, P, &nxi );
+
+
+    /* double P0[n_x*n_x]; */
+    /* memcpy(P0, P, n_x*n_x*sizeof(P0[0])); */
+    /* cblas_dgemm( CblasColMajor, CblasNoTrans, CblasNoTrans, */
+    /*              nxi, nxi, nxi, */
+    /*              1.0, KC, nxi, */
+    /*              P0, nxi, */
+    /*              0.0, P, nxi ); */
+
+}
+
+
+int rfx_lqg_ekf_predict
+( void *cx, size_t n_x, double *x, const double *u, double *P, const double *V,
+  rfx_lqg_ekf_process_fun process )
+{
+    double F[n_x*n_x];
+    int i = process( cx, x, u, F );
+    rfx_lqg_kf_predict_cov( n_x, F, V, P );
+    return i;
+}
+
+
+int rfx_lqg_ekf_correct
+( void *cx, size_t n_x, size_t n_z, double *x, const double *z, double *P, const double *W,
+  rfx_lqg_ekf_measure_fun measure, rfx_lqg_ekf_innovate_fun innovate, rfx_lqg_ekf_update_fun update )
+{
+    int i;
+
+    double y[n_z];
+    double H[n_z*n_x];
+    i = measure(cx, x, y, H);
+    if(i) return i;
+
+    double K[n_x*n_z];
+    i = rfx_lqg_kf_correct_gain( n_x, n_z, H, P, W, K );
+    if(i) return i;
+
+    i = innovate(cx, x, z, y);
+    if(i) return i;
+
+    double Ky[n_x];
+    cblas_dgemv( CblasColMajor, CblasNoTrans,
+                 (int)n_x, (int)n_z,
+                 1.0, K, (int)n_x,
+                 y, 1,
+                 0.0, Ky, 1 );
+
+    i = update(cx, x, Ky);
+
+    rfx_lqg_kf_correct_cov( n_x, n_z, H, P, K );
+
+    return i;
+}
+
+
+
 
 
 AA_API void rfx_lqg_init( rfx_lqg_t *lqg, size_t n_x, size_t n_u, size_t n_z ) {
@@ -315,135 +488,6 @@ void rfx_lqg_sys( const void *cx,
                    lqg->A, lqg->B,
                    x, lqg->u,
                    dx );
-}
-
-
-
-AA_API void rfx_lqg_kf_predict_cov( size_t n, const double *A, const double *V, double *P ) {
-    // P = A * P * A**T + V
-    int ni = (int)n;
-    double T[n*n];
-
-    // T := A*P
-    cblas_dgemm( CblasColMajor, CblasNoTrans, CblasNoTrans,
-                 ni, ni, ni,
-                 1.0, A, ni,
-                 P, ni,
-                 0.0, T, ni );
-
-    // P := (A*P) * A**T + V
-    memcpy( P, V, n*n*sizeof(P[0]) );
-    cblas_dgemm( CblasColMajor, CblasNoTrans, CblasTrans,
-                 ni, ni, ni,
-                 1.0, T, ni,
-                 A, ni,
-                 1.0, P, ni );
-}
-
-int rfx_lqg_kf_correct_gain
-( size_t n_x, size_t n_z, const double *C, const double *P, const double *W, double *K )
-{
-    int nxi = (int)n_x;
-    int nzi = (int)n_z;
-
-    // Kp := C * P * C**T + W
-    double PC_T[n_x*n_z];
-    cblas_dgemm( CblasColMajor, CblasNoTrans, CblasTrans,
-                 nxi, nzi, nxi,
-                 1.0, P, nxi,
-                 C, nzi,
-                 0.0, PC_T, nxi );
-
-    double Kp[n_z*n_z];
-    memcpy( Kp, W, n_z*n_z*sizeof(Kp[0]) );
-    cblas_dgemm( CblasColMajor, CblasNoTrans, CblasNoTrans,
-                 nzi, nzi, nxi,
-                 1.0, C, nzi,
-                 PC_T, nxi,
-                 1.0, Kp, nzi );
-
-    int i = aa_la_inv(n_z, Kp);
-
-    // K := P * C**T * Kp
-    cblas_dgemm( CblasColMajor, CblasNoTrans, CblasNoTrans,
-                 nxi, nzi, nzi,
-                 1.0, PC_T, nxi,
-                 Kp, nzi,
-                 0.0, K, nxi );
-
-    return i;
-}
-
-void rfx_lqg_kf_correct_cov
-( size_t n_x, size_t n_z, const double *C, double *P, double *K )
-{
-
-    int nxi = (int)n_x;
-    int nzi = (int)n_z;
-
-    // P := (I - K*C) * P
-
-    double KC[n_x * n_x];
-    cblas_dgemm( CblasColMajor, CblasNoTrans, CblasNoTrans,
-                 nxi, nxi, nzi,
-                 -1.0, K, nxi,
-                 C, nzi,
-                 0.0, KC, nxi );
-    // KC += I
-    for( size_t i = 0; i < n_x; i ++ )
-        AA_MATREF(KC, n_x, i, i) += 1;
-
-    double P0[n_x*n_x];
-    memcpy(P0, P, n_x*n_x*sizeof(P0[0]));
-    cblas_dgemm( CblasColMajor, CblasNoTrans, CblasNoTrans,
-                 nxi, nxi, nxi,
-                 1.0, KC, nxi,
-                 P0, nxi,
-                 0.0, P, nxi );
-}
-
-
-int rfx_lqg_ekf_predict
-( void *cx, size_t n_x, double *x, const double *u, double *P, const double *V,
-  rfx_lqg_ekf_process_fun process )
-{
-    double F[n_x*n_x];
-    int i = process( cx, x, u, F );
-    rfx_lqg_kf_predict_cov( n_x, F, V, P );
-    return i;
-}
-
-
-int rfx_lqg_ekf_correct
-( void *cx, size_t n_x, size_t n_z, double *x, const double *z, double *P, const double *W,
-  rfx_lqg_ekf_measure_fun measure, rfx_lqg_ekf_innovate_fun innovate, rfx_lqg_ekf_update_fun update )
-{
-    int i;
-
-    double y[n_z];
-    double H[n_z*n_x];
-    i = measure(cx, x, y, H);
-    if(i) return i;
-
-    double K[n_x*n_z];
-    i = rfx_lqg_kf_correct_gain( n_x, n_z, H, P, W, K );
-    if(i) return i;
-
-    i = innovate(cx, x, z, y);
-    if(i) return i;
-
-    double Ky[n_x];
-    cblas_dgemv( CblasColMajor, CblasNoTrans,
-                 (int)n_x, (int)n_z,
-                 1.0, K, (int)n_x,
-                 y, 1,
-                 0.0, Ky, 1 );
-
-    i = update(cx, x, Ky);
-
-    rfx_lqg_kf_correct_cov( n_x, n_z, H, P, K );
-
-    return i;
 }
 
 //AA_API void rfx_lqg_observe_euler( rfx_lqg_t *lqg, double dt, aa_mem_region_t *reg ) {
