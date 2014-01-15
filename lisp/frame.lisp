@@ -75,10 +75,10 @@
                while k
                for key = (first k)
                for val = (second k)
+               unless (eq key :parent)
                append (list key
                             (cond
-                              ((or (eq :name key) (eq :configuration key)
-                                   (eq :parent key))
+                              ((or (eq :name key) (eq :configuration key))
                                (prefix val))
                               (t
                                val)))))))
@@ -120,14 +120,18 @@
 
 
 (defun emit-config-indices (frames &key (stream t) max)
-  (emit-indices stream
-                (loop
-                   with i = -1
-                   for frame in frames
-                   for config = (frame-configuration frame)
-                   when config
-                   collect (list config (incf i)))
-                max))
+  (let ((vars (remove-duplicates (loop
+                                    for frame in frames
+                                    for config = (frame-configuration frame)
+                                    when config
+                                    collect config)
+                                 :test #'equal)))
+    (emit-indices stream
+                  (loop
+                     for i from 0
+                     for v in vars
+                     collect (list v i))
+                  max)))
 
 (defun float-string (f)
   (if (numberp f)
