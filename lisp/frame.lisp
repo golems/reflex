@@ -210,11 +210,23 @@
                    abs rel)))
   (format stream "~&}"))
 
+(defun emit-dot (frames &key (stream t))
+  (format stream  "~&digraph {~&")
+  (format stream  "~&   graph [rankdir=LR];")
+  (loop for f in frames
+     for name = (frame-name f)
+     for parent = (frame-parent f)
+     when parent
+     do (format stream  "~&    ~A -> ~A;"
+                parent name))
+  (format stream  "~&}"))
+
 (defun write-frame-files (header-file source-file frames &key
                           headers
                           system-headers
                           frame-max
                           configuration-max
+                          dot-file
                           (relative-function "rel_tf")
                           (absolute-function "abs_tf")
                           (parents-array "parents"))
@@ -241,4 +253,8 @@
     (emit-rel-fun relative-function frames :stream f)
     (emit-parents-array parents-array frames :stream f)
     (emit-abs-fun absolute-function frames :stream f)
-    ))
+    )
+  ;; dot
+  (when dot-file
+    (with-open-file (f dot-file :direction :output :if-exists :supersede)
+      (emit-dot frames :stream f))))
