@@ -68,7 +68,8 @@
 (defun prefix-frame-1 (prefix frame parent)
   (labels ((prefix (val) (concatenate 'string prefix (string val))))
     (append (list :frame
-                  :parent (if (frame-parent frame)
+                  :parent (if (and (frame-parent frame)
+                                   (not (equal parent (frame-parent frame))))
                               (prefix (frame-parent frame))
                               parent))
             (loop for k = (cdr frame) then (cddr k)
