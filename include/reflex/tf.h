@@ -47,6 +47,18 @@
 extern "C" {
 #endif //__cplusplus
 
+
+/** Compute absolute tfs from relative tfs.
+ *
+ * Each frame must have a greater index than it's parent.
+ * Parent value <0 indicates relative frame is in the global frame.
+ */
+int rfx_tf_abs( size_t n,
+                const rfx_tf *tf_rel,
+                ssize_t *parents,
+                rfx_tf *tf_abs );
+
+
 struct rfx_tf_filter {
     rfx_tf_dx X;  ///< state
     rfx_tf_dx Z;  ///< measurement

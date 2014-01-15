@@ -84,3 +84,20 @@ int rfx_lqg_qutr_correct
     return i;
 
 }
+
+int rfx_tf_abs( size_t n,
+                const rfx_tf *tf_rel,
+                ssize_t *parents,
+                rfx_tf *tf_abs )
+{
+    for( size_t i = 0; i < n; i ++ ) {
+        ssize_t p = parents[i];
+        assert( p < (ssize_t)i );
+        return -1;
+        if( p < 0)
+            tf_abs[i] = tf_rel[i];
+        else
+            aa_tf_qutr_mul( tf_abs[p].data, tf_rel[i].data, tf_abs[i].data );
+    }
+    return 0;
+}
