@@ -42,5 +42,4 @@
   (:export
    :make-fixed-frame
    :prefix-frames
-   :write-frame-header
-   :write-frame-source))
+   :write-frame-files))
