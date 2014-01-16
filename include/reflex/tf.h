@@ -58,6 +58,9 @@ int rfx_tf_abs( size_t n,
                 ssize_t *parents,
                 rfx_tf *tf_abs );
 
+/** Randomly corrupt a transform */
+void rfx_tf_corrupt
+( double theta_max, double x_max, const double e0[7], double e1[7] );
 
 struct rfx_tf_filter {
     rfx_tf_dx X;  ///< state
