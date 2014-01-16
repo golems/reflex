@@ -7,6 +7,7 @@ Reflex is a package for Real-Time control.  It includes the following:
 - Linear Quadratic Gaussian Control and Estimation
   - Compute optimal Kalman/LQR gains
   - Discrete Kalman Filter
+  - Extended Kalman Filter
   - Continuous Kalman-Bucy Filter
   - LQR Controller
 
@@ -21,8 +22,16 @@ See the INSTALL file for details.
 DEMOS
 =====
 
+rfx-trajgen
+-----------
+
 The rfx-trajgen program will covert a set of waypoints to a dense
 trajecory.  See `man rfx-trajgen` for details.
+
+rfx-camcal
+----------
+The rfx-camcal program will find a camera transform based on
+corresponding camera and forward-kinematic pose estimates.
 
 Example
 =======
