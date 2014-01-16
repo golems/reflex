@@ -200,7 +200,7 @@
   (format stream "~&}"))
 
 
-(defun emit-abs-fun (name frames &key (stream t))
+(defun emit-abs-fun (name frames &key normalize (stream t))
   (format stream "~&void ~A~&( const double * restrict rel, double * restrict abs ) ~&{~&" name)
   (loop
      for f in frames
@@ -211,8 +211,12 @@
      for par = (format nil "abs + 7*~A" parent-name)
      do
        (if parent-name
-           (format stream "~&    aa_tf_qutr_mul( ~A, ~A, ~A );"
-                   par rel abs)
+           (progn
+             (format stream "~&    aa_tf_qutr_mul( ~A, ~A, ~A );"
+                     par rel abs)
+             (when normalize
+               (format stream "~&    aa_tf_qnormalize( ~A );"
+                       abs)))
            (format stream "~&    memcpy( ~A, ~A, 7*sizeof(abs[0]) );"
                    abs rel)))
   (format stream "~&}"))
@@ -234,6 +238,7 @@
                           frame-max
                           configuration-max
                           dot-file
+                          normalize
                           (relative-function "rel_tf")
                           (absolute-function "abs_tf")
                           (parents-array "parents"))
@@ -259,7 +264,7 @@
     (format f "~{~&#include \"~A\"~}" headers)
     (emit-rel-fun relative-function frames :stream f)
     (emit-parents-array parents-array frames :stream f)
-    (emit-abs-fun absolute-function frames :stream f)
+    (emit-abs-fun absolute-function frames :stream f :normalize normalize)
     )
   ;; dot
   (when dot-file
