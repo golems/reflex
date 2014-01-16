@@ -20,10 +20,16 @@ tarball which already contains the autoconf-generated configure script.
 
     ./configure
 
-To build the java libraries, you man need to specify the classpath if
+Depending on where you have installed libamino, you may need to
+specify the include paths:
+
+    ./configure --prefix=/my/prefix FCFLAGS="-I/my/prefix/include"
+
+To build the java libraries, you may need to specify the classpath if
 it is not under your installation prefix:
 
     ./configure --prefix=/my/prefix CLASSPATH=.:/path/to/org.golems.amino.jar
+
 
 2) Build:
 
