@@ -55,6 +55,7 @@
 (def-frame-var configuration "name of frame configuration")
 (def-frame-var quaternion "fixed transform quaternion")
 (def-frame-var translation "translation (x y z)")
+(def-frame-var offset "Configuration offset")
 
 
 (defparameter *test-frames*
@@ -144,29 +145,36 @@
            (format nil "~F" f))
       f))
 
-(defun emit-fixed-frame (frame ptr stream)
+(defun emit-fixed-frame (frame stream e)
   (let ((q (frame-quaternion frame))
-        (v (frame-translation frame)))
+        (v (frame-translation frame))
+        (ptr (format nil "(~A+7*~A)" e (frame-name frame))))
     (dotimes (i 4)
-      (format stream "~&    (~A)[~D] = ~A;"
+      (format stream "~&    ~A[~D] = ~A;"
               ptr i (float-string (elt q i))))
     (dotimes (i 3)
-      (format stream "~&    (~A)[~D] = ~A;"
+      (format stream "~&    ~A[~D] = ~A;"
               ptr (+ 4 i) (float-string (elt v i))))))
 
-(defun emit-revolute-frame (frame ptr stream)
+(defun emit-revolute-frame (frame stream q-array e-array)
   (let ((v (frame-translation frame))
-        (axis (frame-axis frame)))
+        (axis (frame-axis frame))
+        (ptr (format nil "(~A+7*~A)" e-array (frame-name frame)))
+        (q (format nil "~A[~A]" q-array (frame-configuration frame)))
+        (offset (frame-offset frame)))
     (format stream "~&    {")
     (format stream "~&        static const double axis[3] = {~A,~A,~A};"
             (float-string (elt axis 0))
             (float-string (elt axis 1))
             (float-string (elt axis 2)))
-    (format stream "~&        aa_tf_axang2quat2( axis, q[~A], (~A) );"
-            (frame-configuration frame) ptr )
+    (format stream "~&        aa_tf_axang2quat2( axis, ~A, ~A );"
+            (if offset
+                (format nil "~A+~A" q offset)
+                q)
+            ptr)
     (format stream "~&    }")
     (dotimes (i 3)
-      (format stream "~&    (~A)[~D] = ~A;"
+      (format stream "~&    ~A[~D] = ~A;"
               ptr (+ 4 i) (float-string (elt v i))))))
 
 (defun emit-parents-array (name frames &key (stream t))
@@ -181,14 +189,13 @@
   (loop
      for frame in frames
      for i from 0
-     for ptr = (format nil "e+7*~D" i)
      do
        (format stream "~&    // Frame: ~A, type: ~A"
                (frame-name frame)
                (frame-type frame))
        (case (frame-type frame)
-         (:revolute (emit-revolute-frame frame ptr stream))
-         (:fixed (emit-fixed-frame frame ptr stream))
+         (:revolute (emit-revolute-frame frame stream "q" "e"))
+         (:fixed (emit-fixed-frame frame stream "e"))
          (otherwise (error "Unknown type of frame ~A" (frame-name frame)))))
   (format stream "~&}"))
 
