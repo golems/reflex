@@ -156,23 +156,39 @@
       (format stream "~&    ~A[~D] = ~A;"
               ptr (+ 4 i) (float-string (elt v i))))))
 
+(defun emit-quat (stream ptr angle x y z)
+  (let* ((n (sqrt (+ (* x x) (* y y) (* z z))))
+         (x (/ x n))
+         (y (/ y n))
+         (z (/ z n)))
+    (cond
+      ((= x 1)  (format stream "~&    aa_tf_xangle2quat( ~A, ~A );" angle ptr))
+      ((= x -1) (format stream "~&    aa_tf_xangle2quat( -~A, ~A );" angle ptr))
+      ((= y 1)  (format stream "~&    aa_tf_yangle2quat( ~A, ~A );" angle ptr))
+      ((= y -1) (format stream "~&    aa_tf_yangle2quat( -~A, ~A );" angle ptr))
+      ((= z 1)  (format stream "~&    aa_tf_zangle2quat( ~A, ~A );" angle ptr))
+      ((= z -1) (format stream "~&    aa_tf_zangle2quat( -~A, ~A );" angle ptr))
+       (t
+        (format stream "~&    {")
+        (format stream "~&        static const double axis[3] = {~A,~A,~A};"
+                (float-string x)
+             (float-string y)
+             (float-string z))
+     (format stream "~&        aa_tf_axang2quat2( axis, ~A, ~A );"
+             angle
+             ptr)
+     (format stream "~&    }")))))
+
 (defun emit-revolute-frame (frame stream q-array e-array)
   (let ((v (frame-translation frame))
         (axis (frame-axis frame))
         (ptr (format nil "(~A+7*~A)" e-array (frame-name frame)))
         (q (format nil "~A[~A]" q-array (frame-configuration frame)))
         (offset (frame-offset frame)))
-    (format stream "~&    {")
-    (format stream "~&        static const double axis[3] = {~A,~A,~A};"
-            (float-string (elt axis 0))
-            (float-string (elt axis 1))
-            (float-string (elt axis 2)))
-    (format stream "~&        aa_tf_axang2quat2( axis, ~A, ~A );"
-            (if offset
-                (format nil "~A+~A" q offset)
-                q)
-            ptr)
-    (format stream "~&    }")
+    (emit-quat stream ptr (if offset
+                              (format nil "(~A+~A)" q offset)
+                              q)
+               (elt axis 0) (elt axis 1) (elt axis 2))
     (dotimes (i 3)
       (format stream "~&    ~A[~D] = ~A;"
               ptr (+ 4 i) (float-string (elt v i))))))
@@ -211,12 +227,9 @@
      for par = (format nil "abs + 7*~A" parent-name)
      do
        (if parent-name
-           (progn
-             (format stream "~&    aa_tf_qutr_mul( ~A, ~A, ~A );"
-                     par rel abs)
-             (when normalize
-               (format stream "~&    aa_tf_qnormalize( ~A );"
-                       abs)))
+           (format stream "~&    aa_tf_qutr_~A( ~A, ~A, ~A );"
+                   (if normalize "mulnorm" "mul")
+                   par rel abs)
            (format stream "~&    memcpy( ~A, ~A, 7*sizeof(abs[0]) );"
                    abs rel)))
   (format stream "~&}"))
