@@ -53,6 +53,9 @@ int opt_verbosity = 0;
 double opt_d_theta = 0;
 double opt_d_x = 0;
 
+double opt_zmax_theta = 1;
+double opt_zmax_x = 1;
+
 
 static ssize_t
 read_tfs( const char *name, double **A );
@@ -60,21 +63,68 @@ read_tfs( const char *name, double **A );
 static void
 write_tfs(const char *comment, const char *name, size_t n, double *A );
 
+
+static size_t
+reject( size_t n_in, double zmax_theta, double zmax_x, double *EE, const double *E_mean );
+
 void gentest( void );
 
 
-static double qangle( double *q ) {
+static double qangle( const double *q ) {
     double aa[4], qr[4];
     AA_MEM_CPY( qr, q, 4 );
     aa_tf_qminimize(qr);
     aa_tf_quat2axang( qr, aa );
     return aa[3];
 }
-static double relangle( double *q1, double *q2 ) {
+
+static double relangle( const double *q1, const double *q2 ) {
     double qr[4];
     aa_tf_qmulc( q1, q2, qr );
     return qangle( qr );
 }
+
+static void tf_dist( const double *E1, const double *E2, double *dtheta, double *dx ) {
+    *dtheta = relangle( E1, E2 );
+    *dx = sqrt(aa_la_ssd( 3, E1+4, E2+4));
+}
+
+static void eavg( size_t n, const double *EE, double *E_avg );
+
+static void eavg( size_t n, const double *EE, double *E_avg )
+{
+
+    double *w = AA_MEM_REGION_LOCAL_NEW_N( double, n );
+    for( size_t i = 0; i < n; i++ ) w[i] = 1/(double)n;
+
+    aa_tf_qutr_wavg( n, w, EE, 7, E_avg );
+    aa_tf_qminimize(E_avg);
+
+    if( opt_verbosity ) {
+
+        for( size_t i = 0; i < n; i ++ ) {
+            const double *e = EE + 7*i;
+            double angle, dist;
+            tf_dist( e, E_avg, &angle, &dist );
+            printf("rel. tf %lu (dp=%f,dx=%f): ", i, angle, dist);
+            aa_dump_vec( stdout, e, 7 );
+        }
+    }
+    aa_mem_region_local_pop(w);
+}
+
+
+static void iterate( size_t k_max, size_t n, double *EE, double *EE_avg ) {
+
+    for( size_t i = 0; i < k_max; i ++ ) {
+        size_t j = 7*i;
+        eavg( n, EE, &EE_avg[j] );
+        size_t new_n = reject( n, opt_zmax_theta, opt_zmax_x, EE, &EE_avg[j] );
+        printf("count: %lu->%lu\n", n, new_n);
+        n = new_n;
+    }
+}
+
 int main( int argc, char **argv )
 {
     /* Parse */
@@ -165,32 +215,18 @@ int main( int argc, char **argv )
     /* Compute Rels */
     size_t count = (size_t)lines_cam;
     double *E_rel = (double*)malloc( sizeof(double) * 7 * count );
-    double *w = (double*)malloc( sizeof(double) * count );
     for( size_t i = 0; i < count; i ++ ) {
         size_t j = 7*i;
         aa_tf_qutr_mulc( E_fk+j, E_cam+j, E_rel+j );
         aa_tf_qminimize(E_rel+j);
-        w[i] = 1.0 / (double)count;
     }
 
     /* Quaternion Average */
-    double E_avg[7];
-    aa_tf_qutr_wavg( count, w, E_rel, 7, E_avg );
-    aa_tf_qminimize(E_avg);
+    size_t k = 10;
+    double E_avg[k*7];
+    iterate( k, count, E_rel, E_avg );
 
-    if( opt_verbosity ) {
-
-        for( size_t i = 0; i < count; i ++ ) {
-            double *e = E_rel + 7*i;
-            double angle = relangle( e, E_avg );
-            double dist = sqrt(aa_la_ssd( 3, e+4, E_avg+4 ));
-            printf("rel. tf %lu (dp=%f,dx=%f): ", i, angle, dist);
-            aa_dump_vec( stdout, e, 7 );
-        }
-    }
-
-    /* print it */
-    write_tfs("Average Relative Transform", opt_file_out, 1, E_avg);
+    write_tfs( "Registration", opt_file_out, k, E_avg );
 }
 
 static ssize_t
@@ -274,4 +310,55 @@ write_tfs(const char *comment, const char *name, size_t n, double *A )
                 E[0], E[1], E[2], E[3],
                 E[4], E[5], E[6] );
     }
+}
+
+static void
+tf_std( size_t n, const double *EE_in, const double *E_mean,
+        double *dtheta, double *dx,
+        double *theta_std, double *x_std )
+{
+    *theta_std = 0;
+    *x_std = 0;
+    for( size_t i = 0; i < n; i++ ) {
+        size_t j = 7*i;
+        // angle
+        dtheta[i] = relangle( &EE_in[j], E_mean );
+        *theta_std += dtheta[i]*dtheta[i];
+        // translation
+        double x2 = aa_la_ssd( 3, &EE_in[j+3], E_mean+3 );
+        *x_std += x2;
+        dx[i] = sqrt(x2);
+    }
+
+    *theta_std = sqrt( *theta_std / (double)n );
+    *x_std = sqrt( *x_std / (double)n );
+}
+
+
+static size_t
+reject( size_t n_in, double zmax_theta, double zmax_x,
+        double *EE, const double *E_mean )
+{
+    // compute variance
+    double *dx = AA_MEM_REGION_LOCAL_NEW_N( double, n_in );
+    double *dtheta = AA_MEM_REGION_LOCAL_NEW_N( double, n_in );
+
+    double theta_std, x_std;
+    tf_std( n_in, EE, E_mean, dtheta, dx, &theta_std, &x_std );
+    printf( "std_theta: %f\n"
+            "std_x:     %f\n",
+            theta_std, x_std );
+
+    // do it
+    size_t i_out = 0;
+    for( size_t i = 0; i < n_in; i ++ ) {
+        if( dtheta[i] / theta_std < zmax_theta ||
+            dx[i] / x_std < zmax_x )
+        {
+            if( i != i_out ) AA_MEM_CPY( &EE[7*i_out], &EE[7*i], 7 );
+            i_out++;
+        }
+    }
+
+    return i_out;
 }
