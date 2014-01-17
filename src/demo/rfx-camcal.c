@@ -62,6 +62,19 @@ write_tfs(const char *comment, const char *name, size_t n, double *A );
 
 void gentest( void );
 
+
+static double qangle( double *q ) {
+    double aa[4], qr[4];
+    AA_MEM_CPY( qr, q, 4 );
+    aa_tf_qminimize(qr);
+    aa_tf_quat2axang( qr, aa );
+    return aa[3];
+}
+static double relangle( double *q1, double *q2 ) {
+    double qr[4];
+    aa_tf_qmulc( q1, q2, qr );
+    return qangle( qr );
+}
 int main( int argc, char **argv )
 {
     /* Parse */
@@ -168,14 +181,10 @@ int main( int argc, char **argv )
     if( opt_verbosity ) {
 
         for( size_t i = 0; i < count; i ++ ) {
-            double aa[4];
-            double q[4];
             double *e = E_rel + 7*i;
-            aa_tf_qmulc( e, E_avg, q );
-            aa_tf_qminimize(q);
-            aa_tf_quat2axang( q, aa );
+            double angle = relangle( e, E_avg );
             double dist = sqrt(aa_la_ssd( 3, e+4, E_avg+4 ));
-            printf("rel. tf %lu (dp=%f,dx=%f): ", i, aa[3], dist);
+            printf("rel. tf %lu (dp=%f,dx=%f): ", i, angle, dist);
             aa_dump_vec( stdout, e, 7 );
         }
     }
