@@ -155,7 +155,8 @@ int main( int argc, char **argv )
     double *w = (double*)malloc( sizeof(double) * count );
     for( size_t i = 0; i < count; i ++ ) {
         size_t j = 7*i;
-        aa_tf_qutr_mulc( E_cam+j, E_fk+j, E_rel+j );
+        aa_tf_qutr_mulc( E_fk+j, E_cam+j, E_rel+j );
+        aa_tf_qminimize(E_rel+j);
         w[i] = 1.0 / (double)count;
     }
 
@@ -163,6 +164,21 @@ int main( int argc, char **argv )
     double E_avg[7];
     aa_tf_qutr_wavg( count, w, E_rel, 7, E_avg );
     aa_tf_qminimize(E_avg);
+
+    if( opt_verbosity ) {
+
+        for( size_t i = 0; i < count; i ++ ) {
+            double aa[4];
+            double q[4];
+            double *e = E_rel + 7*i;
+            aa_tf_qmulc( e, E_avg, q );
+            aa_tf_qminimize(q);
+            aa_tf_quat2axang( q, aa );
+            double dist = sqrt(aa_la_ssd( 3, e+4, E_avg+4 ));
+            printf("rel. tf %lu (dp=%f,dx=%f): ", i, aa[3], dist);
+            aa_dump_vec( stdout, e, 7 );
+        }
+    }
 
     /* print it */
     write_tfs("Average Relative Transform", opt_file_out, 1, E_avg);
