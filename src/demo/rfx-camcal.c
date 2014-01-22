@@ -123,6 +123,43 @@ FILE *global_output = NULL;
 //     aa_mem_region_local_pop(w);
 // }
 
+static void avg_step2( const char *comment,
+                       size_t n, const const double *E_fk, const double *E_cam, double *E_avg )
+{
+    double *Q = AA_MEM_REGION_LOCAL_NEW_N( double, n*4 );
+    double *angles = AA_MEM_REGION_LOCAL_NEW_N( double, n );
+
+    // compute rels
+    for( size_t i = 0; i < n; i ++ ) {
+        double *q = AA_MATCOL(Q,4,i);
+        aa_tf_qmulc( AA_MATCOL(E_fk,7,i), AA_MATCOL(E_cam,7,i),  q );
+        aa_tf_qminimize(q);
+        angles[i] = aa_tf_qangle_rel(E_avg, q);
+    }
+
+    double astd = aa_la_d_vecstd( n, angles, 1, 0 );
+    double amad = aa_la_d_median( n, angles, 1 );
+    double amax = aa_la_max( n, angles );
+
+    fprintf(global_output,
+            "# %s\n"
+            "# angle std: %f\n"
+            "# angle mad: %f\n"
+            "# angle max: %f\n",
+            comment,
+            astd, amad, amax
+        );
+
+    double R[9];
+    aa_tf_quat2rotmat(E_avg, R );
+    aa_tf_relx_mean( n, R, E_cam+4, 7, E_fk+4, 7, E_avg+4 );
+    write_tf( global_output, "mean translation", E_avg );
+
+    aa_tf_relx_median( n, R, E_cam+4, 7, E_fk+4, 7, E_avg+4 );
+    write_tf( global_output, "median translation", E_avg );
+
+    aa_mem_region_local_pop(Q);
+}
 
 static void iterate( size_t n,
                      double *E_fk, double *E_cam, double *E_avg ) {
@@ -138,13 +175,7 @@ static void iterate( size_t n,
 
     aa_tf_quat_davenport( n, w, Q, 4, E_avg );
 
-    double R[9];
-    aa_tf_quat2rotmat(E_avg, R );
-    aa_tf_relx_mean( n, R, E_cam+4, 7, E_fk+4, 7, E_avg+4 );
-    write_tf( global_output, "Davenport, mean translation", E_avg );
-
-    aa_tf_relx_median( n, R, E_cam+4, 7, E_fk+4, 7, E_avg+4 );
-    write_tf( global_output, "Davenport, median translation", E_avg );
+    avg_step2( "Davenport", n, E_fk, E_cam, E_avg );
 
     aa_mem_region_local_pop(w);
 
@@ -246,18 +277,14 @@ int main( int argc, char **argv )
     size_t count = (size_t)lines_cam;
 
     /* Umeyama */
-    double tf[12], EU[7];
-    rfx_tf_umeyama( count, E_cam+4, 7, E_fk+4, 7, tf );
-    assert(aa_tf_isrotmat(tf));
-    aa_tf_tfmat2qutr( tf, EU );
-    aa_tf_qminimize(EU);
     {
-        write_tf( global_output, "Umeyama, mean translation", EU );
-        aa_tf_relx_median( count, tf, E_cam+4, 7, E_fk+4, 7, EU+4 );
-        write_tf( global_output, "Umeyama, median translation", EU );
-    }
+        double tf[12], EU[7];
+        rfx_tf_umeyama( count, E_cam+4, 7, E_fk+4, 7, tf );
+        assert(aa_tf_isrotmat(tf));
+        aa_tf_tfmat2qutr( tf, EU );
 
-    //write_tfs( "Umeyama Registration", opt_file_out, 1, EU );
+        avg_step2( "Umeyama", count, E_fk, E_cam, EU );
+    }
 
     /* Quaternion Average */
     double E_avg[7];
