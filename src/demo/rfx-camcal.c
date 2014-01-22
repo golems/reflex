@@ -221,6 +221,13 @@ int main( int argc, char **argv )
         aa_tf_qminimize(E_rel+j);
     }
 
+    /* Umeyama */
+    double tf[12], EU[7];
+    rfx_tf_umeyama( count, E_cam+4, 7, E_fk+4, 7, tf );
+    aa_tf_tfmat2qutr( tf, EU );
+    assert(aa_tf_isrotmat(tf));
+    write_tfs( "Umeyama Registration", opt_file_out, 1, EU );
+
     /* Quaternion Average */
     size_t k = 10;
     double E_avg[k*7];

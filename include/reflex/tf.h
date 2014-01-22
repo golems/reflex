@@ -58,6 +58,8 @@ int rfx_tf_abs( size_t n,
                 ssize_t *parents,
                 rfx_tf *tf_abs );
 
+
+
 /** Randomly corrupt a transform */
 void rfx_tf_corrupt
 ( double theta_max, double x_max, const double e0[7], double e1[7] );
@@ -117,6 +119,12 @@ int rfx_lqg_qutr_correct
 ( double dt, double *E_est, double *dE_est,
   const double *E_obs,
   double *P, const double *W );
+
+
+int rfx_tf_numeyama
+( size_t n, double *_X, size_t ldx, double *_Y, size_t ldy, double tf[12] );
+int rfx_tf_umeyama
+( size_t n, const double *_X, size_t ldx, const double *_Y, size_t ldy, double tf[12] );
 
 #ifdef __cplusplus
 }

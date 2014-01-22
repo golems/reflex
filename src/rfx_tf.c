@@ -124,3 +124,13 @@ void rfx_tf_corrupt
     // mul
     aa_tf_qutr_mul( e0, ec, e1 );
 }
+
+int rfx_tf_umeyama
+( size_t n, const double *_X, size_t ldx, const double *_Y, size_t ldy, double tf[12] )
+{
+    double *X = AA_MEM_REGION_LOCAL_NEW_N(double,3*n);
+    double *Y = AA_MEM_REGION_LOCAL_NEW_N(double,3*n);
+    aa_cla_dlacpy( ' ', 3, (int)n, _X, (int)ldx, X, 3 );
+    aa_cla_dlacpy( ' ', 3, (int)n, _Y, (int)ldy, Y, 3 );
+    return rfx_tf_numeyama( n, X, 3, Y, 3, tf );
+}

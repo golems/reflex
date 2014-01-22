@@ -65,7 +65,7 @@ bin_PROGRAMS += rfx-camcal
 rfx_camcal_SOURCES = src/demo/rfx-camcal.c
 rfx_camcal_LDADD = libreflex.la
 
-reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/lqg_tf_f.f90
+reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/lqg_tf_f.f90 src/tf/rfx_tff.f90
 	$(CPP) $(INCLUDES) -x c  $< -o $@
 
 noinst_LTLIBRARIES = libreflex_mod.la
