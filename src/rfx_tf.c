@@ -132,5 +132,78 @@ int rfx_tf_umeyama
     double *Y = AA_MEM_REGION_LOCAL_NEW_N(double,3*n);
     aa_cla_dlacpy( ' ', 3, (int)n, _X, (int)ldx, X, 3 );
     aa_cla_dlacpy( ' ', 3, (int)n, _Y, (int)ldy, Y, 3 );
-    return rfx_tf_numeyama( n, X, 3, Y, 3, tf );
+    int info =  rfx_tf_numeyama( n, X, 3, Y, 3, tf );
+    aa_mem_region_local_pop(X);
+    return info;
+}
+
+
+void rfx_tf_qlnmedian
+( size_t n, const double *u, const double *Q, size_t ldq, double p[4] )
+{
+    // relative log map
+    double *Vr = AA_MEM_REGION_LOCAL_NEW_N(double,3*n);
+    for( size_t i = 0; i < n; i ++ ) {
+        double qr[4];
+        aa_tf_qcmul( AA_MATCOL(Q,ldq,i), u, qr );
+        aa_tf_qminimize(qr);
+        aa_tf_quat2rotvec( qr, AA_MATCOL(Vr,3,i) );
+    }
+
+    // median of rel. log
+    double pr_v[3];
+    for( size_t i = 0; i < 3; i ++ ) pr_v[i] = aa_la_d_median( n, Vr+i, 3 );
+
+    // convert back to absolute
+    double pr_q[4];
+    aa_tf_rotvec2quat( pr_v, pr_q );
+    aa_tf_qmulc( u, pr_q, p );
+}
+
+int rfx_tf_dud_median
+( size_t n, const double *Ex, size_t ldx, const double *Ey, size_t ldy, double z[7] )
+{
+    // TODO: handle n < 3
+
+    double q_mean[4];
+    int info = 0;
+    size_t n1 = n+1;
+
+    // relative orientations
+    double *Q = AA_MEM_REGION_LOCAL_NEW_N(double,4*n1);
+    for( size_t i = 0; i < n; i ++ ) {
+        double *q = AA_MATCOL(Q,4,i);
+        aa_tf_qmulc( AA_MATCOL(Ex, ldx, i),
+                     AA_MATCOL(Ey, ldy, i),
+                     q );
+        aa_tf_qminimize(q);
+    }
+
+    // average orientation
+    double tf_ume[12];
+    double q_ume[4];
+
+    {
+        // umeyama on the centroids
+        info = rfx_tf_umeyama( n, Ey+4, 7, Ex+4, 7, tf_ume );
+        aa_tf_rotmat2quat(tf_ume, q_ume);
+        // TODO: check info
+
+        // build davenport data
+        double *w = AA_MEM_REGION_LOCAL_NEW_N(double,n1);
+        for( size_t i = 0; i < n; i ++ ) {
+            w[i] = 1/(double)n;
+        }
+        w[n] = 1;
+        AA_MEM_CPY(AA_MATCOL(Q,4,n), q_ume, 4 );
+        aa_tf_quat_davenport( n1, w, Q, 4, q_mean );
+    }
+
+    //median orientation
+    rfx_tf_qlnmedian(n, q_mean, Q, 4, z );
+    double R[9];
+    aa_tf_quat2rotmat( z, R );
+    aa_tf_relx_median( n, R, Ey+4, ldy, Ex+4, ldx, z+4 );
+
+    return info;
 }

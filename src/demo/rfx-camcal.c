@@ -166,6 +166,8 @@ static void iterate( size_t n,
     double *w = AA_MEM_REGION_LOCAL_NEW_N( double, n );
     double *Q = AA_MEM_REGION_LOCAL_NEW_N( double, 4*n );
 
+    AA_MEM_SET(E_avg,0,7);
+
     for( size_t i = 0; i < n; i ++ ) {
         size_t j = 7*i;
         aa_tf_qmulc( E_fk+j, E_cam+j, Q+4*i );
@@ -174,8 +176,16 @@ static void iterate( size_t n,
     }
 
     aa_tf_quat_davenport( n, w, Q, 4, E_avg );
+    write_tf( global_output, "Dav.", E_avg );
+    double E_med[7] = {0};
+    rfx_tf_qlnmedian( n, E_avg, Q, 4, E_med );
+    write_tf( global_output, "Dav. ln", E_med );
 
     avg_step2( "Davenport", n, E_fk, E_cam, E_avg );
+
+    double E_dud[7];
+    rfx_tf_dud_median( n, E_fk, 7, E_cam, 7, E_dud );
+    write_tf( global_output, "DUD", E_dud );
 
     aa_mem_region_local_pop(w);
 

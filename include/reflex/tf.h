@@ -126,6 +126,12 @@ int rfx_tf_numeyama
 int rfx_tf_umeyama
 ( size_t n, const double *_X, size_t ldx, const double *_Y, size_t ldy, double tf[12] );
 
+void rfx_tf_qlnmedian
+( size_t n, const double *u, const double *Q, size_t ldq, double p[4] );
+
+int rfx_tf_dud_median
+( size_t n, const double *Ex, size_t ldx, const double *Ey, size_t ldy, double z[7] );
+
 #ifdef __cplusplus
 }
 #endif //__cplusplus
