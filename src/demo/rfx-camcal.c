@@ -188,7 +188,7 @@ static void iterate( size_t n,
     write_tf( global_output, "DUD", E_dud );
 
     double E_rdud[7];
-    rfx_tf_dud_rejected_mean( n, 2.0, 2.0, E_fk, 7, E_cam, 7, E_rdud );
+    rfx_tf_dud_rejected_mean( n, 2.0, 3.0, E_fk, 7, E_cam, 7, E_rdud );
     write_tf( global_output, "R.DUD", E_rdud );
 
     aa_mem_region_local_pop(w);

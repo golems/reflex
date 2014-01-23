@@ -138,18 +138,28 @@ int rfx_tf_dud_median
 }
 
 size_t rfx_tf_dud_reject
-( size_t n, double z_theta, double z_x, const double *e_median,
+( size_t n, double z_theta, double z_x, const double *e_mu,
   double *Ex, size_t ldx, double *Ey, size_t ldy )
 {
-    // compute median distances
+    // compute distances
     double *d_ang = AA_MEM_REGION_LOCAL_NEW_N( double, n );
     double *d_x = AA_MEM_REGION_LOCAL_NEW_N( double, n );
+    double R[9];
+    aa_tf_quat2rotmat( e_mu, R );
     for( size_t i = 0; i < n; i ++ ) {
-        double E[7];
-        aa_tf_qutr_mulc( AA_MATCOL(Ex,ldx,i), AA_MATCOL(Ey,ldy,i),  E );
-        aa_tf_qminimize(E);
-        d_ang[i] = fabs(aa_tf_qangle_rel(e_median, E));
-        d_x[i] = sqrt( aa_la_ssd(3, e_median+4, E+4) );
+        // angle
+        double *ex = AA_MATCOL(Ex,ldx,i);
+        double *ey = AA_MATCOL(Ey,ldy,i);
+        double q[4];
+        aa_tf_qmulc( ex, ey,  q );
+        aa_tf_qminimize(q);
+        d_ang[i] = fabs(aa_tf_qangle_rel(e_mu, q));
+        // trans
+        // dx = || x - Ry ||
+        double yp[3];
+        aa_tf_9rot( R, ey+4, yp );
+        for( size_t k = 0; k < 3; k++ ) yp[k] = ex[4+k] - yp[k];
+        d_x[i] = sqrt( aa_la_ssd(3, e_mu+4, yp) );
     }
     double mad_ang = aa_la_d_median( n, d_ang, 1 );
     double mad_x = aa_la_d_median( n, d_x, 1 );
@@ -167,6 +177,7 @@ size_t rfx_tf_dud_reject
             j++;
         }
     }
+    printf("rejected: %lu\n", n - j );
     return j;
 }
 
