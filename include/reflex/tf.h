@@ -132,6 +132,10 @@ void rfx_tf_qlnmedian
 int rfx_tf_dud_median
 ( size_t n, const double *Ex, size_t ldx, const double *Ey, size_t ldy, double z[7] );
 
+int rfx_tf_dud_rejected_mean
+( size_t n, double z_theta, double z_x,
+  const double *Ex, size_t ldx, const double *Ey, size_t ldy, double e[7] );
+
 #ifdef __cplusplus
 }
 #endif //__cplusplus
