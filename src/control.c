@@ -218,7 +218,7 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
     {
         rfx_status_t r = check_limit( ws, dx_u );
         if( RFX_OK != r ) {
-            aa_fzero( u, ws->n_q );
+            AA_MEM_ZERO( u, ws->n_q );
             return r;
         }
     }

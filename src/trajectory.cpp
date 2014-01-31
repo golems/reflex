@@ -174,7 +174,7 @@ int TrapvelWS::get_x( double t, double x[3], double r[4]) {
     // }
 
     // convert back to vector+quaternion form
-    aa_fcpy( x, xp, 3 );
+    AA_MEM_CPY( x, xp, 3 );
     aa_tf_rotvec2quat(xp+3, r);
     return 0;
 }
@@ -235,7 +235,7 @@ int TrapvelWS::add( double t, const double x[3], const double r[4]) {
     } else {
         return 1;
     }
-    aa_fcpy( xp, x, 3 );
+    AA_MEM_CPY( xp, x, 3 );
     aa_tf_quat2rotvec( r, xp+3 );
 
     assert( aa_isfok(0) );
