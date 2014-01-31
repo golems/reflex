@@ -324,3 +324,26 @@ AA_API rfx_status_t rfx_ctrlx_lin_vfwd( const rfx_ctrlx_lin_t *ctrl, const doubl
     aa_tf_qv2duqu( r, x, ctrl->ctrl->act.S );
     return rfx_ctrl_ws_lin_vfwd( ctrl->ctrl, ctrl->k, u );
 }
+
+int rfx_ctrlx_fun_lin_vfwd ( void *cx,
+                             const double *q_a, const double *dq_a,
+                             const double *E_r, const double *dx_r,
+                             double *dq_r )
+{
+    const rfx_ctrlx_lin_t *ctrlx = (const rfx_ctrlx_lin_t *)cx;
+    // actual
+    rfx_ctrl_t *ctrl = ctrlx->ctrl;
+    size_t nq = ctrl->n_q;
+    AA_MEM_CPY(ctrl->act.q, q_a, nq);
+    AA_MEM_CPY(ctrl->act.dq, dq_a, nq);
+    double r[4], x[3];
+    ctrlx->kin_fun( ctrlx->kin_fun_cx, q_a, x, r, ctrl->J );
+    aa_tf_qv2duqu( r, x, ctrl->act.S );
+
+    // reference
+    aa_tf_qutr2duqu( E_r, ctrl->ref.S );
+    AA_MEM_CPY(ctrl->ref.dx, dx_r, 6 );
+
+    // result
+    return rfx_ctrl_ws_lin_vfwd( ctrlx->ctrl, ctrlx->k, dq_r );
+}

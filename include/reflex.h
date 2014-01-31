@@ -175,7 +175,8 @@ typedef int (*rfx_kin_fun) ( const void *cx, const double *q, double *x, double 
 typedef int (*rfx_kin_duqu_fun) ( const void *cx, const double *q, double S[8],  double *J);
 
 typedef int (*rfx_ctrlx_fun) ( const void *cx, const double *q, const double *dq,
-                               double *x, double *r, double *dx );
+                               const double *E, const double *dx,
+                               double *u );
 
 struct rfx_ctrlx_state {
     double *q;  ///< joint configuration
@@ -288,6 +289,10 @@ rfx_ctrlx_lin_t *rfx_ctrlx_alloc( aa_mem_region_t *reg, size_t n_q, rfx_kin_fun 
 AA_API rfx_status_t rfx_ctrlx_lin_vfwd( const rfx_ctrlx_lin_t *ctrl, const double *q,
                                         double *u );
 
+int rfx_ctrlx_fun_lin_vfwd ( void *cx,
+                             const double *q, const double *dq,
+                             const double *E, const double *dx,
+                             double *dq_r );
 
 /**************************/
 /* A Simple PD Controller */
