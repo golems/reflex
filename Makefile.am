@@ -8,7 +8,7 @@ include_HEADERS = include/reflex.h include/reflex.hpp
 
 pkginclude_HEADERS = \
 	include/reflex/kinematics.h \
-	include/reflex/trajectory.h \
+	include/reflex/trajq.h \
 	include/reflex/trajx.h \
 	include/reflex/tf.h \
 	include/reflex/lqg.h \

@@ -40,12 +40,79 @@
  *
  */
 
-#ifndef REFLEX_TRAJECTORY_H
-#define REFLEX_TRAJECTORY_H
+#ifndef REFLEX_TRAJQ_H
+#define REFLEX_TRAJQ_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif //__cplusplus
+
+// TODO: remove deprecated code
+
+/*--- Configuration Space Trajectories ---*/
+
+struct rfx_trajq_vtab {
+    int (*generate)(void *cx);
+    int (*get_q)(void *cx, double t, double *q);
+    int (*get_dq)(void *cx, double t, double *dq);
+    int (*get_ddq)(void *cx, double t, double *ddq);
+};
+
+struct rfx_trajq_data {
+    double t;
+    double q[1];
+};
+
+typedef struct rfx_trajq {
+    struct rfx_trajq_vtab *vtab;
+    aa_mem_region_t *reg;
+    size_t n_q;
+    size_t n_t;
+    double t_i, t_f;
+    double *q_i, *q_f;
+    aa_mem_rlist_t *point;
+} rfx_trajq_t;
+
+/* Initialize struct, performing future alloctions out of reg */
+struct rfx_trajq *rfx_trajq_alloc( aa_mem_region_t *reg, size_t n_q );
+
+void rfx_trajq_init( struct rfx_trajq *traj, aa_mem_region_t *reg, size_t n_q );
+
+/* Add point q to trajectory.
+ * q is copied to cx's internally managed memory */
+void rfx_trajq_add( struct rfx_trajq *cx, double t, double *q );
+
+void rfx_trajq_plot( struct rfx_trajq *cx, double dt );
+
+static inline int rfx_trajq_get_q( struct rfx_trajq *cx, double t, double *q) {
+    return cx->vtab->get_q( cx, t, q );
+}
+
+static inline int rfx_trajq_get_dq( struct rfx_trajq *cx, double t, double *dq) {
+    return cx->vtab->get_dq( cx, t, dq );
+}
+
+static inline int rfx_trajq_get_ddq( struct rfx_trajq *cx, double t, double *ddq) {
+    return cx->vtab->get_ddq( cx, t, ddq );
+}
+
+static inline int rfx_trajq_generate( struct rfx_trajq *cx ) {
+    return cx->vtab->generate( cx );
+}
+
+typedef struct rfx_trajq_trapvel {
+    struct rfx_trajq traj;
+    double *dq_max;   ///< max velocity (specified)
+    double *ddq_max;  ///< max accelerations (specified)
+    double t_b;       ///< blend time
+    double *dq_r;     ///< reference velocity (generated)
+    double *ddq_r;    ///< reference acceleration (generated)
+} rfx_trajq_trapvel_t;
+
+void rfx_trajq_trapvel_init( struct rfx_trajq_trapvel *cx, aa_mem_region_t *reg, size_t n_q );
+
+
+
 
 /*--- Point List ---*/
 
@@ -178,4 +245,4 @@ rfx_trajq_seg_dense_alloc( aa_mem_region_t *reg, size_t n_q, size_t n_p,
 }
 #endif //__cplusplus
 
-#endif //REFLEX_TRAJECTORY_H
+#endif //REFLEX_TRAJQ_H
