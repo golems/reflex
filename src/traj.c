@@ -699,93 +699,93 @@ rfx_trajx_seg_blend_rv_alloc( aa_mem_region_t *reg, double t_i, double t_f,
     return &S->seg;
 }
 
-static void point2vector( struct rfx_trajx_point *pt, double x_last[6], double x[6] ) {
-    AA_MEM_CPY( x, pt->x, 3);
-    aa_tf_quat2rotvec_near(pt->r, x_last+3, x+3 );
-}
+// static void point2vector( struct rfx_trajx_point *pt, double x_last[6], double x[6] ) {
+//     AA_MEM_CPY( x, pt->x, 3);
+//     aa_tf_quat2rotvec_near(pt->r, x_last+3, x+3 );
+// }
 
-static int x_parablend_generate( struct rfx_trajx *cx ) {
-    cx->pt_i = (struct rfx_trajx_point*) cx->point->head->data;
-    struct rfx_trajx_parablend *traj = (struct rfx_trajx_parablend*)cx;
+// static int x_parablend_generate( struct rfx_trajx *cx ) {
+//     cx->pt_i = (struct rfx_trajx_point*) cx->point->head->data;
+//     struct rfx_trajx_parablend *traj = (struct rfx_trajx_parablend*)cx;
 
-    // allocate arrays
-    traj->via.n_seg = cx->n_p * 2 - 1;
-    traj->via.seg = AA_MEM_REGION_NEW_N( cx->reg, struct rfx_trajx_seg*, traj->via.n_seg );
+//     // allocate arrays
+//     traj->via.n_seg = cx->n_p * 2 - 1;
+//     traj->via.seg = AA_MEM_REGION_NEW_N( cx->reg, struct rfx_trajx_seg*, traj->via.n_seg );
 
-    // add virtual via points
-    {
-        struct rfx_trajx_point *pt_i = AA_MEM_REGION_NEW_CPY( cx->reg, cx->pt_i, struct rfx_trajx_point );
-        struct rfx_trajx_point *pt_f = AA_MEM_REGION_NEW_CPY( cx->reg, cx->pt_f, struct rfx_trajx_point );
-        aa_mem_rlist_push_ptr( cx->point, pt_i );
-        aa_mem_rlist_enqueue_ptr( cx->point, pt_f );
-        cx->pt_i->t += traj->t_b/2;
-        cx->pt_f->t -= traj->t_b/2;
-        cx->pt_i = pt_i;
-        cx->pt_f = pt_f;
-    }
+//     // add virtual via points
+//     {
+//         struct rfx_trajx_point *pt_i = AA_MEM_REGION_NEW_CPY( cx->reg, cx->pt_i, struct rfx_trajx_point );
+//         struct rfx_trajx_point *pt_f = AA_MEM_REGION_NEW_CPY( cx->reg, cx->pt_f, struct rfx_trajx_point );
+//         aa_mem_rlist_push_ptr( cx->point, pt_i );
+//         aa_mem_rlist_enqueue_ptr( cx->point, pt_f );
+//         cx->pt_i->t += traj->t_b/2;
+//         cx->pt_f->t -= traj->t_b/2;
+//         cx->pt_i = pt_i;
+//         cx->pt_f = pt_f;
+//     }
 
-    // fill arrays
-    size_t i = 0;
-    double dx_p[6] = {0}, x_p[6] = {0};
-    {
-        struct rfx_trajx_point *pt0 = (struct rfx_trajx_point*)cx->point->head->data;
-        AA_MEM_CPY( x_p, pt0->x, 3);
-        aa_tf_quat2rotvec(pt0->r, x_p+3 );
-    }
-    for( aa_mem_cons_t *pcons = cx->point->head->next; pcons && pcons->next; pcons = pcons->next )
-    {
-        double t_b = traj->t_b;
-        /* current point */
-        struct rfx_trajx_point *pt = (struct rfx_trajx_point*)pcons->data;
-        double x[6];
-        point2vector( pt, x_p, x );
+//     // fill arrays
+//     size_t i = 0;
+//     double dx_p[6] = {0}, x_p[6] = {0};
+//     {
+//         struct rfx_trajx_point *pt0 = (struct rfx_trajx_point*)cx->point->head->data;
+//         AA_MEM_CPY( x_p, pt0->x, 3);
+//         aa_tf_quat2rotvec(pt0->r, x_p+3 );
+//     }
+//     for( aa_mem_cons_t *pcons = cx->point->head->next; pcons && pcons->next; pcons = pcons->next )
+//     {
+//         double t_b = traj->t_b;
+//         /* current point */
+//         struct rfx_trajx_point *pt = (struct rfx_trajx_point*)pcons->data;
+//         double x[6];
+//         point2vector( pt, x_p, x );
 
-        /* next point point */
-        struct rfx_trajx_point *pt_next = (struct rfx_trajx_point*)pcons->next->data;
-        double x_n[6];
-        point2vector( pt_next, x, x_n );
-
-
-        /* compute velocity and acceleration */
-        double ddx[6], dx[6] = {0};
-        for( size_t j = 0; j < 6; j ++ ) {
-            dx[j] = (x_n[j] - x[j]) / (pt_next->t - pt->t);
-            ddx[j] = (dx[j] - dx_p[j]) / t_b;
-        }
-        /* add blend about current point */
-        traj->via.seg[i++] = rfx_trajx_seg_blend_rv_alloc( cx->reg, pt->t-t_b/2, pt->t+t_b/2,
-                                                           pt->t-t_b/2, x_p, dx_p, ddx );
-        /* add linear to next point */
-        if( pcons->next->next ) {
-            traj->via.seg[i++] = rfx_trajx_seg_lerp_rv_alloc( cx->reg, pt->t+t_b/2, pt_next->t-t_b/2,
-                                                              pt->t, x,
-                                                              pt_next->t, x_n );
-            /* previous is end of current linear segment */
-            double r[4];
-            rfx_trajx_get_x( (struct rfx_trajx*)traj->via.seg[i-1], pt_next->t-t_b/2, x_p, r );
-            aa_tf_quat2rotvec_near(r, x+3, x_p+3 );
-            /* copy current to prev */
-            AA_MEM_CPY(dx_p, dx, 6);
-        }
-    }
-    return 0;
-}
+//         /* next point point */
+//         struct rfx_trajx_point *pt_next = (struct rfx_trajx_point*)pcons->next->data;
+//         double x_n[6];
+//         point2vector( pt_next, x, x_n );
 
 
-static struct rfx_trajx_vtab vtab_x_parablend = {
-    .generate = x_parablend_generate,
-    .add = x_via_add,
-    .get_x = x_via_get_x,
-    .get_dx = x_via_get_dx,
-    .get_ddx = x_via_get_ddx,
-};
+//         /* compute velocity and acceleration */
+//         double ddx[6], dx[6] = {0};
+//         for( size_t j = 0; j < 6; j ++ ) {
+//             dx[j] = (x_n[j] - x[j]) / (pt_next->t - pt->t);
+//             ddx[j] = (dx[j] - dx_p[j]) / t_b;
+//         }
+//         /* add blend about current point */
+//         traj->via.seg[i++] = rfx_trajx_seg_blend_rv_alloc( cx->reg, pt->t-t_b/2, pt->t+t_b/2,
+//                                                            pt->t-t_b/2, x_p, dx_p, ddx );
+//         /* add linear to next point */
+//         if( pcons->next->next ) {
+//             traj->via.seg[i++] = rfx_trajx_seg_lerp_rv_alloc( cx->reg, pt->t+t_b/2, pt_next->t-t_b/2,
+//                                                               pt->t, x,
+//                                                               pt_next->t, x_n );
+//             /* previous is end of current linear segment */
+//             double r[4];
+//             rfx_trajx_get_x( (struct rfx_trajx*)traj->via.seg[i-1], pt_next->t-t_b/2, x_p, r );
+//             aa_tf_quat2rotvec_near(r, x+3, x_p+3 );
+//             /* copy current to prev */
+//             AA_MEM_CPY(dx_p, dx, 6);
+//         }
+//     }
+//     return 0;
+// }
 
-void rfx_trajx_parablend_init( struct rfx_trajx_parablend *cx, aa_mem_region_t *reg, double t_b ) {
-    memset(cx,0,sizeof(*cx));
-    rfx_trajx_via_init(&cx->via, reg);
-    cx->t_b = t_b;
-    cx->via.trajx.vtab = &vtab_x_parablend;
-}
+
+// static struct rfx_trajx_vtab vtab_x_parablend = {
+//     .generate = x_parablend_generate,
+//     .add = x_via_add,
+//     .get_x = x_via_get_x,
+//     .get_dx = x_via_get_dx,
+//     .get_ddx = x_via_get_ddx,
+// };
+
+// void rfx_trajx_parablend_init( struct rfx_trajx_parablend *cx, aa_mem_region_t *reg, double t_b ) {
+//     memset(cx,0,sizeof(*cx));
+//     rfx_trajx_via_init(&cx->via, reg);
+//     cx->t_b = t_b;
+//     cx->via.trajx.vtab = &vtab_x_parablend;
+// }
 
 
 /*--- Cartesian Sphereical Parabolic Blends ---*/
@@ -919,68 +919,68 @@ rfx_trajx_seg_blend_q_alloc( aa_mem_region_t *reg, double t_0, double t_1,
     return &S->seg;
 }
 
-static int x_splend_generate( struct rfx_trajx *cx ) {
-    rfx_trajx_splend_t *traj = (rfx_trajx_splend_t*)cx;
+// static int x_splend_generate( struct rfx_trajx *cx ) {
+//     rfx_trajx_splend_t *traj = (rfx_trajx_splend_t*)cx;
 
-    // allocate arrays
-    traj->via.n_seg = cx->n_p * 2 - 1;
-    traj->via.seg = AA_MEM_REGION_NEW_N( cx->reg, struct rfx_trajx_seg*, traj->via.n_seg );
+//     // allocate arrays
+//     traj->via.n_seg = cx->n_p * 2 - 1;
+//     traj->via.seg = AA_MEM_REGION_NEW_N( cx->reg, struct rfx_trajx_seg*, traj->via.n_seg );
 
-    // add virtual via points
-    {
-        cx->pt_i = (struct rfx_trajx_point*) cx->point->head->data;
-        struct rfx_trajx_point *pt_i = AA_MEM_REGION_NEW_CPY( cx->reg, cx->pt_i, struct rfx_trajx_point );
-        struct rfx_trajx_point *pt_f = AA_MEM_REGION_NEW_CPY( cx->reg, cx->pt_f, struct rfx_trajx_point );
-        aa_mem_rlist_push_ptr( cx->point, pt_i );
-        aa_mem_rlist_enqueue_ptr( cx->point, pt_f );
-        cx->pt_i->t += traj->t_b/2;
-        cx->pt_f->t -= traj->t_b/2;
-        cx->pt_i = pt_i;
-        cx->pt_f = pt_f;
-    }
+//     // add virtual via points
+//     {
+//         cx->pt_i = (struct rfx_trajx_point*) cx->point->head->data;
+//         struct rfx_trajx_point *pt_i = AA_MEM_REGION_NEW_CPY( cx->reg, cx->pt_i, struct rfx_trajx_point );
+//         struct rfx_trajx_point *pt_f = AA_MEM_REGION_NEW_CPY( cx->reg, cx->pt_f, struct rfx_trajx_point );
+//         aa_mem_rlist_push_ptr( cx->point, pt_i );
+//         aa_mem_rlist_enqueue_ptr( cx->point, pt_f );
+//         cx->pt_i->t += traj->t_b/2;
+//         cx->pt_f->t -= traj->t_b/2;
+//         cx->pt_i = pt_i;
+//         cx->pt_f = pt_f;
+//     }
 
-    // fill arrays
-    size_t i = 0;
-    for( aa_mem_cons_t *pcons = cx->point->head; pcons->next->next; pcons = pcons->next )
-    {
-        double t_b = traj->t_b;
-        /* current point */
-        struct rfx_trajx_point *pt_i = (struct rfx_trajx_point*)pcons->data;
-        struct rfx_trajx_point *pt_j = (struct rfx_trajx_point*)pcons->next->data;
-        struct rfx_trajx_point *pt_k = (struct rfx_trajx_point*)pcons->next->next->data;
-        /* add blend about current point */
-        traj->via.seg[i++] = rfx_trajx_seg_blend_q_alloc( cx->reg, pt_j->t-t_b/2, pt_j->t+t_b/2,
-                                                          t_b,
-                                                          pt_i->t, pt_i->x, pt_i->r,
-                                                          pt_j->t, pt_j->x, pt_j->r,
-                                                          pt_k->t, pt_k->x, pt_k->r );
-        /* add linear to next point */
-        if( pcons->next->next->next ) {
-            double t0 = pt_j->t + t_b/2;
-            double t1 = pt_k->t - t_b/2;
-            // FIXME: this is wrong for the first one
-            traj->via.seg[i++] = rfx_trajx_seg_lerp_slerp_alloc( cx->reg, t0, t1,
-                                                                 pt_j->t, pt_j->x, pt_j->r,
-                                                                 pt_k->t, pt_k->x, pt_k->r );
-            double x[3], r[4];
-            rfx_trajx_get_x( (rfx_trajx_t*)traj->via.seg[i-1], t0, x, r );
-        }
-    }
-    return 0;
-}
+//     // fill arrays
+//     size_t i = 0;
+//     for( aa_mem_cons_t *pcons = cx->point->head; pcons->next->next; pcons = pcons->next )
+//     {
+//         double t_b = traj->t_b;
+//         /* current point */
+//         struct rfx_trajx_point *pt_i = (struct rfx_trajx_point*)pcons->data;
+//         struct rfx_trajx_point *pt_j = (struct rfx_trajx_point*)pcons->next->data;
+//         struct rfx_trajx_point *pt_k = (struct rfx_trajx_point*)pcons->next->next->data;
+//         /* add blend about current point */
+//         traj->via.seg[i++] = rfx_trajx_seg_blend_q_alloc( cx->reg, pt_j->t-t_b/2, pt_j->t+t_b/2,
+//                                                           t_b,
+//                                                           pt_i->t, pt_i->x, pt_i->r,
+//                                                           pt_j->t, pt_j->x, pt_j->r,
+//                                                           pt_k->t, pt_k->x, pt_k->r );
+//         /* add linear to next point */
+//         if( pcons->next->next->next ) {
+//             double t0 = pt_j->t + t_b/2;
+//             double t1 = pt_k->t - t_b/2;
+//             // FIXME: this is wrong for the first one
+//             traj->via.seg[i++] = rfx_trajx_seg_lerp_slerp_alloc( cx->reg, t0, t1,
+//                                                                  pt_j->t, pt_j->x, pt_j->r,
+//                                                                  pt_k->t, pt_k->x, pt_k->r );
+//             double x[3], r[4];
+//             rfx_trajx_get_x( (rfx_trajx_t*)traj->via.seg[i-1], t0, x, r );
+//         }
+//     }
+//     return 0;
+// }
 
 
-static struct rfx_trajx_vtab vtab_x_splend = {
-    .generate = x_splend_generate,
-    .add = x_via_add,
-    .get_x = x_via_get_x,
-    .get_dx = x_via_get_dx,
-    .get_ddx = x_via_get_ddx,
-};
+// static struct rfx_trajx_vtab vtab_x_splend = {
+//     .generate = x_splend_generate,
+//     .add = x_via_add,
+//     .get_x = x_via_get_x,
+//     .get_dx = x_via_get_dx,
+//     .get_ddx = x_via_get_ddx,
+// };
 
-void rfx_trajx_splend_init( struct rfx_trajx_parablend *cx, aa_mem_region_t *reg, double t_b ) {
-    memset(cx,0,sizeof(*cx));
-    rfx_trajx_via_init(&cx->via, reg);
-    cx->t_b = t_b;
-    cx->via.trajx.vtab = &vtab_x_splend;
-}
+// void rfx_trajx_splend_init( struct rfx_trajx_parablend *cx, aa_mem_region_t *reg, double t_b ) {
+//     memset(cx,0,sizeof(*cx));
+//     rfx_trajx_via_init(&cx->via, reg);
+//     cx->t_b = t_b;
+//     cx->via.trajx.vtab = &vtab_x_splend;
+// }

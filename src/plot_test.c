@@ -44,52 +44,52 @@
 #include "reflex.h"
 
 
-void plotq () {
-    aa_mem_region_t reg;
-    aa_mem_region_init( &reg, 1024*64 );
+// void plotq () {
+//     aa_mem_region_t reg;
+//     aa_mem_region_init( &reg, 1024*64 );
 
 
-    double q0[6] =  {0.296500, 0.000000, 0.178000, 0.000000, 3.141593, 0.000000};
-    double q1[6] =  {0.380000, 0.003357, 0.089718, 0.482354, 3.045461, 0.989530};
+//     double q0[6] =  {0.296500, 0.000000, 0.178000, 0.000000, 3.141593, 0.000000};
+//     double q1[6] =  {0.380000, 0.003357, 0.089718, 0.482354, 3.045461, 0.989530};
 
-    size_t n_q = sizeof(q0)/sizeof(q0[0]);
-    rfx_trajq_trapvel_t traj;
-    rfx_trajq_trapvel_init( &traj, &reg, n_q );
+//     size_t n_q = sizeof(q0)/sizeof(q0[0]);
+//     rfx_trajq_trapvel_t traj;
+//     rfx_trajq_trapvel_init( &traj, &reg, n_q );
 
-    for( size_t i = 0; i < n_q; i ++ ) {
-        traj.dq_max[i] = 10.0;
-        traj.ddq_max[i] = 10.0;
-    }
+//     for( size_t i = 0; i < n_q; i ++ ) {
+//         traj.dq_max[i] = 10.0;
+//         traj.ddq_max[i] = 10.0;
+//     }
 
-    rfx_trajq_add( &traj.traj, 0, q0 );
-    rfx_trajq_add( &traj.traj, 10, q1 );
+//     rfx_trajq_add( &traj.traj, 0, q0 );
+//     rfx_trajq_add( &traj.traj, 10, q1 );
 
-    printf("q0: ");
-    aa_dump_vec( stdout, traj.traj.q_i, traj.traj.n_q );
-    printf("q1: ");
-    aa_dump_vec( stdout, traj.traj.q_f, traj.traj.n_q );
+//     printf("q0: ");
+//     aa_dump_vec( stdout, traj.traj.q_i, traj.traj.n_q );
+//     printf("q1: ");
+//     aa_dump_vec( stdout, traj.traj.q_f, traj.traj.n_q );
 
-    rfx_trajq_generate( &traj.traj );
+//     rfx_trajq_generate( &traj.traj );
 
-    printf("times: %f, %f\n", traj.traj.t_i, traj.traj.t_f );
-    printf("blend: %f\n", traj.t_b );
-    printf("dq_r: " );
-    aa_dump_vec( stdout, traj.dq_r, traj.traj.n_q );
-    printf("ddq_r: " );
-    aa_dump_vec( stdout, traj.ddq_r, traj.traj.n_q );
+//     printf("times: %f, %f\n", traj.traj.t_i, traj.traj.t_f );
+//     printf("blend: %f\n", traj.t_b );
+//     printf("dq_r: " );
+//     aa_dump_vec( stdout, traj.dq_r, traj.traj.n_q );
+//     printf("ddq_r: " );
+//     aa_dump_vec( stdout, traj.ddq_r, traj.traj.n_q );
 
-    fprintf( stderr, "%lu\n",
-             traj.traj.n_q );
+//     fprintf( stderr, "%lu\n",
+//              traj.traj.n_q );
 
-    printf("q0: ");
-    aa_dump_vec( stdout, traj.traj.q_i, traj.traj.n_q );
-    printf("q1: ");
-    aa_dump_vec( stdout, traj.traj.q_f, traj.traj.n_q );
+//     printf("q0: ");
+//     aa_dump_vec( stdout, traj.traj.q_i, traj.traj.n_q );
+//     printf("q1: ");
+//     aa_dump_vec( stdout, traj.traj.q_f, traj.traj.n_q );
 
-    rfx_trajq_plot( &traj.traj, .001 );
+//     rfx_trajq_plot( &traj.traj, .001 );
 
-    aa_mem_region_destroy( &reg );
-}
+//     aa_mem_region_destroy( &reg );
+// }
 
 
 
@@ -120,37 +120,37 @@ void plot_qseg () {
     aa_mem_region_destroy( &reg );
 }
 
-void plotx2() {
-    aa_mem_region_t reg;
-    aa_mem_region_init( &reg, 1024*32 );
+// void plotx2() {
+//     aa_mem_region_t reg;
+//     aa_mem_region_init( &reg, 1024*32 );
 
-    aa_mem_region_release( &reg );
+//     aa_mem_region_release( &reg );
 
-    /* rfx_trajq_trapvel_t trajq; */
-    /* rfx_trajq_trapvel_init( &trajq, &reg, 6 ); */
-    /* for( size_t i = 0; i < 6; i ++ ) { */
-    /*     trajq.dq_max[i] = 10.0; */
-    /*     trajq.ddq_max[i] = 10.0; */
-    /* } */
+//     /* rfx_trajq_trapvel_t trajq; */
+//     /* rfx_trajq_trapvel_init( &trajq, &reg, 6 ); */
+//     /* for( size_t i = 0; i < 6; i ++ ) { */
+//     /*     trajq.dq_max[i] = 10.0; */
+//     /*     trajq.ddq_max[i] = 10.0; */
+//     /* } */
 
 
-    double x0[3] = {0.384311,0.004544,0.089198};
-    double r0[4] = {0.148775, 0.939373, 0.305129, -0.048381};
-    double x1[3] = {0.380000, 0.053318, 0.020952};
-    double r1[4] = {0.148778, 0.939347, 0.305212, -0.048341};
+//     double x0[3] = {0.384311,0.004544,0.089198};
+//     double r0[4] = {0.148775, 0.939373, 0.305129, -0.048381};
+//     double x1[3] = {0.380000, 0.053318, 0.020952};
+//     double r1[4] = {0.148778, 0.939347, 0.305212, -0.048341};
 
-    rfx_trajx_t trajx;
-    rfx_trajx_rv_init( &trajx, &reg );
+//     rfx_trajx_t trajx;
+//     rfx_trajx_rv_init( &trajx, &reg );
 
-    rfx_trajx_add( &trajx, 0, x0, r0 );
-    rfx_trajx_add( &trajx, 10, x1, r1 );
+//     rfx_trajx_add( &trajx, 0, x0, r0 );
+//     rfx_trajx_add( &trajx, 10, x1, r1 );
 
-    rfx_trajx_generate( &trajx );
+//     rfx_trajx_generate( &trajx );
 
-    rfx_trajq_plot( trajx.trajq, .001 );
+//     rfx_trajq_plot( trajx.trajq, .001 );
 
-    aa_mem_region_destroy( &reg );
-}
+//     aa_mem_region_destroy( &reg );
+// }
 
 void plot_viax() {
     aa_mem_region_t reg;
@@ -308,22 +308,22 @@ void regress_1() {
     rfx_trajx_seg_list_plot( seglist, .001, NULL );
 }
 
-void regress_2() {
-    aa_mem_region_t reg;
-    aa_mem_region_init( &reg, 1024*32 );
-    struct rfx_trajx_seg_list *segs = rfx_trajx_seg_list_alloc( &reg );
+// void regress_2() {
+//     aa_mem_region_t reg;
+//     aa_mem_region_init( &reg, 1024*32 );
+//     struct rfx_trajx_seg_list *segs = rfx_trajx_seg_list_alloc( &reg );
 
-    double x0[6] = {0.000000,0.000000,0.000000,-3.017866,0.477983,0.477983};
-    double x1[6] = {0.000000,0.000000,0.000000,-3.455752,-0.000000,-0.000000};
+//     double x0[6] = {0.000000,0.000000,0.000000,-3.017866,0.477983,0.477983};
+//     double x1[6] = {0.000000,0.000000,0.000000,-3.455752,-0.000000,-0.000000};
 
-    struct rfx_trajx_seg *seg =
-        rfx_trajx_seg_lerp_rv_alloc( &reg, 0, 1,
-                                     0, x0,
-                                     1, x1 ) ;
-    rfx_trajx_seg_list_add( segs, seg );
+//     struct rfx_trajx_seg *seg =
+//         rfx_trajx_seg_lerp_rv_alloc( &reg, 0, 1,
+//                                      0, x0,
+//                                      1, x1 ) ;
+//     rfx_trajx_seg_list_add( segs, seg );
 
-    rfx_trajx_seg_list_plot( segs, .001, NULL );
-}
+//     rfx_trajx_seg_list_plot( segs, .001, NULL );
+// }
 
 int main( void ) {
     /* /rfx_trajq_plot( &traj.traj, 0.01 ); */
