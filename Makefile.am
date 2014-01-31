@@ -22,21 +22,8 @@ nodist_include_HEADERS = reflex.mod
 
 lib_LTLIBRARIES = libreflex.la
 
-noinst_PROGRAMS = lqgtest cartpend test-tf-filter
-
-cartpend_SOURCES = src/cartpend.c
-cartpend_LDADD = libreflex.la
-
-lqgtest_SOURCES = src/lqgtest.c
-lqgtest_LDADD = libreflex.la
-
-noinst_PROGRAMS += plot_test
-plot_test_SOURCES = src/plot_test.c
-plot_test_LDADD = libreflex.la
-
 libreflex_la_SOURCES =              \
 	src/control.c               \
-	src/trajectory.cpp          \
 	src/lqg.c                   \
 	src/lqg_tf.c                \
 	src/rfx_tf.c                \
@@ -44,27 +31,38 @@ libreflex_la_SOURCES =              \
 	src/plot.c                  \
 	src/trajq.c                 \
 	src/kin.c                   \
-	src/trajx.c                 \
-	src/body/body.cpp           \
-	src/traj.c
+	src/trajx.cpp               \
+	src/traj.c                  \
+	src/body/body.cpp
 
 libreflex_la_LIBADD = libreflex_mod.la
 
+noinst_PROGRAMS = cartpend
+cartpend_SOURCES = src/cartpend.c
+cartpend_LDADD = libreflex.la -lamino -llapack -lblas
 
+noinst_PROGRAMS += lqgtest
+lqgtest_SOURCES = src/lqgtest.c
+lqgtest_LDADD = libreflex.la -lamino -llapack -lblas
+
+noinst_PROGRAMS += plot_test
+plot_test_SOURCES = src/plot_test.c
+plot_test_LDADD = libreflex.la -lamino -llapack -lblas
+
+
+noinst_PROGRAMS += test-tf-filter
 test_tf_filter_SOURCES = src/test/test-tf-filter.c
-test_tf_filter_LDADD = libreflex.la
+test_tf_filter_LDADD = libreflex.la -lamino -llapack -lblas
 
 
 bin_PROGRAMS = rfx-trajgen
-
 rfx_trajgen_SOURCES = src/demo/rfx-trajgen.c
-rfx_trajgen_LDADD = libreflex.la
+rfx_trajgen_LDADD = libreflex.la -lamino -lblas -llapack
 
 
 bin_PROGRAMS += rfx-camcal
-
 rfx_camcal_SOURCES = src/demo/rfx-camcal.c
-rfx_camcal_LDADD = libreflex.la
+rfx_camcal_LDADD = libreflex.la -lamino -lblas -llapack
 
 reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/lqg_tf_f.f90 src/tf/rfx_tff.f90
 	$(CPP) $(INCLUDES) -x c  $< -o $@
