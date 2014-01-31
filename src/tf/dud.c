@@ -44,6 +44,30 @@
 #include <amino.h>
 #include "reflex.h"
 
+// huber
+// cost =  norm( log( z^* x ) )
+
+
+void rfx_tf_qangmedian
+( size_t n, const double *Q, size_t ldq, double p[4] )
+{
+    double *sum_dist = AA_MEM_REGION_LOCAL_NEW_N(double,n);
+    AA_MEM_ZERO(sum_dist, n);
+
+    for( size_t i = 0; i < n; i ++ ) {
+        const double *qi = AA_MATCOL(Q,ldq,i);
+        for( size_t j = 0; j < i; j ++ ) {
+            const double *qj = AA_MATCOL(Q,ldq,j);
+            double dist = fabs(aa_tf_qangle_rel(qi, qj));
+            sum_dist[i] += dist;
+            sum_dist[j] += dist;
+        }
+    }
+
+    size_t i_min = aa_fminloc( n, sum_dist );
+    AA_MEM_CPY( p, AA_MATCOL(Q, ldq, i_min), 4 );
+}
+
 void rfx_tf_qlnmedian
 ( size_t n, const double *u, const double *Q, size_t ldq, double p[4] )
 {
@@ -67,6 +91,18 @@ void rfx_tf_qlnmedian
     aa_tf_qminimize(p);
 }
 
+void rfx_tf_dud_qrel
+( size_t n, const double *Qx, size_t ldx, const double *Qy, size_t ldy, double *Q, size_t ldq )
+{
+    // relative orientations
+    for( size_t i = 0; i < n; i ++ ) {
+        double *q = AA_MATCOL(Q,ldq,i);
+        aa_tf_qmulc( AA_MATCOL(Qx, ldx, i),
+                     AA_MATCOL(Qy, ldy, i),
+                     q );
+        aa_tf_qminimize(q);
+    }
+}
 
 int rfx_tf_dud_qmean
 ( size_t n, const double *Ex, size_t ldx, const double *Ey, size_t ldy, double *Q, size_t ldq, double q_mean[4] )
@@ -74,14 +110,8 @@ int rfx_tf_dud_qmean
     int info = 0;
     size_t n1 = n+1;
 
-    // relative orientations
-    for( size_t i = 0; i < n; i ++ ) {
-        double *q = AA_MATCOL(Q,ldq,i);
-        aa_tf_qmulc( AA_MATCOL(Ex, ldx, i),
-                     AA_MATCOL(Ey, ldy, i),
-                     q );
-        aa_tf_qminimize(q);
-    }
+    // relatitivies
+    rfx_tf_dud_qrel(n, Ex, ldx, Ey, ldy, Q, ldq );
 
     // size checks
     if( 1 == n ) {
@@ -124,11 +154,18 @@ int rfx_tf_dud_median
     size_t n1 = n+1;
 
     double *Q = AA_MEM_REGION_LOCAL_NEW_N(double,4*n1);
-    double q_mean[4];
-    rfx_tf_dud_qmean( n, Ex, ldx, Ey, ldy, Q, 4, q_mean );
 
-    //median orientation
-    rfx_tf_qlnmedian(n, q_mean, Q, 4, z );
+
+    //double q_mean[4];
+    //rfx_tf_dud_qmean( n, Ex, ldx, Ey, ldy, Q, 4, q_mean );
+    //rfx_tf_qlnmedian(n, q_mean, Q, 4, z );
+
+    rfx_tf_dud_qrel(n, Ex, ldx, Ey, ldy, Q, 4 );
+    aa_tick("med: ");
+    rfx_tf_qangmedian( n, Q, 4, z );
+    aa_tock();
+
+    //median translation
     double R[9];
     aa_tf_quat2rotmat( z, R );
     aa_tf_relx_median( n, R, Ey+4, ldy, Ex+4, ldx, z+4 );
