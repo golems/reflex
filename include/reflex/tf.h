@@ -58,6 +58,10 @@ int rfx_tf_abs( size_t n,
                 ssize_t *parents,
                 rfx_tf *tf_abs );
 
+/** Compute jacobian for revolute links */
+void rfx_tf_rev_jacobian( const double *AA_RESTRICT tf_abs, const double *axes,
+                          size_t n, const size_t *AA_RESTRICT indices, const double *AA_RESTRICT pe,
+                          double *AA_RESTRICT J, size_t ldJ );
 
 
 /** Randomly corrupt a transform */

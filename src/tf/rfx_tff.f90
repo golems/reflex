@@ -77,5 +77,25 @@ function rfx_tf_numeyama( n, X, ldx, Y, ldy, tf ) result(info) &
   info = 0
 end function rfx_tf_numeyama
 
+subroutine rfx_tf_rev_jacobian_col( T_abs, axis_rel, pe_abs, J )
+  real(C_DOUBLE), intent(in) :: T_abs(7), axis_rel(3), pe_abs(3)
+  real(C_DOUBLE), intent(out) :: J(6)
+  real(C_DOUBLE) :: tmp(3)
+  ! rotation
+  call aa_tf_qrot(T_abs(1:4), axis_rel, J(4:6))
+  ! translation
+  tmp = pe_abs - T_abs(5:7)
+  call aa_tf_cross( J(4:6), tmp, J(1:3) )
+end subroutine rfx_tf_rev_jacobian_col
 
-
+subroutine rfx_tf_rev_jacobian( tf_abs, axes, n, indices, pe, J, ldJ ) &
+     bind(C,name="rfx_tf_rev_jacobian")
+  integer(C_SIZE_T), intent(in), value :: ldJ, n
+  real(C_DOUBLE), intent(in) :: tf_abs(7,n), axes(3,n), pe(3)
+  integer(C_SIZE_T), intent(in) :: indices(n)
+  real(C_DOUBLE), intent(inout) :: J(ldJ,n)
+  integer(C_SIZE_T) :: i
+  do i = 1,n
+     call rfx_tf_rev_jacobian_col( tf_abs(:,indices(i)+1), axes(:,indices(i)+1), pe, J(1:6,i) )
+  end do
+end subroutine rfx_tf_rev_jacobian
