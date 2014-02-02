@@ -177,6 +177,7 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
 
     assert( ws->n_q == k->n_q );
 
+    AA_MEM_ZERO(u, ws->n_q );
 
     // find position error
     /* aa_la_vsub( 3, ws->x, ws->x_r, x_e ); */
@@ -284,7 +285,7 @@ rfx_status_t rfx_ctrlq_lin_vfwd( const rfx_ctrl_t *g, const rfx_ctrlq_lin_k_t *k
 }
 
 
-rfx_ctrlx_lin_t *rfx_ctrlx_alloc( aa_mem_region_t *reg, size_t n_q, rfx_kin_fun kin_fun, void *kin_fun_cx ) {
+rfx_ctrlx_lin_t *rfx_ctrlx_lin_alloc( aa_mem_region_t *reg, size_t n_q, rfx_kin_fun kin_fun, void *kin_fun_cx ) {
     rfx_ctrlx_lin_t *p = AA_MEM_REGION_NEW( reg, rfx_ctrlx_lin_t );
     p->ctrl = AA_MEM_REGION_NEW( reg, rfx_ctrl_t );
     p->k = AA_MEM_REGION_NEW( reg, rfx_ctrl_ws_lin_k_t  );
@@ -319,9 +320,9 @@ AA_API rfx_status_t rfx_ctrlx_lin_vfwd( const rfx_ctrlx_lin_t *ctrl, const doubl
                                         double *u ) {
     AA_MEM_CPY( ctrl->ctrl->act.q, q, ctrl->ctrl->n_q );
 
-    double r[4], x[3];
-    ctrl->kin_fun( ctrl->kin_fun_cx, q, x, r, ctrl->ctrl->J );
-    aa_tf_qv2duqu( r, x, ctrl->ctrl->act.S );
+    double E[7];
+    ctrl->kin_fun( ctrl->kin_fun_cx, q, E, ctrl->ctrl->J );
+    aa_tf_qutr2duqu( E, ctrl->ctrl->act.S );
     return rfx_ctrl_ws_lin_vfwd( ctrl->ctrl, ctrl->k, u );
 }
 
@@ -336,9 +337,9 @@ int rfx_ctrlx_fun_lin_vfwd ( void *cx,
     size_t nq = ctrl->n_q;
     AA_MEM_CPY(ctrl->act.q, q_a, nq);
     AA_MEM_CPY(ctrl->act.dq, dq_a, nq);
-    double r[4], x[3];
-    ctrlx->kin_fun( ctrlx->kin_fun_cx, q_a, x, r, ctrl->J );
-    aa_tf_qv2duqu( r, x, ctrl->act.S );
+    double E[7];
+    ctrlx->kin_fun( ctrlx->kin_fun_cx, q_a, E, ctrl->J );
+    aa_tf_qutr2duqu( E, ctrl->act.S );
 
     // reference
     aa_tf_qutr2duqu( E_r, ctrl->ref.S );

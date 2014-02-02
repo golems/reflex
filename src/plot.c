@@ -89,7 +89,9 @@ void rfx_trajq_seg_plot( struct rfx_trajq_seg_list *cx, double dt ) {
         opts.title="Position";
         opts.ylabel="position";
         opts.xlabel="time";
-        aa_plot_row_series( n_q, n, T, Q,
+        aa_plot_row_series( n_q, n,
+                            T, 1,
+                            Q, n_q,
                             & opts );
 
     }
@@ -99,7 +101,9 @@ void rfx_trajq_seg_plot( struct rfx_trajq_seg_list *cx, double dt ) {
         opts.title="Position (integrated velocity)";
         opts.ylabel="position";
         opts.xlabel="time";
-        aa_plot_row_series( n_q, n, T, Qi,
+        aa_plot_row_series( n_q, n,
+                            T, 1,
+                            Qi, n_q,
                             & opts );
 
     }
@@ -109,7 +113,9 @@ void rfx_trajq_seg_plot( struct rfx_trajq_seg_list *cx, double dt ) {
         opts.title="Velocity";
         opts.ylabel="velocity";
         opts.xlabel="time";
-        aa_plot_row_series( n_q, n, T, dQ,
+        aa_plot_row_series( n_q, n,
+                            T, 1,
+                            dQ, n_q,
                             & opts );
 
     }
@@ -136,14 +142,7 @@ void rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt, const st
     // the rows are the time series for each axis.
     double E[n*7];     // Orientation
     double dX[n*6];    // Workspace velocity
-
-    double sdQ[n*4];   // Integrated Quatenion Derivative (orientation)
-    double sdX[n*3];   // Integrated translation
-
-    double dQ[n*4];    // Quaternion Derivative
-
-    /* double ddX[n*6];  // acc */
-    /* double sddX[n*6]; // integrated acc (vel) */
+    double sdE[n*7];   // Integrated Quatenion Derivative (orientation)
 
     // get actuals
     {
@@ -153,43 +152,17 @@ void rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt, const st
             T[i] = t;
             double *dx = AA_MATCOL(dX,6,i);
             double *e = AA_MATCOL(E,7,i);
-            rfx_trajx_seg_list_get_dx_qv(cx, t,
-                                         e, e+4, dx);
-
-            aa_tf_qvel2diff( e, dx+3, dQ+4*i );
+            rfx_trajx_seg_list_get_dx_qv(cx, t, e, e+4, dx);
         }
     }
 
-    // copy
-    double X[n*3];     // translation
-    double Q[n*4];     // Orientation
-    double dXt[n*3];   // translational vel
-    double dXr[n*3];   // rotational vel
-    aa_cla_dlacpy( 0, 4, (int)n, E, 7, Q, 4 );
-    aa_cla_dlacpy( 0, 3, (int)n, E+4, 7, X, 3 );
-    aa_cla_dlacpy( 0, 3, (int)n, dX, 6, dXt, 3 );
-    aa_cla_dlacpy( 0, 3, (int)n, dX+3, 6, dXr, 3 );
-
-    // integrate
+    // integrate velocities
     {
-        //aa_fzero( sdX, 6 );
-        //aa_fzero( sddX, 6 );
-        AA_MEM_CPY( sdQ, Q, 4 );
-        AA_MEM_CPY( sdX, X, 3 );
-
-        for( size_t k = 1; k < n; k ++ ) {
-            // orientation
-            // for( size_t i = 0; i < 4; i ++ ) {
-            //     sdQ[ k*4 + i ] = sdQ[ (k-1)*4 + i ] + dt*dQ[ k*4 + i ];
-            // }
-            aa_tf_qsvel( sdQ+(k-1)*4, dXr+(k-1)*3, dt, sdQ+k*4 );
-            aa_tf_qnormalize( sdQ + k*4 );
-            //aa_tf_qminimize( sdQ + k*4 );
-
-            // translation
-            for( size_t i = 0; i < 3; i ++ ) {
-                sdX[ k*3 + i ] = sdX[ (k-1)*3 + i ] + dt*dXt[ k*3 + i ];
-            }
+        AA_MEM_CPY( sdE, E, 7 );
+        for( size_t i = 1; i < n; i ++ ) {
+            aa_tf_qutr_svel( AA_MATCOL(sdE,7,i-1),
+                             AA_MATCOL(dX,6,i-1),
+                             dt, AA_MATCOL(sdE,7,i) );
         }
     }
 
@@ -202,7 +175,9 @@ void rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt, const st
         opts.xlabel="time (s)";
         opts.axis_label = XYZW;
         if( xopts->to_file ) opts.script_file = "x.gnuplot";
-        aa_plot_row_series( 3, n, T, X,
+        aa_plot_row_series( 3, n,
+                            T, 1,
+                            E+4, 7,
                             & opts );
 
     }
@@ -214,7 +189,9 @@ void rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt, const st
         opts.xlabel="time (s)";
         opts.axis_label = XYZW;
         if( xopts->to_file ) opts.script_file = "q.gnuplot";
-        aa_plot_row_series( 4, n, T, Q,
+        aa_plot_row_series( 4, n,
+                            T, 1,
+                            E, 7,
                             & opts );
 
     }
@@ -227,19 +204,23 @@ void rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt, const st
         opts.xlabel="time (s)";
         opts.axis_label = XYZW;
         if( xopts->to_file ) opts.script_file = "sum_dq.gnuplot";
-        aa_plot_row_series( 4, n, T, sdQ,
+        aa_plot_row_series( 4, n,
+                            T, 1,
+                            sdE, 7,
                             & opts );
 
     }
 
     { // plot integrated translational velocity
         aa_plot_opts_t opts = {0};
-        opts.title="Position (integrated velocity)";
-        opts.ylabel="position (m)";
+        opts.title="Translation (integrated velocity)";
+        opts.ylabel="translation (m)";
         opts.xlabel="time (s)";
         opts.axis_label = XYZW;
         if( xopts->to_file ) opts.script_file = "sum_dx.gnuplot";
-        aa_plot_row_series( 3, n, T, sdX,
+        aa_plot_row_series( 3, n,
+                            T, 1,
+                            sdE+3, 7,
                             & opts );
 
     }
@@ -251,7 +232,9 @@ void rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt, const st
         opts.xlabel="time (s)";
         opts.axis_label = XYZW;
         if( xopts->to_file ) opts.script_file = "dx.gnuplot";
-        aa_plot_row_series( 3, n, T, dXt,
+        aa_plot_row_series( 3, n,
+                            T, 1,
+                            dX, 6,
                             & opts );
 
     }
@@ -263,28 +246,32 @@ void rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt, const st
         opts.xlabel="time (s)";
         opts.axis_label = XYZW;
         if( xopts->to_file ) opts.script_file = "omega.gnuplot";
-        aa_plot_row_series( 3, n, T, dXr,
+        aa_plot_row_series( 3, n,
+                            T, 1,
+                            dX+3, 6,
                             & opts );
 
     }
-    { // plot quaternion derivative
-        aa_plot_opts_t opts = {0};
-        opts.title="Orientation Derivative";
-        opts.ylabel="quaternion derivative";
-        opts.xlabel="time (s)";
-        opts.axis_label = XYZW;
-        if( xopts->to_file ) opts.script_file = "dq.gnuplot";
-        aa_plot_row_series( 4, n, T, dQ,
-                            & opts );
+    // { // plot quaternion derivative
+    //     aa_plot_opts_t opts = {0};
+    //     opts.title="Orientation Derivative";
+    //     opts.ylabel="quaternion derivative";
+    //     opts.xlabel="time (s)";
+    //     opts.axis_label = XYZW;
+    //     if( xopts->to_file ) opts.script_file = "dq.gnuplot";
+    //     aa_plot_row_series( 4, n, T, dQ,
+    //                         & opts );
 
-    }
+    // }
 
     // joints
+
 
     if ( xopts && xopts->ctrlx_fun && xopts->n_q && xopts->q_0 ) {
         size_t n_q = xopts->n_q;
         double Phi[ n_q * (n+1) ];
         double dPhi[ n_q * n ];
+
         AA_MEM_CPY( Phi, xopts->q_0, n_q );
         AA_MEM_ZERO( dPhi, n_q );
 
@@ -306,6 +293,22 @@ void rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt, const st
             }
         }
 
+        double kE[7*n];
+        double kdX[6*n];
+
+        // forward kinematics
+        if( xopts->kin_fun ) {
+            for( size_t i = 0; i < n; i ++ ) {
+                double J[n_q*6];
+                xopts->kin_fun(xopts->kin_cx, AA_MATCOL(Phi, n_q, i), AA_MATCOL(kE,7,i), J);
+                cblas_dgemv( CblasColMajor, CblasNoTrans,
+                             (int)6, (int)n_q,
+                             1.0, J, 6,
+                             AA_MATCOL(dPhi,n_q,i), 1,
+                             0.0, AA_MATCOL(kdX,6,i), 1 );
+            }
+        }
+
         char lbl[n_q][32];
         const char *plbl[n_q];
         for( size_t j = 0; j < n_q; j ++ ) {
@@ -320,7 +323,9 @@ void rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt, const st
             opts.xlabel="time (s)";
             opts.axis_label = plbl;
             if( xopts->to_file ) opts.script_file = "phi.gnuplot";
-            aa_plot_row_series( n_q, n, T, Phi,
+            aa_plot_row_series( n_q, n,
+                                T, 1,
+                                Phi, n_q,
                                 & opts );
 
         }
@@ -331,9 +336,70 @@ void rfx_trajx_seg_list_plot( struct rfx_trajx_seg_list *cx, double dt, const st
             opts.xlabel="time (s)";
             opts.axis_label = plbl;
             if( xopts->to_file ) opts.script_file = "dphi.gnuplot";
-            aa_plot_row_series( n_q, n, T, dPhi,
+            aa_plot_row_series( n_q, n,
+                                T, 1,
+                                dPhi, n_q,
                                 & opts );
 
+        }
+
+        if( xopts->kin_fun ) {
+
+            { // plot position
+                aa_plot_opts_t opts = {0};
+                opts.title="FK Translation";
+                opts.ylabel="translation (m)";
+                opts.xlabel="time (s)";
+                opts.axis_label = XYZW;
+                if( xopts->to_file ) opts.script_file = "x_fk.gnuplot";
+                aa_plot_row_series( 3, n,
+                                    T, 1,
+                                    kE+4, 7,
+                                    & opts );
+
+            }
+
+            { // plot orientation
+                aa_plot_opts_t opts = {0};
+                opts.title="FK Orientation";
+                opts.ylabel="orientation";
+                opts.xlabel="time (s)";
+                opts.axis_label = XYZW;
+                if( xopts->to_file ) opts.script_file = "q_fk.gnuplot";
+                aa_plot_row_series( 4, n,
+                                    T, 1,
+                                    kE, 7,
+                                    & opts );
+
+            }
+
+            { // plot translational velocity
+                aa_plot_opts_t opts = {0};
+                opts.title="FK Translational Velocity";
+                opts.ylabel="velocity (m/s)";
+                opts.xlabel="time (s)";
+                opts.axis_label = XYZW;
+                if( xopts->to_file ) opts.script_file = "dx_fk.gnuplot";
+                aa_plot_row_series( 3, n,
+                                    T, 1,
+                                    kdX, 6,
+                                    & opts );
+
+            }
+
+            { // plot rotational velocity
+                aa_plot_opts_t opts = {0};
+                opts.title="FK Rotational Velocity";
+                opts.ylabel="velocity (rad/s)";
+                opts.xlabel="time (s)";
+                opts.axis_label = XYZW;
+                if( xopts->to_file ) opts.script_file = "omega_fk.gnuplot";
+                aa_plot_row_series( 3, n,
+                                    T, 1,
+                                    kdX+3, 6,
+                                    & opts );
+
+            }
         }
     }
 }

@@ -170,11 +170,12 @@ AA_API const char* rfx_status_string(rfx_status_t i);
 /* Workspace Controller */
 /************************/
 
-typedef int (*rfx_kin_fun) ( const void *cx, const double *q, double *x, double *r, double *J);
+typedef int (*rfx_kin_fun) ( const void *cx, const double *q, double E[7], double *J);
 
 typedef int (*rfx_kin_duqu_fun) ( const void *cx, const double *q, double S[8],  double *J);
 
-typedef int (*rfx_ctrlx_fun) ( const void *cx, const double *q, const double *dq,
+typedef int (*rfx_ctrlx_fun) ( void *cx,
+                               const double *q, const double *dq,
                                const double *E, const double *dx,
                                double *u );
 
@@ -284,7 +285,7 @@ typedef struct rfx_ctrlx_lin {
     void  *kin_fun_cx;
 } rfx_ctrlx_lin_t;
 
-rfx_ctrlx_lin_t *rfx_ctrlx_alloc( aa_mem_region_t *reg, size_t n_q, rfx_kin_fun kin_fun, void *kin_fun_cx );
+rfx_ctrlx_lin_t *rfx_ctrlx_lin_alloc( aa_mem_region_t *reg, size_t n_q, rfx_kin_fun kin_fun, void *kin_fun_cx );
 
 AA_API rfx_status_t rfx_ctrlx_lin_vfwd( const rfx_ctrlx_lin_t *ctrl, const double *q,
                                         double *u );

@@ -175,8 +175,13 @@ void rfx_trajx_via_init( struct rfx_trajx_via *cx, aa_mem_region_t *reg );
 
 typedef struct rfx_trajx_plot_opts {
     int to_file;                ///< write plot to file
+
     rfx_ctrlx_fun ctrlx_fun;    ///< plot joint values with this controller
-    void *ctrlx_cx;
+    void *ctrlx_cx;             ///< context object for ctrlx_fun
+
+    rfx_kin_fun kin_fun;       ///< kinematics function
+    void *kin_cx;              ///< context-object for kin_fun
+
     size_t n_q;
     double *q_0;                ///< initial joint position
 } rfx_trajx_plot_opts_t;
