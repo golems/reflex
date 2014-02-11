@@ -133,6 +133,9 @@ int rfx_tf_umeyama
 void rfx_tf_qlnmedian
 ( size_t n, const double *u, const double *Q, size_t ldq, double p[4] );
 
+void rfx_tf_qangmedian
+( size_t n, const double *Q, size_t ldq, double p[4] );
+
 int rfx_tf_dud_median
 ( size_t n, const double *Ex, size_t ldx, const double *Ey, size_t ldy, double z[7] );
 

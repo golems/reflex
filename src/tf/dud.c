@@ -51,6 +51,17 @@
 void rfx_tf_qangmedian
 ( size_t n, const double *Q, size_t ldq, double p[4] )
 {
+    if( 0 == n ) {
+        AA_MEM_CPY(p, aa_tf_quat_ident, 4 );
+        return;
+    } else if (1 == n) {
+        aa_tf_qslerp( .5, AA_MATCOL(Q,ldq,0), AA_MATCOL(Q,ldq,1), p );
+        return;
+    } // else do stuff
+
+
+    // TODO: parallelize, because this is slow
+
     double *sum_dist = AA_MEM_REGION_LOCAL_NEW_N(double,n);
     AA_MEM_ZERO(sum_dist, n);
 
