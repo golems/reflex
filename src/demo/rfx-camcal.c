@@ -79,50 +79,6 @@ void gentest( void );
 
 FILE *global_output = NULL;
 
-// static double qangle( const double *q ) {
-//     double aa[4], qr[4];
-//     AA_MEM_CPY( qr, q, 4 );
-//     aa_tf_qminimize(qr);
-//     aa_tf_quat2axang( qr, aa );
-//     return aa[3];
-// }
-
-// static double relangle( const double *q1, const double *q2 ) {
-//     double qr[4];
-//     aa_tf_qmulc( q1, q2, qr );
-//     return qangle( qr );
-// }
-
-// static void tf_dist( const double *E1, const double *E2, double *dtheta, double *dx ) {
-//     *dtheta = relangle( E1, E2 );
-//     *dx = sqrt(aa_la_ssd( 3, E1+4, E2+4));
-// }
-
-//static void eavg( size_t n, const double *EE, double *E_avg );
-
-// static void eavg( size_t n, const double *EE, double *E_avg )
-// {
-
-//     double *w = AA_MEM_REGION_LOCAL_NEW_N( double, n );
-//     for( size_t i = 0; i < n; i++ ) w[i] = 1/(double)n;
-
-//     aa_tf_qutr_wavg( n, w, EE, 7, E_avg );
-//     aa_tf_qminimize(E_avg);
-
-
-//     if( opt_verbosity ) {
-
-//         for( size_t i = 0; i < n; i ++ ) {
-//             const double *e = EE + 7*i;
-//             double angle, dist;
-//             tf_dist( e, E_avg, &angle, &dist );
-//             printf("rel. tf %lu (dp=%f,dx=%f): ", i, angle, dist);
-//             aa_dump_vec( stdout, e, 7 );
-//         }
-//     }
-//     aa_mem_region_local_pop(w);
-// }
-
 enum tf_cor_opts {
     TF_COR_O_TRANS_MEDIAN = 0x1,
     TF_COR_O_TRANS_MEAN = 0x2,
@@ -154,17 +110,15 @@ static void tf_cor( int opts, size_t n,
     }
 
     double *Qrel = AA_MEM_REGION_LOCAL_NEW_N( double, 4*n );
-    if( opts & TF_COR_O_ROT_DAVENPORT ||
-        opts & TF_COR_O_ROT_MEDIAN )
-    {
-        for( size_t i = 0; i < n; i ++ ) {
-            double *q = AA_MATCOL(Qrel,4,i);
-            aa_tf_qmulc( AA_MATCOL(qx,ldqx,i),
+    for( size_t i = 0; i < n; i ++ ) {
+        double *q = AA_MATCOL(Qrel,4,i);
+        aa_tf_qmulc( AA_MATCOL(qx,ldqx,i),
                          AA_MATCOL(qy,ldqy,i),
-                         q );
-            aa_tf_qminimize(q);
-        }
+                     q );
+        aa_tf_qminimize(q);
     }
+
+
 
     if( opts & TF_COR_O_ROT_DAVENPORT )
         aa_tf_quat_davenport( n, NULL, Qrel, 4, q_fit[n_fit++] );
@@ -173,6 +127,25 @@ static void tf_cor( int opts, size_t n,
         rfx_tf_qangmedian ( n, Qrel, 4, q_fit[n_fit++] );
 
     aa_tf_quat_davenport(n_fit, NULL, q_fit[0], 4, Z);
+
+    /*-- deviation -- */
+    double *angles = AA_MEM_REGION_LOCAL_NEW_N( double, n );
+    for( size_t i = 0; i < n; i ++ ) {
+        double *q = AA_MATCOL(Qrel,4,i);
+        angles[i] = aa_tf_qangle_rel(Z, q);
+    }
+    double astd = aa_la_d_vecstd( n, angles, 1, 0 );
+    double amad = aa_la_d_median( n, angles, 1 );
+    double amax = aa_la_max( n, angles );
+
+    fprintf(global_output,
+            //"# %s\n"
+            "# angle std: %f\n"
+            "# angle mad: %f\n"
+            "# angle max: %f\n",
+            //comment,
+            astd, amad, amax
+        );
 
     /*-- Translation --*/
     double R[9];
@@ -205,97 +178,6 @@ static void tf_cor( int opts, size_t n,
 
 
     aa_mem_region_local_pop(top);
-}
-
-static void avg_step2( const char *comment,
-                       size_t n, const const double *E_fk, const double *E_cam, double *E_avg )
-{
-    double *Q = AA_MEM_REGION_LOCAL_NEW_N( double, n*4 );
-    double *angles = AA_MEM_REGION_LOCAL_NEW_N( double, n );
-
-    // compute rels
-    for( size_t i = 0; i < n; i ++ ) {
-        double *q = AA_MATCOL(Q,4,i);
-        aa_tf_qmulc( AA_MATCOL(E_fk,7,i), AA_MATCOL(E_cam,7,i),  q );
-        aa_tf_qminimize(q);
-        angles[i] = aa_tf_qangle_rel(E_avg, q);
-    }
-
-    double astd = aa_la_d_vecstd( n, angles, 1, 0 );
-    double amad = aa_la_d_median( n, angles, 1 );
-    double amax = aa_la_max( n, angles );
-
-    fprintf(global_output,
-            "# %s\n"
-            "# angle std: %f\n"
-            "# angle mad: %f\n"
-            "# angle max: %f\n",
-            comment,
-            astd, amad, amax
-        );
-
-    double R[9];
-    aa_tf_quat2rotmat(E_avg, R );
-    aa_tf_relx_mean( n, R, E_cam+4, 7, E_fk+4, 7, E_avg+4 );
-    write_tf( global_output, "mean translation", E_avg );
-
-    aa_tf_relx_median( n, R, E_cam+4, 7, E_fk+4, 7, E_avg+4 );
-    write_tf( global_output, "median translation", E_avg );
-
-    fprintf(global_output, "\n");
-
-    aa_mem_region_local_pop(Q);
-}
-
-static void davenport( size_t n,
-                       double *E_fk, double *E_cam, double *E_avg ) {
-    double *w = AA_MEM_REGION_LOCAL_NEW_N( double, n );
-    double *Q = AA_MEM_REGION_LOCAL_NEW_N( double, 4*n );
-
-    AA_MEM_SET(E_avg,0,7);
-
-    for( size_t i = 0; i < n; i ++ ) {
-        size_t j = 7*i;
-        double *q = AA_MATCOL(Q,4,i);
-        aa_tf_qmulc( E_fk+j, E_cam+j, q);
-        aa_tf_qminimize(q);
-        //aa_dump_vec(stdout,q,4);
-        w[i] = 1/(double)n;
-    }
-
-    aa_tf_quat_davenport( n, w, Q, 4, E_avg );
-
-    // write_tf( global_output, "Dav.", E_avg );
-    // double E_med[7] = {0};
-    // rfx_tf_qlnmedian( n, E_avg, Q, 4, E_med );
-    // write_tf( global_output, "Dav. ln", E_med );
-
-    avg_step2( "Davenport", n, E_fk, E_cam, E_avg );
-
-    aa_mem_region_local_pop(w);
-}
-
-static void qmedian( size_t n,
-                     double *E_fk, double *E_cam, double *E_avg )
-{
-    double *Q = AA_MEM_REGION_LOCAL_NEW_N( double, 4*n );
-
-    AA_MEM_SET(E_avg,0,7);
-
-    for( size_t i = 0; i < n; i ++ ) {
-        size_t j = 7*i;
-        double *q = AA_MATCOL(Q,4,i);
-        aa_tf_qmulc( E_fk+j, E_cam+j, q);
-        aa_tf_qminimize(q);
-        //aa_dump_vec(stdout,q,4);
-    }
-
-    rfx_tf_qangmedian ( n, Q, 4, E_avg );
-    avg_step2( "Median", n, E_fk, E_cam, E_avg );
-
-    write_tf( global_output, "median translation", E_avg );
-
-    aa_mem_region_local_pop(Q);
 }
 
 int main( int argc, char **argv )
@@ -388,38 +270,7 @@ int main( int argc, char **argv )
         exit(EXIT_FAILURE);
     }
 
-
-    /* Compute Rels */
     size_t count = (size_t)lines_cam;
-
-    /* Umeyama */
-    {
-        double tf[12], EU[7];
-        rfx_tf_umeyama( count, E_fk+4, 7, E_cam+4, 7, tf );
-        assert(aa_tf_isrotmat(tf));
-        aa_tf_tfmat2qutr( tf, EU );
-
-        avg_step2( "Umeyama", count, E_fk, E_cam, EU );
-    }
-
-    /* Quaternion Average */
-    {
-        double E_avg[7];
-        davenport( count, E_fk, E_cam, E_avg );
-    }
-
-    // Dud
-    {
-        double E_med[7];
-        qmedian( count, E_fk, E_cam, E_med );
-        //rfx_tf_dud_median( count, E_fk, 7, E_cam, 7, E_dud );
-        //write_tf( global_output, "Median", E_med );
-
-    //     double E_rdud[7];
-    //     rfx_tf_dud_rejected_mean( count, 2.0, 3.0, E_fk, 7, E_cam, 7, E_rdud );
-    //     write_tf( global_output, "R.DUD", E_rdud );
-     }
-
 
     // tf correspondences
     double E[7];
