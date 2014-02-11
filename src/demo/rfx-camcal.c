@@ -49,6 +49,7 @@
 const char *opt_file_cam = NULL;
 const char *opt_file_fk = NULL;
 const char *opt_file_out = NULL;
+const char *opt_file_id = NULL;
 size_t opt_test = 0;
 int opt_verbosity = 0;
 double opt_d_theta = 0;
@@ -57,12 +58,12 @@ double opt_d_x = 0;
 double opt_zmax_theta = 1;
 double opt_zmax_x = 1;
 
-
 static ssize_t
-read_tfs( const char *name, double **A );
+read_mat( const char *name, size_t n, double **A );
 
 static void
 write_tfs(const char *comment, const char *name, size_t n, double *A );
+
 
 
 static void
@@ -79,6 +80,22 @@ void gentest( void );
 
 FILE *global_output = NULL;
 
+struct tf_cor {
+    double id;
+    double X[7];
+    double Y[7];
+};
+
+#define TF_COR_LD (sizeof(struct tf_cor)/sizeof(double))
+
+static int tf_cor_compar( const void *_a, const void *_b ) {
+    struct tf_cor *a = (struct tf_cor*)_a;
+    struct tf_cor *b = (struct tf_cor*)_b;
+    if( a->id < b->id ) return -1;
+    if( a->id > b->id ) return 1;
+    return 0;
+}
+
 enum tf_cor_opts {
     TF_COR_O_TRANS_MEDIAN = 0x1,
     TF_COR_O_TRANS_MEAN = 0x2,
@@ -90,12 +107,14 @@ enum tf_cor_opts {
 
 // Find TF from correspondences
 static void tf_cor( int opts, size_t n,
-                    const double *qx, size_t ldqx,
-                    const double *vx, size_t ldvx,
-                    const double *qy, size_t ldqy,
-                    const double *vy, size_t ldvy,
+                    struct tf_cor *cor,
                     double *Z )
 {
+    const double *qx = cor[0].X;   size_t ldqx = TF_COR_LD;
+    const double *vx = cor[0].X+4; size_t ldvx = TF_COR_LD;
+    const double *qy = cor[0].Y;   size_t ldqy = TF_COR_LD;
+    const double *vy = cor[0].Y+4; size_t ldvy = TF_COR_LD;
+
     double *top = AA_MEM_REGION_LOCAL_NEW_N( double, 1 );
 
     /*-- Orientation --*/
@@ -117,8 +136,6 @@ static void tf_cor( int opts, size_t n,
                      q );
         aa_tf_qminimize(q);
     }
-
-
 
     if( opts & TF_COR_O_ROT_DAVENPORT )
         aa_tf_quat_davenport( n, NULL, Qrel, 4, q_fit[n_fit++] );
@@ -183,7 +200,7 @@ static void tf_cor( int opts, size_t n,
 int main( int argc, char **argv )
 {
     /* Parse */
-    for( int c; -1 != (c = getopt(argc, argv, "c:k:o:t:d:x:v?")); ) {
+    for( int c; -1 != (c = getopt(argc, argv, "c:k:i:o:t:d:x:v?")); ) {
         switch(c) {
         case 'v':
             opt_verbosity++;
@@ -193,6 +210,9 @@ int main( int argc, char **argv )
             break;
         case 'k':
             opt_file_fk = optarg;
+            break;
+        case 'i':
+            opt_file_id = optarg;
             break;
         case 'o':
             opt_file_out = optarg;
@@ -213,6 +233,7 @@ int main( int argc, char **argv )
                   "Options:\n"
                   "  -k FILENAME,                         Forward Kinematics Pose File\n"
                   "  -c FILENAME,                         Camera Marker Pose File\n"
+                  "  -i ID-FILE,                          Frame id file\n"
                   "  -o FILENAME,                         Output file\n"
                   "  -t POSE_COUNT,                       Generate test data\n"
                   "  -d DEGREES,                          Corrupt test data rotation by max DEGREES\n"
@@ -261,43 +282,52 @@ int main( int argc, char **argv )
 
 
     /* Read points */
-    double *E_cam=NULL, *E_fk=NULL;
-    ssize_t lines_cam = read_tfs( opt_file_cam, &E_cam );
-    ssize_t lines_fk = read_tfs( opt_file_fk, &E_fk );
-    if( lines_cam != lines_fk ) {
-        fprintf(stderr, "Differing line count between `%s' and `%s'\n",
-                opt_file_cam, opt_file_fk );
+    double *E_cam=NULL, *E_fk=NULL, *ids=NULL;
+    //return 0;
+    ssize_t lines_cam = read_mat( opt_file_cam, 7, &E_cam );
+    ssize_t lines_fk =  read_mat( opt_file_fk, 7, &E_fk );
+    ssize_t lines_id =  read_mat( opt_file_id, 1, &ids );
+    if( lines_cam != lines_fk || lines_id != lines_cam ) {
+        fprintf(stderr, "Differing line count between `%s', `%s', and `%s'\n",
+                opt_file_cam, opt_file_fk, opt_file_id );
         exit(EXIT_FAILURE);
     }
 
     size_t count = (size_t)lines_cam;
 
+    struct tf_cor *cor = AA_NEW_AR( struct tf_cor, count );
+    AA_MEM_ZERO(cor, count);
+    aa_cla_dlacpy( ' ', 7, (int)count, E_fk, 7, cor[0].X, TF_COR_LD );
+    aa_cla_dlacpy( ' ', 7, (int)count, E_cam, 7, cor[0].Y, TF_COR_LD );
+    aa_cla_dlacpy( ' ', 1, (int)count, ids, 1, &cor[0].id, TF_COR_LD );
+    aa_aheap_sort( cor, count, sizeof(*cor), &tf_cor_compar );
+
     // tf correspondences
     double E[7];
     tf_cor( TF_COR_O_ROT_UMEYAMA | TF_COR_O_TRANS_MEAN,
-            count,
-            E_fk, 7, E_fk+4, 7,
-            E_cam, 7, E_cam+4, 7,
-            E );
+            count, cor, E );
     write_tf( global_output, "Umeyama Mean", E );
 
     tf_cor( TF_COR_O_ROT_DAVENPORT | TF_COR_O_TRANS_MEAN,
-            count,
-            E_fk, 7, E_fk+4, 7,
-            E_cam, 7, E_cam+4, 7,
-            E );
+            count, cor, E );
     write_tf( global_output, "Davenport Mean", E );
 
-    tf_cor( TF_COR_O_ROT_MEDIAN | TF_COR_O_TRANS_MEDIAN,
-            count,
-            E_fk, 7, E_fk+4, 7,
-            E_cam, 7, E_cam+4, 7,
-            E );
-    write_tf( global_output, "Median", E );
+    // TODO: correspondence EM
+    // iterate between computing registraton and frame offsets
+    // registration: tf_cor()
+    // offset: per-frame inverse correspondences
+
+    /* tf_cor( TF_COR_O_ROT_MEDIAN | TF_COR_O_TRANS_MEDIAN, */
+    /*         count, */
+    /*         E_fk, 7, E_fk+4, 7, */
+    /*         E_cam, 7, E_cam+4, 7, */
+    /*         E ); */
+    /* write_tf( global_output, "Median", E ); */
 }
 
+
 static ssize_t
-read_tfs( const char *name, double **A )
+read_mat( const char *name, size_t n, double **A )
 {
 
     FILE *f = fopen( name, "r" );
@@ -306,7 +336,7 @@ read_tfs( const char *name, double **A )
         exit(EXIT_FAILURE);
     }
     size_t elts = 0;
-    ssize_t lines = aa_io_fread_matrix_heap( f, 7, A, &elts );
+    ssize_t lines = aa_io_fread_matrix_heap( f, n, A, &elts );
     if( lines < 0 ) {
         fprintf(stderr, "Error in file `%s' on line %ld.\n", name, lines );
         exit(EXIT_FAILURE);
