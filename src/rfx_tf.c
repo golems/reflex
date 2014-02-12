@@ -102,24 +102,28 @@ int rfx_tf_abs( size_t n,
     return 0;
 }
 
-void rfx_tf_corrupt
-( double theta_max, double x_max, const double e0[7], double e1[7] )
+void rfx_tf_rand( double theta_max, double x_max, double e[7] )
 {
-    double ec[7];
-
     // rotation
     double aa[4];
     aa_vrand( 4, aa );
     aa_la_normalize(3,aa);
     aa[3] *= theta_max;
-    aa_tf_axang2quat(aa, ec+AA_TF_QUTR_Q);
+    aa_tf_axang2quat(aa, e+AA_TF_QUTR_Q);
 
     // translation
     double v[3];
     aa_vrand( 3, v );
     for( size_t i = 0; i < 3; i ++ ) {
-        ec[4+i] = (v[i] - 0.5) * 2 * x_max;
+        e[4+i] = (v[i] - 0.5) * 2 * x_max;
     }
+}
+
+void rfx_tf_corrupt
+( double theta_max, double x_max, const double e0[7], double e1[7] )
+{
+    double ec[7];
+    rfx_tf_rand(theta_max,x_max, ec);
 
     // mul
     aa_tf_qutr_mul( e0, ec, e1 );

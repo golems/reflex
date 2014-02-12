@@ -245,6 +245,11 @@ static void tf_cor_em( int opts, size_t k, size_t n,
         AA_MEM_SET( tf_off[i].v.data, 0, 3 );
     }
 
+    rfx_tf *X_conj = AA_MEM_REGION_LOCAL_NEW_N( rfx_tf, n );
+    for( size_t i = 0; i < n; i ++ ) {
+        aa_tf_qutr_conj(cor[i].X, X_conj[i].data);
+    }
+
     // iterate
     rfx_tf *X_p = AA_MEM_REGION_LOCAL_NEW_N( rfx_tf, n );
     rfx_tf *Y_p = AA_MEM_REGION_LOCAL_NEW_N( rfx_tf, n );
@@ -260,30 +265,28 @@ static void tf_cor_em( int opts, size_t k, size_t n,
                 cor[0].Y+4, TF_COR_LD,
                 Z );
 
-        /* printf("em %lu:  ", j); */
-        /* aa_dump_vec(stdout, Z, 7 ); */
+        printf("em %lu:  ", j);
+        aa_dump_vec(stdout, Z, 7 );
 
         // update offsets
         // T_fk*T_off = Z*T_cam  =>  T_off * (Z*T_cam)^* = T_fk^*
         for( size_t i = 0; i < n; i ++ ) {
-            aa_tf_qutr_conj(cor[i].X, Y_p[i].data);
-        }
-        for( size_t i = 0; i < n; i ++ ) {
             double tmp[7];
             aa_tf_qutr_mul(Z, cor[i].Y, tmp);
-            aa_tf_qutr_conj(tmp, X_p[i].data);
+            aa_tf_qutr_conj(tmp, Y_p[i].data);
         }
+
         for( size_t i = 0; i < m; i ++ ) {
             size_t beg = i_beg[i];
             tf_cor( opts, i_end[i] - beg,
-                    X_p[beg].r.data, 7,
-                    X_p[beg].v.data, 7,
+                    X_conj[beg].r.data, 7,
+                    X_conj[beg].v.data, 7,
                     Y_p[beg].r.data, 7,
                     Y_p[beg].v.data, 7,
                     tf_off[i].data );
 
-            /* printf("  "); */
-            /* aa_dump_vec(stdout, tf_off[i].data, 7 ); */
+            printf("  ");
+            aa_dump_vec(stdout, tf_off[i].data, 7 );
         }
 
     }
@@ -431,8 +434,8 @@ int main( int argc, char **argv )
             cor[0].Y+4, TF_COR_LD, E );
     write_tf( global_output, "Umeyama Median", E );
 
-    tf_cor_em( TF_COR_O_ROT_UMEYAMA /*| TF_COR_O_ROT_DAVENPORT*/ | TF_COR_O_TRANS_MEDIAN,
-               10, count,
+    tf_cor_em( TF_COR_O_ROT_UMEYAMA | TF_COR_O_ROT_DAVENPORT | TF_COR_O_TRANS_MEAN,
+               50, count,
                cor, E );
     write_tf( global_output, "EM", E );
 }
@@ -465,16 +468,25 @@ void gentest( void )
     srand((unsigned int)time(NULL)); // might break in 2038
 
     double E_true[7];
+    double E_off[7];
+
     double *E_cam = (double*)malloc( sizeof(double) * 7 * opt_test );
     double *E_fk = (double*)malloc( sizeof(double) * 7 * opt_test );
 
     aa_tf_qutr_rand( E_true );
     aa_tf_qminimize(E_true);
+    rfx_tf_rand( 5.0*M_PI/180, .25e-2, E_off );
 
     for( size_t i = 0; i < opt_test; i ++ ) {
         size_t j = 7*i;
-        aa_tf_qutr_rand( E_fk+j );
-        aa_tf_qutr_cmul( E_true, E_fk+j, E_cam+j );
+        {
+            // random FK
+            aa_tf_qutr_rand( E_fk+j );
+            // marker fk = fk * offset
+            double mk_fk[7];
+            aa_tf_qutr_mul(E_fk+j, E_off, mk_fk );
+            aa_tf_qutr_cmul( E_true, mk_fk, E_cam+j );
+        }
 
         if( 0 < opt_d_theta || 0 < opt_d_x ) {
             double tmp[7];
@@ -485,7 +497,10 @@ void gentest( void )
 
     write_tfs( "Camera Pose Estimates", opt_file_cam, opt_test, E_cam );
     write_tfs( "Forward Kinematics Poses", opt_file_fk, opt_test, E_fk );
-    write_tfs( "True Registration", opt_file_out, 1, E_true );
+    double E_out[2][7];
+    AA_MEM_CPY(E_out[0], E_off, 7);
+    AA_MEM_CPY(E_out[1], E_true, 7);
+    write_tfs( "True Registration", opt_file_out, 2, E_out[0] );
 
     FILE *f_id = fopen( opt_file_id, "w" );
     if( NULL == f_id ) {

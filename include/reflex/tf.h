@@ -63,10 +63,13 @@ void rfx_tf_rev_jacobian( const double *AA_RESTRICT tf_abs, const double *axes,
                           size_t n, const size_t *AA_RESTRICT indices, const double *AA_RESTRICT pe,
                           double *AA_RESTRICT J, size_t ldJ );
 
+/* Generate random tf */
+void rfx_tf_rand( double theta_max, double x_max, double e[7] );
 
 /** Randomly corrupt a transform */
 void rfx_tf_corrupt
 ( double theta_max, double x_max, const double e0[7], double e1[7] );
+
 
 struct rfx_tf_filter {
     rfx_tf_dx X;  ///< state
