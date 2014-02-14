@@ -45,25 +45,11 @@
 #include <getopt.h>
 #include "reflex.h"
 
-
-const char *opt_file_cam = NULL;
-const char *opt_file_fk = NULL;
-const char *opt_file_out = NULL;
-const char *opt_file_id = NULL;
-size_t opt_test = 0;
 int opt_verbosity = 0;
-double opt_d_theta = 0;
-double opt_d_x = 0;
 
-double opt_zmax_theta = 1;
-double opt_zmax_x = 1;
 
 static ssize_t
 read_mat( const char *name, size_t n, double **A );
-
-static void
-write_tfs(const char *comment, const char *name, size_t n, double *A );
-
 
 
 static void
@@ -73,8 +59,6 @@ write_tf(FILE *tf, const char *comment, double *E );
 static FILE*
 tryfopen(const char *name );
 
-// static size_t
-// reject( size_t n_in, double zmax_theta, double zmax_x, double *EE, const double *E_mean );
 
 void gentest( void );
 
@@ -264,9 +248,10 @@ static void tf_cor_em( int opts, size_t k, size_t n,
                 cor[0].Y, TF_COR_LD,
                 cor[0].Y+4, TF_COR_LD,
                 Z );
-
-        printf("em %lu:  ", j);
-        aa_dump_vec(stdout, Z, 7 );
+        if( opt_verbosity)  {
+            printf("em %lu:  ", j);
+            aa_dump_vec(stdout, Z, 7 );
+        }
 
         // update offsets
         // T_fk*T_off = Z*T_cam  =>  T_off * (Z*T_cam)^* = T_fk^*
@@ -284,9 +269,10 @@ static void tf_cor_em( int opts, size_t k, size_t n,
                     Y_p[beg].r.data, 7,
                     Y_p[beg].v.data, 7,
                     tf_off[i].data );
-
-            printf("  ");
-            aa_dump_vec(stdout, tf_off[i].data, 7 );
+            if( opt_verbosity) {
+                printf("  ");
+                aa_dump_vec(stdout, tf_off[i].data, 7 );
+            }
         }
 
     }
@@ -294,10 +280,21 @@ static void tf_cor_em( int opts, size_t k, size_t n,
 }
 
 
+const char *opt_file_cam = NULL;
+const char *opt_file_fk = NULL;
+const char *opt_file_out = NULL;
+const char *opt_file_id = NULL;
+size_t opt_test = 0;
+int opt_cor_opts = 0;
+size_t opt_em_count = 10;
+
+double opt_zmax_theta = 1;
+double opt_zmax_x = 1;
+
 int main( int argc, char **argv )
 {
     /* Parse */
-    for( int c; -1 != (c = getopt(argc, argv, "c:k:i:o:t:d:x:v?")); ) {
+    for( int c; -1 != (c = getopt(argc, argv, "c:k:i:o:DUamvn:?")); ) {
         switch(c) {
         case 'v':
             opt_verbosity++;
@@ -314,14 +311,20 @@ int main( int argc, char **argv )
         case 'o':
             opt_file_out = optarg;
             break;
-        case 't':
-            opt_test = (size_t)atoi(optarg);
+        case 'D':
+            opt_cor_opts |= TF_COR_O_ROT_DAVENPORT;
             break;
-        case 'd':
-            opt_d_theta = atof(optarg)*M_PI/180;
+        case 'U':
+            opt_cor_opts |= TF_COR_O_ROT_UMEYAMA;
             break;
-        case 'x':
-            opt_d_x = atof(optarg);
+        case 'a':
+            opt_cor_opts |= TF_COR_O_TRANS_MEAN;
+            break;
+        case 'm':
+            opt_cor_opts |= TF_COR_O_TRANS_MEDIAN;
+            break;
+        case 'n':
+            opt_em_count = (size_t)atoi(optarg)+1;
             break;
         case '?':   /* help     */
             puts( "Usage: rfx-camcal -k FK_POSE_FILE -c CAM_POSE_FILE \n"
@@ -332,9 +335,11 @@ int main( int argc, char **argv )
                   "  -c FILENAME,                         Camera Marker Pose File\n"
                   "  -i ID-FILE,                          Frame id file\n"
                   "  -o FILENAME,                         Output file\n"
-                  "  -t POSE_COUNT,                       Generate test data\n"
-                  "  -d DEGREES,                          Corrupt test data rotation by max DEGREES\n"
-                  "  -x VALUE,                            Corrupt test translation by max VALUE\n"
+                  "  -U,                                  Use Umeyama\n"
+                  "  -D,                                  Use Davenport\n"
+                  "  -a,                                  Use mean translation\n"
+                  "  -m,                                  Use median translation\n"
+                  "  -n ITERATIONS,                       EM iterations\n"
                   "  -v,                                  Be verbose\n"
                   "  -?,                                  Program help text\n"
                   "\n"
@@ -345,9 +350,7 @@ int main( int argc, char **argv )
                   "                                       The quaternion is in xyzw order.\n"
                   "\n"
                   "Examples:\n"
-                  "  rfx-camcal -k fk-tf.dat -c cam-tf.dat     Compute average relative transform\n"
-                  "\n"
-                  "  rfx-camcal -k fk.dat -c cam.dat -t 10     Generate random test poses\n"
+                  "  rfx-camcal -k fk-tf.dat -c cam-tf.dat -D -a  Compute average relative transform\n"
                   "\n"
                   "Report bugs to <ntd@gatech.edu>"
                 );
@@ -357,12 +360,6 @@ int main( int argc, char **argv )
             printf("Unknown argument: `%s'\n", optarg);
             exit(EXIT_FAILURE);
         }
-    }
-
-    /* Maybe generate test data */
-    if( opt_test ) {
-        gentest();
-        return 0;
     }
 
     /* Open */
@@ -399,43 +396,10 @@ int main( int argc, char **argv )
     aa_cla_dlacpy( ' ', 1, (int)count, ids, 1, &cor[0].id, TF_COR_LD );
     aa_aheap_sort( cor, count, sizeof(*cor), &tf_cor_compar );
 
-    // tf correspondences
     double E[7];
-    tf_cor( TF_COR_O_ROT_UMEYAMA | TF_COR_O_TRANS_MEAN,
-            count,
-            cor[0].X, TF_COR_LD,
-            cor[0].X+4, TF_COR_LD,
-            cor[0].Y, TF_COR_LD,
-            cor[0].Y+4, TF_COR_LD,
-            E );
-    write_tf( global_output, "Umeyama Mean", E );
 
-    tf_cor( TF_COR_O_ROT_DAVENPORT | TF_COR_O_TRANS_MEAN,
-            count,
-            cor[0].X, TF_COR_LD,
-            cor[0].X+4, TF_COR_LD,
-            cor[0].Y, TF_COR_LD,
-            cor[0].Y+4, TF_COR_LD, E );
-    write_tf( global_output, "Davenport Mean", E );
-
-    /* tf_cor( TF_COR_O_ROT_MEDIAN | TF_COR_O_TRANS_MEDIAN, */
-    /*         count, */
-    /*         cor[0].X, TF_COR_LD, */
-    /*         cor[0].X+4, TF_COR_LD, */
-    /*         cor[0].Y, TF_COR_LD, */
-    /*         cor[0].Y+4, TF_COR_LD, E ); */
-    /* write_tf( global_output, "Median", E ); */
-
-    tf_cor( TF_COR_O_ROT_UMEYAMA | TF_COR_O_TRANS_MEDIAN,
-            count,
-            cor[0].X, TF_COR_LD,
-            cor[0].X+4, TF_COR_LD,
-            cor[0].Y, TF_COR_LD,
-            cor[0].Y+4, TF_COR_LD, E );
-    write_tf( global_output, "Umeyama Median", E );
-
-    tf_cor_em( TF_COR_O_ROT_UMEYAMA | TF_COR_O_ROT_DAVENPORT | TF_COR_O_TRANS_MEAN,
-               50, count,
+    tf_cor_em( opt_cor_opts,
+               opt_em_count,  count,
                cor, E );
     write_tf( global_output, "EM", E );
 }
@@ -459,60 +423,6 @@ read_mat( const char *name, size_t n, double **A )
     return lines;
 }
 
-void gentest( void )
-{
-    if( opt_verbosity) {
-        fprintf(stderr, "Generating test data.\n");
-    }
-
-    srand((unsigned int)time(NULL)); // might break in 2038
-
-    double E_true[7];
-    double E_off[7];
-
-    double *E_cam = (double*)malloc( sizeof(double) * 7 * opt_test );
-    double *E_fk = (double*)malloc( sizeof(double) * 7 * opt_test );
-
-    aa_tf_qutr_rand( E_true );
-    aa_tf_qminimize(E_true);
-    rfx_tf_rand( 5.0*M_PI/180, .25e-2, E_off );
-
-    for( size_t i = 0; i < opt_test; i ++ ) {
-        size_t j = 7*i;
-        {
-            // random FK
-            aa_tf_qutr_rand( E_fk+j );
-            // marker fk = fk * offset
-            double mk_fk[7];
-            aa_tf_qutr_mul(E_fk+j, E_off, mk_fk );
-            aa_tf_qutr_cmul( E_true, mk_fk, E_cam+j );
-        }
-
-        if( 0 < opt_d_theta || 0 < opt_d_x ) {
-            double tmp[7];
-            rfx_tf_corrupt( opt_d_theta, opt_d_x, E_cam+j, tmp );
-            memcpy( E_cam+j, tmp, 7*sizeof(tmp[0]) );
-        }
-   }
-
-    write_tfs( "Camera Pose Estimates", opt_file_cam, opt_test, E_cam );
-    write_tfs( "Forward Kinematics Poses", opt_file_fk, opt_test, E_fk );
-    double E_out[2][7];
-    AA_MEM_CPY(E_out[0], E_off, 7);
-    AA_MEM_CPY(E_out[1], E_true, 7);
-    write_tfs( "True Registration", opt_file_out, 2, E_out[0] );
-
-    FILE *f_id = fopen( opt_file_id, "w" );
-    if( NULL == f_id ) {
-        fprintf(stderr, "Could not open `%s'\n", opt_file_id );
-        exit(EXIT_FAILURE);
-    }
-    for( size_t i = 0; i < opt_test; i ++ )
-        fprintf(f_id,"0\n");
-    fclose(f_id);
-}
-
-
 static FILE*
 tryfopen(const char *name)
 {
@@ -529,28 +439,6 @@ tryfopen(const char *name)
     }
     return f;
 }
-
-static void
-write_tfs(const char *comment, const char *name, size_t n, double *A )
-{
-    if( opt_verbosity) {
-        fprintf(stderr, "Writing output to `%s'.\n",
-                name ? name : "STDOUT");
-    }
-
-    FILE *f = tryfopen( name );
-
-    fprintf(f,"# %s\n"
-            "\n"
-            "# quat_x quat_y quat_z quat_w trans_x trans_y trans_z\n",
-            comment);
-
-    for( size_t i = 0; i < n; i ++ ) {
-        double *E = A+7*i;
-        write_tf( f, NULL, E );
-    }
-}
-
 
 static void
 write_tf(FILE *f, const char *comment, double *E )
