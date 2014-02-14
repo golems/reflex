@@ -64,6 +64,10 @@ bin_PROGRAMS += rfx-camcal
 rfx_camcal_SOURCES = src/demo/rfx-camcal.c
 rfx_camcal_LDADD = libreflex.la -lamino -lblas -llapack
 
+bin_PROGRAMS += rfx-camcal-test
+rfx_camcal_test_SOURCES = src/demo/rfx-camcal-test.c
+rfx_camcal_test_LDADD = libreflex.la -lamino -lblas -llapack
+
 reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/lqg_tf_f.f90 src/tf/rfx_tff.f90
 	$(CPP) $(INCLUDES) -x c  $< -o $@
 
