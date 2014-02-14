@@ -220,7 +220,7 @@
              collect (if p p -1))))
 
 (defun emit-rel-fun (name frames &key (stream t))
-  (format stream "~&void ~A~&( double *restrict q, double *restrict e ) ~&{~&" name)
+  (format stream "~&void ~A~&( const double *restrict q, double *restrict e ) ~&{~&" name)
   (loop
      for frame in frames
      for i from 0
@@ -303,7 +303,7 @@
     (format f "~&~%/* CONFIGURATION INDICES */")
     (emit-config-indices frames :stream f :max configuration-max)
     (format f "~&~%/* Compute Relative Transforms */")
-    (format f "~&void ~A~&( double *AA_RESTRICT q, double *AA_RESTRICT e );"
+    (format f "~&void ~A~&( const double *AA_RESTRICT q, double *AA_RESTRICT e );"
             relative-function)
     (format f "~&~%/* Compute Absolute Transforms */")
     (format f "~&void ~A~&( const double * AA_RESTRICT rel, double * AA_RESTRICT abs );"
