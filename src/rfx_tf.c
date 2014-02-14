@@ -140,3 +140,95 @@ int rfx_tf_umeyama
     aa_mem_region_local_pop(X);
     return info;
 }
+
+// Find TF from correspondences
+void rfx_tf_cor( int opts, size_t n,
+                 const double *qx, size_t ldqx,
+                 const double *vx, size_t ldvx,
+                 const double *qy, size_t ldqy,
+                 const double *vy, size_t ldvy,
+                 double *Z )
+{
+
+    double *top = AA_MEM_REGION_LOCAL_NEW_N( double, 1 );
+
+    /*-- Orientation --*/
+    double q_fit[3][4];
+    size_t n_fit = 0;
+
+    if( opts & RFX_TF_COR_O_ROT_UMEYAMA ) {
+        double tf[12];
+        rfx_tf_umeyama( n, vx, ldvx, vy, ldvy, tf );
+        assert(aa_tf_isrotmat(tf));
+        aa_la_transpose(3,tf);
+        aa_tf_rotmat2quat( tf, q_fit[n_fit++] );
+    }
+
+    double *Qrel = AA_MEM_REGION_LOCAL_NEW_N( double, 4*n );
+    for( size_t i = 0; i < n; i ++ ) {
+        double *q = AA_MATCOL(Qrel,4,i);
+        aa_tf_qmulc( AA_MATCOL(qx,ldqx,i),
+                         AA_MATCOL(qy,ldqy,i),
+                     q );
+        aa_tf_qminimize(q);
+    }
+
+    if( opts & RFX_TF_COR_O_ROT_DAVENPORT )
+        aa_tf_quat_davenport( n, NULL, Qrel, 4, q_fit[n_fit++] );
+
+    if( opts & RFX_TF_COR_O_ROT_MEDIAN )
+        rfx_tf_qangmedian ( n, Qrel, 4, q_fit[n_fit++] );
+
+    aa_tf_quat_davenport(n_fit, NULL, q_fit[0], 4, Z);
+
+    /*-- deviation -- */
+    /* double *angles = AA_MEM_REGION_LOCAL_NEW_N( double, n ); */
+    /* for( size_t i = 0; i < n; i ++ ) { */
+    /*     double *q = AA_MATCOL(Qrel,4,i); */
+    /*     angles[i] = aa_tf_qangle_rel(Z, q); */
+    /* } */
+    /* double astd = aa_la_d_vecstd( n, angles, 1, 0 ); */
+    /* double amad = aa_la_d_median( n, angles, 1 ); */
+    /* double amax = aa_la_max( n, angles ); */
+
+    /* fprintf(global_output, */
+    /*         //"# %s\n" */
+    /*         "# angle std: %f\n" */
+    /*         "# angle mad: %f\n" */
+    /*         "# angle max: %f\n", */
+    /*         //comment, */
+    /*         astd, amad, amax */
+    /*     ); */
+
+    /*-- Translation --*/
+    double R[9];
+    aa_tf_quat2rotmat(Z,R);
+    assert( aa_tf_isrotmat(R) );
+
+    // rels
+    double *Zt = AA_MEM_REGION_LOCAL_NEW_N(double, 3*n);
+    aa_cla_dlacpy( ' ', 3, (int)n,
+                   vx, (int)ldvx,
+                   Zt, 3 );
+
+    for( size_t j = 0; j < n; j ++ ) {
+        double yp[3] = {0};
+        aa_tf_9rot( R, AA_MATCOL(vy,ldvy,j), yp );
+        for( size_t i = 0; i < 3; i++ )
+            AA_MATREF(Zt, 3, i, j) -=  yp[i];
+        assert( aa_tf_isrotmat(R) );
+    }
+
+    assert( aa_tf_isrotmat(R) );
+    if( opts & RFX_TF_COR_O_TRANS_MEAN ) {
+        aa_la_d_colmean( 3, n, Zt, 3, Z+4 );
+        //aa_tf_relx_mean( n, R, vy,ldvy, vx,ldvx, Z+4 );
+    } else if (opts & RFX_TF_COR_O_TRANS_MEDIAN ) {
+        //aa_tf_relx_median( n, R, vy,ldvy, vx,ldvx, Z+4 );
+        for( size_t i = 0; i < 3; i ++ )
+            (Z+4)[i] = aa_la_d_median( n, Zt+i, 3 );
+    }
+
+
+    aa_mem_region_local_pop(top);
+}

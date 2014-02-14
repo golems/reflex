@@ -70,13 +70,6 @@ struct tf_cor {
     double Y[7];
 };
 
-static void tf_cor( int opts, size_t n,
-                    const double *qx, size_t ldqx,
-                    const double *vx, size_t ldvx,
-                    const double *qy, size_t ldqy,
-                    const double *vy, size_t ldvy,
-                    double *Z );
-
 static void tf_cor_em( int opts, size_t k, size_t n,
                        struct tf_cor *cor,
                        double *Z );
@@ -91,106 +84,6 @@ static int tf_cor_compar( const void *_a, const void *_b ) {
     return 0;
 }
 
-enum tf_cor_opts {
-    TF_COR_O_TRANS_MEDIAN = 0x1,
-    TF_COR_O_TRANS_MEAN = 0x2,
-    TF_COR_O_ROT_UMEYAMA = 0x4,
-    TF_COR_O_ROT_DAVENPORT = 0x8,
-    TF_COR_O_ROT_MEDIAN = 0x10
-};
-
-
-// Find TF from correspondences
-static void tf_cor( int opts, size_t n,
-                    const double *qx, size_t ldqx,
-                    const double *vx, size_t ldvx,
-                    const double *qy, size_t ldqy,
-                    const double *vy, size_t ldvy,
-                    double *Z )
-{
-
-    double *top = AA_MEM_REGION_LOCAL_NEW_N( double, 1 );
-
-    /*-- Orientation --*/
-    double q_fit[3][4];
-    size_t n_fit = 0;
-
-    if( opts & TF_COR_O_ROT_UMEYAMA ) {
-        double tf[12];
-        rfx_tf_umeyama( n, vx, ldvx, vy, ldvy, tf );
-        assert(aa_tf_isrotmat(tf));
-        aa_la_transpose(3,tf);
-        aa_tf_rotmat2quat( tf, q_fit[n_fit++] );
-    }
-
-    double *Qrel = AA_MEM_REGION_LOCAL_NEW_N( double, 4*n );
-    for( size_t i = 0; i < n; i ++ ) {
-        double *q = AA_MATCOL(Qrel,4,i);
-        aa_tf_qmulc( AA_MATCOL(qx,ldqx,i),
-                         AA_MATCOL(qy,ldqy,i),
-                     q );
-        aa_tf_qminimize(q);
-    }
-
-    if( opts & TF_COR_O_ROT_DAVENPORT )
-        aa_tf_quat_davenport( n, NULL, Qrel, 4, q_fit[n_fit++] );
-
-    if( opts & TF_COR_O_ROT_MEDIAN )
-        rfx_tf_qangmedian ( n, Qrel, 4, q_fit[n_fit++] );
-
-    aa_tf_quat_davenport(n_fit, NULL, q_fit[0], 4, Z);
-
-    /*-- deviation -- */
-    /* double *angles = AA_MEM_REGION_LOCAL_NEW_N( double, n ); */
-    /* for( size_t i = 0; i < n; i ++ ) { */
-    /*     double *q = AA_MATCOL(Qrel,4,i); */
-    /*     angles[i] = aa_tf_qangle_rel(Z, q); */
-    /* } */
-    /* double astd = aa_la_d_vecstd( n, angles, 1, 0 ); */
-    /* double amad = aa_la_d_median( n, angles, 1 ); */
-    /* double amax = aa_la_max( n, angles ); */
-
-    /* fprintf(global_output, */
-    /*         //"# %s\n" */
-    /*         "# angle std: %f\n" */
-    /*         "# angle mad: %f\n" */
-    /*         "# angle max: %f\n", */
-    /*         //comment, */
-    /*         astd, amad, amax */
-    /*     ); */
-
-    /*-- Translation --*/
-    double R[9];
-    aa_tf_quat2rotmat(Z,R);
-    assert( aa_tf_isrotmat(R) );
-
-    // rels
-    double *Zt = AA_MEM_REGION_LOCAL_NEW_N(double, 3*n);
-    aa_cla_dlacpy( ' ', 3, (int)n,
-                   vx, (int)ldvx,
-                   Zt, 3 );
-
-    for( size_t j = 0; j < n; j ++ ) {
-        double yp[3] = {0};
-        aa_tf_9rot( R, AA_MATCOL(vy,ldvy,j), yp );
-        for( size_t i = 0; i < 3; i++ )
-            AA_MATREF(Zt, 3, i, j) -=  yp[i];
-        assert( aa_tf_isrotmat(R) );
-    }
-
-    assert( aa_tf_isrotmat(R) );
-    if( opts & TF_COR_O_TRANS_MEAN ) {
-        aa_la_d_colmean( 3, n, Zt, 3, Z+4 );
-        //aa_tf_relx_mean( n, R, vy,ldvy, vx,ldvx, Z+4 );
-    } else if (opts & TF_COR_O_TRANS_MEDIAN ) {
-        //aa_tf_relx_median( n, R, vy,ldvy, vx,ldvx, Z+4 );
-        for( size_t i = 0; i < 3; i ++ )
-            (Z+4)[i] = aa_la_d_median( n, Zt+i, 3 );
-    }
-
-
-    aa_mem_region_local_pop(top);
-}
 
 static void tf_cor_em( int opts, size_t k, size_t n,
                        struct tf_cor *cor,
@@ -242,12 +135,12 @@ static void tf_cor_em( int opts, size_t k, size_t n,
         for( size_t i = 0; i < n; i ++ )
             aa_tf_qutr_mul(cor[i].X, tf_off[ i_mark[i] ].data, X_p[i].data );
         // compute registration
-        tf_cor( opts, n,
-                X_p[0].r.data, 7,
-                X_p[0].v.data, 7,
-                cor[0].Y, TF_COR_LD,
-                cor[0].Y+4, TF_COR_LD,
-                Z );
+        rfx_tf_cor( opts, n,
+                    X_p[0].r.data, 7,
+                    X_p[0].v.data, 7,
+                    cor[0].Y, TF_COR_LD,
+                    cor[0].Y+4, TF_COR_LD,
+                    Z );
         if( opt_verbosity)  {
             printf("em %lu:  ", j);
             aa_dump_vec(stdout, Z, 7 );
@@ -263,12 +156,12 @@ static void tf_cor_em( int opts, size_t k, size_t n,
 
         for( size_t i = 0; i < m; i ++ ) {
             size_t beg = i_beg[i];
-            tf_cor( opts, i_end[i] - beg,
-                    X_conj[beg].r.data, 7,
-                    X_conj[beg].v.data, 7,
-                    Y_p[beg].r.data, 7,
-                    Y_p[beg].v.data, 7,
-                    tf_off[i].data );
+            rfx_tf_cor( opts, i_end[i] - beg,
+                        X_conj[beg].r.data, 7,
+                        X_conj[beg].v.data, 7,
+                        Y_p[beg].r.data, 7,
+                        Y_p[beg].v.data, 7,
+                        tf_off[i].data );
             if( opt_verbosity) {
                 printf("  ");
                 aa_dump_vec(stdout, tf_off[i].data, 7 );
@@ -312,16 +205,16 @@ int main( int argc, char **argv )
             opt_file_out = optarg;
             break;
         case 'D':
-            opt_cor_opts |= TF_COR_O_ROT_DAVENPORT;
+            opt_cor_opts |= RFX_TF_COR_O_ROT_DAVENPORT;
             break;
         case 'U':
-            opt_cor_opts |= TF_COR_O_ROT_UMEYAMA;
+            opt_cor_opts |= RFX_TF_COR_O_ROT_UMEYAMA;
             break;
         case 'a':
-            opt_cor_opts |= TF_COR_O_TRANS_MEAN;
+            opt_cor_opts |= RFX_TF_COR_O_TRANS_MEAN;
             break;
         case 'm':
-            opt_cor_opts |= TF_COR_O_TRANS_MEDIAN;
+            opt_cor_opts |= RFX_TF_COR_O_TRANS_MEDIAN;
             break;
         case 'n':
             opt_em_count = (size_t)atoi(optarg)+1;

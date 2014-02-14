@@ -71,6 +71,23 @@ void rfx_tf_corrupt
 ( double theta_max, double x_max, const double e0[7], double e1[7] );
 
 
+enum rfx_tf_cor_opts {
+    RFX_TF_COR_O_TRANS_MEDIAN = 0x1,
+    RFX_TF_COR_O_TRANS_MEAN = 0x2,
+    RFX_TF_COR_O_ROT_UMEYAMA = 0x4,
+    RFX_TF_COR_O_ROT_DAVENPORT = 0x8,
+    RFX_TF_COR_O_ROT_MEDIAN = 0x10
+};
+
+/** Compute fit between corresponding transforms */
+void rfx_tf_cor( int opts, size_t n,
+                 const double *qx, size_t ldqx,
+                 const double *vx, size_t ldvx,
+                 const double *qy, size_t ldqy,
+                 const double *vy, size_t ldvy,
+                 double *Z );
+
+
 struct rfx_tf_filter {
     rfx_tf_dx X;  ///< state
     rfx_tf_dx Z;  ///< measurement
