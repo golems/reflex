@@ -2,40 +2,34 @@
 * Overview *
 ************
 
-0) If you have obtained reflex from the git repo, you need to
-initialize the autotools build scripts.  This requires the autotools
-and the autoconf macro archive. To install these on Debian or Ubuntu
-GNU/Linux, you can do
+0. If you have obtained reflex from the git repo, you need to
+   initialize the autotools build scripts.  This requires the
+   autotools and the autoconf macro archive. To install these on
+   Debian or Ubuntu GNU/Linux, you can do
 
     sudo apt-get install autoconf automake libtool autoconf-archive
 
-Then, initialize autotools with
+  Then, initialize autotools with
 
     autoreconf -i
 
-This whole step is not necessary when you have obtained a distribution
-tarball which already contains the autoconf-generated configure script.
+  This whole step is not necessary when you have obtained a distribution
+  tarball which already contains the autoconf-generated configure script.
 
-1) Configure for your system:
+1. Configure for your system:
 
     ./configure
 
-Depending on where you have installed libamino, you may need to
-specify the include paths:
-
-    ./configure --prefix=/my/prefix FCFLAGS="-I/my/prefix/include"
-
-To build the java libraries, you may need to specify the classpath if
-it is not under your installation prefix:
+  To build the java libraries, you may need to specify the classpath
+  if it is not under your installation prefix:
 
     ./configure --prefix=/my/prefix CLASSPATH=.:/path/to/org.golems.amino.jar
 
-
-2) Build:
+2. Build:
 
     ./make
 
-3) Install:
+3. Install:
 
     sudo ./make install
 

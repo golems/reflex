@@ -54,6 +54,13 @@ AC_FUNC_ALLOCA
 AC_FUNC_ERROR_AT_LINE
 AC_CHECK_FUNCS([memset])
 
+
+# Default Install Prefix
+AS_IF( [test "x$prefix" = xNONE], [prefix=/usr/local] )
+
+# Find amino fortran modules
+FCFLAGS="$FCFLAGS -I$prefix/include"
+
 # Enable maximum warnings
 AX_CFLAGS_WARN_ALL
 
@@ -159,3 +166,6 @@ AC_MSG_NOTICE([=====================])
 AC_MSG_NOTICE([PREFIX:          $prefix])
 AC_MSG_NOTICE([BUILD JAVA LIB:  $BUILD_JAVA])
 AC_MSG_NOTICE([CLASSPATH:       $CLASSPATH])
+AC_MSG_NOTICE([CFLAGS:          $CFLAGS])
+AC_MSG_NOTICE([FCFLAGS:         $FCFLAGS])
+
