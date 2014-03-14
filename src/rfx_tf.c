@@ -170,7 +170,7 @@ void rfx_tf_cor( int opts, size_t n,
         aa_tf_qmulc( AA_MATCOL(qx,ldqx,i),
                          AA_MATCOL(qy,ldqy,i),
                      q );
-        aa_tf_qminimize(q);
+        //aa_tf_qminimize(q);
     }
 
     if( opts & RFX_TF_COR_O_ROT_DAVENPORT )

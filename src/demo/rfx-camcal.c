@@ -275,8 +275,10 @@ int main( int argc, char **argv )
     ssize_t lines_fk =  read_mat( opt_file_fk, 7, &E_fk );
     ssize_t lines_id =  read_mat( opt_file_id, 1, &ids );
     if( lines_cam != lines_fk || lines_id != lines_cam ) {
-        fprintf(stderr, "Differing line count between `%s', `%s', and `%s'\n",
-                opt_file_cam, opt_file_fk, opt_file_id );
+        fprintf(stderr, "Differing line count between `%s' (%lu), `%s' (%lu), and `%s' (%lu)\n",
+                opt_file_cam,  lines_cam,
+                opt_file_fk,  lines_fk,
+                opt_file_id, lines_id );
         exit(EXIT_FAILURE);
     }
 

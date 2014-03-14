@@ -69,7 +69,7 @@ void rfx_tf_qangmedian
         const double *qi = AA_MATCOL(Q,ldq,i);
         for( size_t j = 0; j < i; j ++ ) {
             const double *qj = AA_MATCOL(Q,ldq,j);
-            double dist = fabs(aa_tf_qangle_rel(qi, qj));
+            double dist = aa_tf_qangle_rel(qi, qj);
             sum_dist[i] += dist;
             sum_dist[j] += dist;
         }
