@@ -104,10 +104,10 @@ struct rfx_tf_filter {
  * @pre: current measurement (Z) and input (U) written to F
  * @post: current state estimate (X) written to F
  */
-int rfx_tf_filter_update( double dt, struct rfx_tf_filter *F);
+int rfx_tf_filter_update( double dt, struct rfx_tf_filter *F) AA_DEPRECATED;
 
 int rfx_tf_filter_update_work
-( double dt, double *XX, const double *UU, const double *ZZ, double *P, const double *V, const double *W );
+( double dt, double *XX, const double *UU, const double *ZZ, double *P, const double *V, const double *W ) AA_DEPRECATED;
 
 
 struct rfx_lqg_duqu {
@@ -119,12 +119,12 @@ struct rfx_lqg_duqu {
 };
 
 int rfx_lqg_duqu_predict
-( double dt, double *S, double *dS, double *P, const double *V );
+( double dt, double *S, double *dS, double *P, const double *V ) AA_DEPRECATED;
 
 int rfx_lqg_duqu_correct
 ( double dt, double *S_est, double *dS_est,
   const double *S_obs,
-  double *P, const double *W );
+  double *P, const double *W ) AA_DEPRECATED;
 
 
 void rfx_lqg_qutr_process_noise( double dt, double dx, double dtheta,
@@ -157,11 +157,11 @@ void rfx_tf_qangmedian
 ( size_t n, const double *Q, size_t ldq, double p[4] );
 
 int rfx_tf_dud_median
-( size_t n, const double *Ex, size_t ldx, const double *Ey, size_t ldy, double z[7] );
+( size_t n, const double *Ex, size_t ldx, const double *Ey, size_t ldy, double z[7] ) AA_DEPRECATED;
 
 int rfx_tf_dud_rejected_mean
 ( size_t n, double z_theta, double z_x,
-  const double *Ex, size_t ldx, const double *Ey, size_t ldy, double e[7] );
+  const double *Ex, size_t ldx, const double *Ey, size_t ldy, double e[7] ) AA_DEPRECATED;
 
 #ifdef __cplusplus
 }
