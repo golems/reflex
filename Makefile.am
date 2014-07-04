@@ -24,9 +24,9 @@ lib_LTLIBRARIES = libreflex.la
 
 libreflex_la_SOURCES =              \
 	src/control.c               \
-	src/lqg.c                   \
-	src/lqg_tf.c                \
-	src/rfx_tf.c                \
+	src/lqg/lqg.c               \
+	src/tf/lqg_tf.c             \
+	src/tf/rfx_tf.c             \
 	src/tf/dud.c                \
 	src/plot.c                  \
 	src/trajq.c                 \
@@ -34,6 +34,13 @@ libreflex_la_SOURCES =              \
 	src/trajx.cpp               \
 	src/traj.c                  \
 	src/body/body.cpp
+
+reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/tf/lqg_tf_f.f90 src/tf/rfx_tff.f90
+	$(CPP) $(INCLUDES) -x c  $< -o $@
+
+noinst_LTLIBRARIES = libreflex_mod.la
+libreflex_mod_la_SOURCES = reflex_mod.f90
+reflex.mod: $(libreflex_mod_la_OBJECTS)
 
 libreflex_la_LIBADD = libreflex_mod.la
 
@@ -68,12 +75,6 @@ bin_PROGRAMS += rfx-camcal-test
 rfx_camcal_test_SOURCES = src/demo/rfx-camcal-test.c
 rfx_camcal_test_LDADD = libreflex.la -lamino -lblas -llapack
 
-reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/lqg_tf_f.f90 src/tf/rfx_tff.f90
-	$(CPP) $(INCLUDES) -x c  $< -o $@
-
-noinst_LTLIBRARIES = libreflex_mod.la
-libreflex_mod_la_SOURCES = reflex_mod.f90
-reflex.mod: $(libreflex_mod_la_OBJECTS)
 
 
 clean-local:
