@@ -232,3 +232,10 @@ void rfx_tf_cor( int opts, size_t n,
 
     aa_mem_region_local_pop(top);
 }
+
+int rfx_tf_filter_update( double dt, struct rfx_tf_filter *F)
+{
+    return rfx_tf_filter_update_work( dt,
+                                      F->X.data, F->U.data, F->Z.data,
+                                      F->P, F->V, F->W );
+}

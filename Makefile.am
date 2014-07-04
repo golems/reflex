@@ -25,7 +25,6 @@ lib_LTLIBRARIES = libreflex.la
 libreflex_la_SOURCES =              \
 	src/control.c               \
 	src/lqg/lqg.c               \
-	src/tf/lqg_tf.c             \
 	src/tf/rfx_tf.c             \
 	src/tf/dud.c                \
 	src/plot.c                  \
