@@ -85,6 +85,55 @@ int rfx_lqg_qutr_correct
 
 }
 
+int rfx_tf_madqg_predict
+( double dt, double *E, double *dE, double *P, const double *V )
+{
+    return rfx_lqg_qutr_predict( dt, E, dE, P, V );
+}
+
+int rfx_tf_madqg_correct
+( double dt,
+  size_t n, double *delta_theta, double *delta_x, size_t *i_delta,
+  double *E_est, double *dE_est,
+  const double *E_obs,
+  double *P, const double *W )
+{
+    /* Find rels */
+    double dq = aa_tf_qangle_rel( E_est, E_obs );
+    double dx = sqrt( aa_la_ssd(3, E_est+4, E_obs+4) );
+
+    /* Maybe reject */
+    int angle_ok = 1, translation_ok = 1;
+    if( n ) {
+        // check angle
+        double dq_median = aa_la_d_median( n, delta_theta, 1 );
+        if( dq > dq_median ) angle_ok = 0;
+
+        // check translation
+        double dx_median = aa_la_d_median( n, delta_x, 1 );
+        if( dx > dx_median ) translation_ok = 0;
+    }
+
+    /* Insert new rels */
+    assert( *i_delta < n );
+    delta_theta[*i_delta] = dq;
+    delta_x[*i_delta] = dx;
+    *i_delta = (*i_delta + 1) % n;
+
+    /* Filter */
+    /* TODO: be smarter about partial updates */
+    if( angle_ok || translation_ok ) {
+        double Z[7];
+        AA_MEM_CPY( Z, angle_ok ? E_obs : E_est, 4 );
+        AA_MEM_CPY( Z+4, (translation_ok ? E_obs : E_est) + 4, 3 );
+        rfx_lqg_qutr_correct( dt, E_est, dE_est, E_obs, P, W );
+    }
+
+    return 0;
+}
+
+
+
 int rfx_tf_abs( size_t n,
                 const rfx_tf *tf_rel,
                 ssize_t *parents,

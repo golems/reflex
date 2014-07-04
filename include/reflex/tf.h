@@ -136,6 +136,7 @@ int rfx_lqg_qutr_measure( void *cx, const double *x, double *y, double *H );
 int rfx_lqg_qutr_innovate( void *cx, const double *x, const double *z, double *y );
 int rfx_lqg_qutr_update( void *cx, double *x, const double *Ky );
 
+
 int rfx_lqg_qutr_predict
 ( double dt, double *E, double *dE, double *P, const double *V );
 
@@ -162,6 +163,19 @@ int rfx_tf_dud_median
 int rfx_tf_dud_rejected_mean
 ( size_t n, double z_theta, double z_x,
   const double *Ex, size_t ldx, const double *Ey, size_t ldy, double e[7] ) AA_DEPRECATED;
+
+/* MAD Filtering */
+
+int rfx_tf_madqg_predict
+( double dt, double *E, double *dE, double *P, const double *V );
+
+int rfx_tf_madqg_correct
+( double dt,
+  size_t n, double *delta_theta, double *delta_x, size_t *i_delta,
+  double *E_est, double *dE_est,
+  const double *E_obs,
+  double *P, const double *W );
+
 
 #ifdef __cplusplus
 }
