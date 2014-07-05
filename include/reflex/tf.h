@@ -171,9 +171,9 @@ int rfx_tf_madqg_predict
 
 int rfx_tf_madqg_correct
 ( double dt,
-  size_t n, double *delta_theta, double *delta_x, size_t *i_delta,
+  size_t max_delta, double *delta_theta, double *delta_x, size_t *n_delta, size_t *i_delta,
   double *E_est, double *dE_est,
-  const double *E_obs,
+  size_t n_obs, const double *E_obs,
   double *P, const double *W );
 
 

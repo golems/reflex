@@ -93,39 +93,72 @@ int rfx_tf_madqg_predict
 
 int rfx_tf_madqg_correct
 ( double dt,
-  size_t n, double *delta_theta, double *delta_x, size_t *i_delta,
+  size_t max_delta, double *delta_theta, double *delta_x, size_t *n_delta, size_t *i_delta,
   double *E_est, double *dE_est,
-  const double *E_obs,
+  size_t n_obs, const double *E_obs,
   double *P, const double *W )
 {
     /* Find rels */
-    double dq = aa_tf_qangle_rel( E_est, E_obs );
-    double dx = sqrt( aa_la_ssd(3, E_est+4, E_obs+4) );
+    const double *q_est = E_est;
+    const double *x_est = q_est + 4;
+
+    double q_use[4*n_obs];
+    size_t n_q_use = 0;
+
+    double x_use[3*n_obs];
+    size_t n_x_use = 0;
 
     /* Maybe reject */
-    int angle_ok = 1, translation_ok = 1;
-    if( n ) {
-        // check angle
-        double dq_median = aa_la_d_median( n, delta_theta, 1 );
-        if( dq > dq_median ) angle_ok = 0;
+    if( n_delta ) {
+        // get medians
+        double dq_median = aa_la_d_median( *n_delta, delta_theta, 1 );
+        double dx_median = aa_la_d_median( *n_delta, delta_x, 1 );
 
-        // check translation
-        double dx_median = aa_la_d_median( n, delta_x, 1 );
-        if( dx > dx_median ) translation_ok = 0;
+        // Check observatiosn
+        for( size_t i = 0; i < n_obs; i ++ ) {
+            const double *q_obs = E_obs + 7*i;
+            const double *x_obs = q_obs + 4;
+            // check angle
+            double dq = aa_tf_qangle_rel( q_est, q_obs );
+            if ( dq <= dq_median ) {
+                AA_MEM_CPY( q_use + 4*n_q_use, q_est, 4 );
+                n_q_use++;
+            }
+            // check translation
+            double dx = sqrt( aa_la_ssd(3, x_est, x_obs) );
+            if( dx <= dx_median ) {
+                AA_MEM_CPY( x_use + 3*n_x_use, x_est, 3 );
+                n_x_use++;
+            }
+            /* Insert into window */
+            delta_theta[*i_delta] = dq;
+            delta_x[*i_delta] = dx;
+            *i_delta = (*i_delta + 1) % max_delta;
+            assert( *i_delta < max_delta );
+        }
     }
+    n_delta += n_obs;
+    if( *n_delta > max_delta ) *n_delta = max_delta;
 
-    /* Insert new rels */
-    assert( *i_delta < n );
-    delta_theta[*i_delta] = dq;
-    delta_x[*i_delta] = dx;
-    *i_delta = (*i_delta + 1) % n;
-
-    /* Filter */
+    // Average non-rejected observations
     /* TODO: be smarter about partial updates */
-    if( angle_ok || translation_ok ) {
+    if( n_q_use || n_x_use ) {
         double Z[7];
-        AA_MEM_CPY( Z, angle_ok ? E_obs : E_est, 4 );
-        AA_MEM_CPY( Z+4, (translation_ok ? E_obs : E_est) + 4, 3 );
+
+        double *q_obs = Z;
+        if( n_q_use ) {
+            aa_tf_quat_davenport( n_q_use, NULL, q_use, 4, q_obs );
+        } else {
+            AA_MEM_CPY( q_obs, q_est, 4 );
+        }
+
+        double *x_obs = Z+4;
+        if( n_x_use ) {
+            aa_la_d_colmean( 3, n_x_use, x_use, 3, x_obs );
+        } else {
+            AA_MEM_CPY( x_obs, x_est, 3 );
+        }
+
         rfx_lqg_qutr_correct( dt, E_est, dE_est, E_obs, P, W );
     }
 
