@@ -91,6 +91,28 @@ int rfx_tf_madqg_predict
     return rfx_lqg_qutr_predict( dt, E, dE, P, V );
 }
 
+int rfx_tf_madqg_correct2
+( double dt,
+  size_t max_delta, double *delta_theta, double *delta_x, size_t *n_delta, size_t *i_delta,
+  double *E_est, double *dE_est,
+  size_t n_obs, const double *bEo, const double *cEo,
+  double *P, const double *W )
+{
+    // TODO: Use the centrally-located orientation to transform each
+    //       measurement as in rfx_tf_cor
+    double bEc[7*n_obs];
+    for( size_t i = 0; i < n_obs; i ++ ) {
+        size_t j = 7*i;
+        aa_tf_qutr_mulc( bEo+j, cEo+j, bEc+j );
+    }
+
+    return rfx_tf_madqg_correct( dt,
+                                 max_delta, delta_theta, delta_x, n_delta, i_delta,
+                                 E_est, dE_est,
+                                 n_obs, bEc,
+                                 P, W );
+}
+
 int rfx_tf_madqg_correct
 ( double dt,
   size_t max_delta, double *delta_theta, double *delta_x, size_t *n_delta, size_t *i_delta,

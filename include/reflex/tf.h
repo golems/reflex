@@ -165,6 +165,7 @@ int rfx_tf_dud_rejected_mean
   const double *Ex, size_t ldx, const double *Ey, size_t ldy, double e[7] ) AA_DEPRECATED;
 
 /* MAD Filtering */
+/* Use Median Absolute Deviation to reject outliers */
 
 int rfx_tf_madqg_predict
 ( double dt, double *E, double *dE, double *P, const double *V );
@@ -176,6 +177,13 @@ int rfx_tf_madqg_correct
   size_t n_obs, const double *E_obs,
   double *P, const double *W );
 
+
+int rfx_tf_madqg_correct2
+( double dt,
+  size_t max_delta, double *delta_theta, double *delta_x, size_t *n_delta, size_t *i_delta,
+  double *E_est, double *dE_est,
+  size_t n_obs, const double *bEo, const double *cEo,
+  double *P, const double *W );
 
 #ifdef __cplusplus
 }
