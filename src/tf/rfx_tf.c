@@ -94,10 +94,13 @@ int rfx_tf_madqg_predict
 int rfx_tf_madqg_correct2
 ( double dt,
   size_t max_delta, double *delta_theta, double *delta_x, size_t *n_delta, size_t *i_delta,
-  double *E_est, double *dE_est,
+  double *E_est, double *dx_est,
   size_t n_obs, const double *bEo, const double *cEo,
   double *P, const double *W )
 {
+    // check params
+    if( *n_delta > max_delta || *i_delta > max_delta || *i_delta > *n_delta ) return -1;
+
     // TODO: Use the centrally-located orientation to transform each
     //       measurement as in rfx_tf_cor
     double bEc[7*n_obs];
@@ -108,7 +111,7 @@ int rfx_tf_madqg_correct2
 
     return rfx_tf_madqg_correct( dt,
                                  max_delta, delta_theta, delta_x, n_delta, i_delta,
-                                 E_est, dE_est,
+                                 E_est, dx_est,
                                  n_obs, bEc,
                                  P, W );
 }
@@ -116,10 +119,11 @@ int rfx_tf_madqg_correct2
 int rfx_tf_madqg_correct
 ( double dt,
   size_t max_delta, double *delta_theta, double *delta_x, size_t *n_delta, size_t *i_delta,
-  double *E_est, double *dE_est,
+  double *E_est, double *dx_est,
   size_t n_obs, const double *E_obs,
   double *P, const double *W )
 {
+    //aa_dump_mat( stdout, W, 7, 7 );
     /* Find rels */
     const double *q_est = E_est;
     const double *x_est = q_est + 4;
@@ -130,12 +134,20 @@ int rfx_tf_madqg_correct
     double x_use[3*n_obs];
     size_t n_x_use = 0;
 
-    /* Maybe reject */
-    if( n_delta ) {
-        // get medians
-        double dq_median = aa_la_d_median( *n_delta, delta_theta, 1 );
-        double dx_median = aa_la_d_median( *n_delta, delta_x, 1 );
 
+    double dq_median;
+    double dx_median;
+    /* Maybe reject */
+    if( *n_delta ) {
+        dq_median = aa_la_d_median( *n_delta, delta_theta, 1 );
+        dx_median = aa_la_d_median( *n_delta, delta_x, 1 );
+    } else {
+        dq_median = 1e9;
+        dx_median = 1e9;
+    }
+
+    {
+        // get medians
         // Check observatiosn
         for( size_t i = 0; i < n_obs; i ++ ) {
             const double *q_obs = E_obs + 7*i;
@@ -143,13 +155,13 @@ int rfx_tf_madqg_correct
             // check angle
             double dq = aa_tf_qangle_rel( q_est, q_obs );
             if ( dq <= dq_median ) {
-                AA_MEM_CPY( q_use + 4*n_q_use, q_est, 4 );
+                AA_MEM_CPY( q_use + 4*n_q_use, q_obs, 4 );
                 n_q_use++;
             }
             // check translation
             double dx = sqrt( aa_la_ssd(3, x_est, x_obs) );
             if( dx <= dx_median ) {
-                AA_MEM_CPY( x_use + 3*n_x_use, x_est, 3 );
+                AA_MEM_CPY( x_use + 3*n_x_use, x_obs, 3 );
                 n_x_use++;
             }
             /* Insert into window */
@@ -159,7 +171,8 @@ int rfx_tf_madqg_correct
             assert( *i_delta < max_delta );
         }
     }
-    n_delta += n_obs;
+
+    *n_delta += n_obs;
     if( *n_delta > max_delta ) *n_delta = max_delta;
 
     // Average non-rejected observations
@@ -170,7 +183,9 @@ int rfx_tf_madqg_correct
         double *q_obs = Z;
         if( n_q_use ) {
             aa_tf_quat_davenport( n_q_use, NULL, q_use, 4, q_obs );
+            aa_tf_qminimize(q_obs);
         } else {
+            AA_MEM_ZERO( dx_est+3, 3 );
             AA_MEM_CPY( q_obs, q_est, 4 );
         }
 
@@ -179,9 +194,13 @@ int rfx_tf_madqg_correct
             aa_la_d_colmean( 3, n_x_use, x_use, 3, x_obs );
         } else {
             AA_MEM_CPY( x_obs, x_est, 3 );
+            AA_MEM_ZERO( dx_est, 3 );
         }
 
-        rfx_lqg_qutr_correct( dt, E_est, dE_est, E_obs, P, W );
+
+        int r = rfx_lqg_qutr_correct( dt, E_est, dx_est, Z, P, W );
+    } else {
+        AA_MEM_ZERO( dx_est, 6 );
     }
 
     return 0;

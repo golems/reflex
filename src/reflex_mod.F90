@@ -90,7 +90,7 @@ module reflex
  contains
 
 #include "kinematics.f90"
-#include "lqg_tf_f.f90"
+#include "tf/lqg_tf_f.f90"
 #include "tf/rfx_tff.f90"
 
 end module reflex
