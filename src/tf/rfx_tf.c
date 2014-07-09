@@ -199,12 +199,55 @@ int rfx_tf_madqg_correct
 
 
         int r = rfx_lqg_qutr_correct( dt, E_est, dx_est, Z, P, W );
+        return r;
     } else {
         AA_MEM_ZERO( dx_est, 6 );
     }
 
     return 0;
 }
+
+void rfx_tf_median
+( size_t n, const double *E, size_t lde, double *z )
+{
+    rfx_tf_qangmedian ( n, E, lde, z );
+    for( size_t j = 0; j < 3; j ++ )
+        z[4+j] = aa_la_d_median( n, E+4+j, lde  );
+
+}
+
+int rfx_tf_madqg_correct_median_window
+( double dt,
+  size_t max_hist, double *E_obs_hist, size_t *n_hist, size_t *i_hist,
+  double *E_est, double *dx_est,
+  size_t n_obs, const double *E_obs,
+  double *P, const double *W )
+{
+    double Z[7];
+
+    // get the EKF measurement
+    for( size_t i = 0; i < n_obs; i ++ ) {
+        AA_MEM_CPY( AA_MATCOL(E_obs_hist,7,*i_hist),
+                    AA_MATCOL(E_obs,7,i),
+                    7 );
+        *i_hist = (*i_hist + 1) % max_hist;
+    }
+    *n_hist += n_obs;
+    if( *n_hist > max_hist ) *n_hist = max_hist;
+
+    rfx_tf_median( *n_hist, E_obs_hist, 7, Z );
+
+    if( *n_hist < max_hist ) {
+        // not enough samples, just use the median
+        AA_MEM_CPY( E_est, Z, 7 );
+        return 0;
+    }
+
+    int r = rfx_lqg_qutr_correct( dt, E_est, dx_est, Z, P, W );
+    return r;
+}
+
+
 
 
 

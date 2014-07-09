@@ -160,6 +160,9 @@ void rfx_tf_qangmedian
 int rfx_tf_dud_median
 ( size_t n, const double *Ex, size_t ldx, const double *Ey, size_t ldy, double z[7] ) AA_DEPRECATED;
 
+void rfx_tf_median
+( size_t n, const double *E, size_t lde, double *z );
+
 int rfx_tf_dud_rejected_mean
 ( size_t n, double z_theta, double z_x,
   const double *Ex, size_t ldx, const double *Ey, size_t ldy, double e[7] ) AA_DEPRECATED;
@@ -183,6 +186,13 @@ int rfx_tf_madqg_correct2
   size_t max_delta, double *delta_theta, double *delta_x, size_t *n_delta, size_t *i_delta,
   double *E_est, double *dE_est,
   size_t n_obs, const double *bEo, const double *cEo,
+  double *P, const double *W );
+
+int rfx_tf_madqg_correct_median_window
+( double dt,
+  size_t max_hist, double *E_obs_hist, size_t *n_hist, size_t *i_hist,
+  double *E_est, double *dx_est,
+  size_t n_obs, const double *E_obs,
   double *P, const double *W );
 
 #ifdef __cplusplus

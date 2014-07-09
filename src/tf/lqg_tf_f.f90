@@ -374,6 +374,8 @@ function rfx_lqg_qutr_measure( dt, x, y, H ) result(info) &
      H(i,i) = real(1,C_DOUBLE)
   end forall
 
+  !! TODO: what about angular velocity here?
+
   info = 0
 end function rfx_lqg_qutr_measure
 
@@ -405,11 +407,13 @@ function rfx_lqg_qutr_update( dt, x, Ky ) result(info) &
 
   real(C_DOUBLE) :: E_1(7)
 
-  call aa_tf_qutr_sdiff(x(1:7), Ky(1:7), dt, E_1 )
-  x(1:7) = E_1
+  !call aa_tf_qutr_sdiff(x(1:7), Ky(1:7), dt, E_1 )
+  !x(1:7) = E_1
+  !x(8:13) = x(8:13) + Ky(8:13)
 
-  x(8:13) = x(8:13) + Ky(8:13)
+  call aa_tf_qsdiff(x(1:4), Ky(1:4), dt, E_1(1:4) )
+  x(1:4) = E_1(1:4)
+  x(5:13) = x(5:13) + Ky(5:13)
 
   info = 0
 end function rfx_lqg_qutr_update
-
