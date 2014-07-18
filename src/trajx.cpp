@@ -96,6 +96,14 @@ rfx_trajx_point_list_addb_qv( struct rfx_trajx_point_list *list,
     DualQuat S( DualQuat::from_qv(r,v) );
     rfx_trajx_point_list_addb_duqu( list, t, t_blend, S.data );
 }
+
+int
+rfx_trajx_point_list_addb_qutr( struct rfx_trajx_point_list *list,
+                                double t, double t_blend, const double e[7] )
+{
+    return rfx_trajx_point_list_addb_qv( list, t, t_blend, e, e+4 );
+}
+
 int
 rfx_trajx_point_list_addb_duqu( struct rfx_trajx_point_list *list,
                                 double t, double t_blend, const double S[8] )

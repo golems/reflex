@@ -320,6 +320,15 @@ int
 rfx_trajx_point_list_addb_qv( struct rfx_trajx_point_list *list,
                               double t, double t_blend, const double r[4], const double v[3] );
 
+/** Add a blend point given as quaternion and vector to the list.
+ *
+ * Arguments are copied into memory allocated of the the region for
+ * list.
+ */
+int
+rfx_trajx_point_list_addb_qutr( struct rfx_trajx_point_list *list,
+                                double t, double t_blend, const double e[7] );
+
 /** Add a blend point given as dual quaternion to the list.
  *
  * Arguments are copied into memory allocated of the the region for

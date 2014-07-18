@@ -100,7 +100,7 @@ rfx_body_alloc_fixed_qv( rfx_body_id id_parent, rfx_body_id id,
     struct rfx_body_fix *b = new rfx_body_fix;
     b->id_parent = id_parent;
     b->id = id;
-    b->tf = QuatVec::from_qv(q,v);
+    b->tf = QuatTran::from_qv(q,v);
     return b;
 }
 
@@ -117,8 +117,8 @@ struct rfx_body_revolute : rfx_body {
 
     void tf_rel( const double *q, rfx_tf *tf ) const
     {
-        *tf = QuatVec( Quat::from_axang(this->axis, q[i] + this->angle_offset),
-                       Vec3(this->translation) );
+        *tf = QuatTran( Quat::from_axang(this->axis, q[i] + this->angle_offset),
+                        Vec3(this->translation) );
     }
     virtual rfx_body *clone( rfx_body_id parent, rfx_body_id delta_id, size_t delta_i ) const
     {
