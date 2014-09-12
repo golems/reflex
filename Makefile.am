@@ -58,7 +58,7 @@ plot_test_LDADD = libreflex.la -lamino -llapack -lblas
 
 noinst_PROGRAMS += test-tf-filter
 test_tf_filter_SOURCES = src/test/test-tf-filter.c
-test_tf_filter_LDADD = libreflex.la -lamino -llapack -lblas
+test_tf_filter_LDADD = libreflex.la -lamino -llapack -lblas -lm
 
 
 bin_PROGRAMS = rfx-trajgen
