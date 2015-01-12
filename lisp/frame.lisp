@@ -59,6 +59,36 @@
 (def-frame-var translation "translation (x y z)")
 (def-frame-var offset "Configuration offset")
 
+(defun make-frame (name type parent &key
+                                      quaternion
+                                      translation
+                                      configuration
+                                      axis
+                                      offset)
+  (let ((name (string-upcase name))
+        (type (etypecase type
+                (string
+                 (let ((s (string-downcase type)))
+                   (cond
+                     ((string= "revolute" s)
+                      :revolute)
+                     ((string= "fixed" s)
+                      :fixed)
+                     (t
+                      (error "Unknown joint type ~A" s)))))
+                (symbol type))))
+    `(:frame :name ,name
+             :type ,type
+             :parent ,(when parent (string-upcase parent))
+             :axis ,axis
+             :configuration ,(cond (configuration configuration)
+                                   ((eq type :fixed) nil)
+                                   (t (concatenate 'string "Q_" name)))
+             :quaternion ,quaternion
+             :translation ,translation
+             :offset ,offset)))
+
+
 
 (defparameter *test-frames*
   `((frame :name frame_0
@@ -182,6 +212,8 @@
      (format stream "~&    }")))))
 
 (defun emit-revolute-frame (frame stream q-array e-array)
+  (assert (frame-configuration frame) ()
+          "No configuration variable for frame ~A" (frame-name frame))
   (let ((v (frame-translation frame))
         (axis (frame-axis frame))
         (ptr (format nil "(~A+7*~A)" e-array (frame-name frame)))

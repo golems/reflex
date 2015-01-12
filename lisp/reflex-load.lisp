@@ -37,14 +37,32 @@
 ;;;;   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ;;;;   POSSIBILITY OF SUCH DAMAGE.
 
-(cl:eval-when (:load-toplevel :execute)
-    (asdf:operate 'asdf:load-op 'cffi-grovel))
+;; Author: Neil T. Dantam
 
-(asdf:defsystem reflex
-  :description "Kinematics and Control"
-  :depends-on ("amino" "split-sequence" "xmls")
-  :components ((:file "package")
-               ;; TF
-               (:file "frame" :depends-on ("package"))
-               (:file "urdf" :depends-on ("frame"))
-               ))
+;; Try to load Quicklisp or ASDF
+(unless (find-package :quicklisp)
+  (let ((ql (find-if #'probe-file
+                     (map 'list (lambda (setup) (merge-pathnames setup (user-homedir-pathname)))
+                          '("quicklisp/setup.lisp" ".quicklisp/setup.lisp" "Quicklisp/setup.lisp")))))
+    (cond
+      (ql (load ql))
+      ((not (find-package :asdf))
+       (require :asdf)))))
+
+;; Guess where some ASDF files lives
+(loop for pathname in (list "./src/"
+                            (merge-pathnames ".asdf/systems/"
+                                             (user-homedir-pathname))
+                            (merge-pathnames ".sbcl/systems/"
+                                             (user-homedir-pathname)))
+
+   do (when (probe-file pathname)
+        (pushnew pathname asdf:*central-registry* :test #'equal)))
+
+;; Load it
+(cond
+  ((find-package :quicklisp)
+   (ql:quickload :reflex))
+  ((find-package :asdf)
+   (asdf:operate 'asdf:load-op :reflex))
+  (t (require :reflex)))

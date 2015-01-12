@@ -1,16 +1,17 @@
 OVERVIEW
 ========
 
-Reflex is a package for Real-Time control.  It includes the following:
+Reflex is a package for real-time robot control.  It includes the
+following:
 
-- Workspace (Cartesian) Control for Robot Arms
-- Linear Quadratic Gaussian Control and Estimation
+* Workspace (Cartesian) Control for Robot Arms
+  - Generates kinematics code in C from URDF
+* Linear Quadratic Gaussian Control and Estimation
   - Compute optimal Kalman/LQR gains
   - Discrete Kalman Filter
   - Extended Kalman Filter
   - Continuous Kalman-Bucy Filter
   - LQR Controller
-
 
 INSTALLATION
 ============
@@ -18,6 +19,12 @@ INSTALLATION
     ./configure && make && make install
 
 See the INSTALL file for details.
+
+WORKSPACE CONTROL
+=================
+
+* To generate code from URDF, see ./scripts/rfx-urdfc.  Basic usage is
+  `rfx-urdfc myrobot.urdf`.  For details, do `rfx-urdfc --help`.
 
 DEMOS
 =====
@@ -38,4 +45,3 @@ Example
 
 See the file cartpend.c for an example of how to do LQG filtering and
 control.
-

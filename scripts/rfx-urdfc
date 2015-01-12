@@ -1,0 +1,191 @@
+#!/bin/sh -e
+
+# Copyright (c) 2015, Rice University
+# All rights reserved.
+#
+# Author(s): Neil T. Dantam <ntd@rice.edu>
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions
+#  are met:
+#   * Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#   * Redistributions in binary form must reproduce the above
+#     copyright notice, this list of conditions and the following
+#     disclaimer in the documentation and/or other materials provided
+#     with the distribution.
+#   * Neither the name of the copyright holder nor the names of its
+#     contributors may be used to endorse or promote products derived
+#     from this software without specific prior written permission.
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+#  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+#  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+#  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+#  COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+#  INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+#  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+#  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+#  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+#  STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+#  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+#  OF THE POSSIBILITY OF SUCH DAMAGE.
+
+REL_FUN="frame_rel"
+ABS_FUN="frame_abs"
+ID_PREFIX="URDF_"
+NAME_ARRAY=urdf_name
+PARENT_ARRAY=urdf_parent
+AXIS_ARRAY=urdf_axis
+FRAME_MAX="URDF_FRAME_MAX"
+CONFIG_MAX="URDF_CONFIG_MAX"
+
+while test "$1" != x-- -a "x$#" != x0; do
+    case "$1" in
+        -h|-\?|--help)
+            cat <<EOF
+Usage: rfx-urdfc [OPTION] urdf-file
+Generates C code from URDF files
+
+Options:
+  -h|-?|--help,              display this help and exit
+  --relative-function,       name of relative frame function
+  --absolute-function,       name of absolute frame function
+  --id-prefix,               prefix for C identifiers
+  --axis-array,              array for frame axes
+  --parent-array,            array for frame parents
+  --name-array,              array for frame names
+  --header-file,             output file for header
+  --source-file,             output file for source
+  --dot-file,                output file for dot
+  --frame-max,               identifier for maximum frame index
+  --configuration-max,       identifier for maximum configuration index
+
+Examples:
+  rfx-urdfc myrobot.urdf     Generate myrobot.h and myrobot.c from URDF file
+
+Report bugs to <ntd@rice.edu>"
+EOF
+            exit 1
+            ;;
+        --relative-function)
+            shift
+            REL_FUN="$1"
+            ;;
+        --absolute-function)
+            shift
+            ABS_FUN="$1"
+            ;;
+        --id-prefix)
+            shift
+            ID_PREFIX="$1"
+            ;;
+        --name-array)
+            shift
+            NAME_ARRAY="$1"
+            ;;
+        --parent-array)
+            shift
+            PARENT_ARRAY="$1"
+            ;;
+        --axis-array)
+            shift
+            AXIS_ARRAY="$1"
+            ;;
+        --header-file)
+            shift
+            HEADER_FILE="$1"
+            ;;
+        --source-file)
+            shift
+            SOURCE_FILE="$1"
+            ;;
+        --dot-file)
+            shift
+            DOT_FILE="$1"
+            ;;
+        --frame-max)
+            shift
+            FRAME_MAX="$1"
+            ;;
+        --configuration-max)
+            shift
+            CONFIG_MAX="$1"
+            ;;
+        -*)
+            echo "error: unknown option: $1"
+            exit 1
+            ;;
+        *)
+            if test -z "$FILE"; then
+                FILE="$1";
+            else
+                echo "error: duplicate output file: $1"
+                exit 1
+            fi
+            ;;
+    esac
+    shift
+done
+
+if test -z "$FILE"; then
+    echo "error: input file required"
+    exit 1
+fi
+
+BASE=`basename $FILE | sed -e 's/\.xml$\|\.urdf$//'`
+
+# output files
+if test -z "$HEADER_FILE"; then
+    HEADER_FILE="$BASE.h"
+fi
+if test -z "$SOURCE_FILE"; then
+    SOURCE_FILE="$BASE.c"
+fi
+if test -z "$DOT_FILE"; then
+    DOT_FILE="$BASE.dot"
+fi
+
+# TODO: escape strings
+
+sbcl --script <<EOF
+;; Try to load Quicklisp or ASDF
+(unless (find-package :quicklisp)
+  (let ((ql (find-if #'probe-file
+                     (map 'list (lambda (setup) (merge-pathnames setup (user-homedir-pathname)))
+                          '("quicklisp/setup.lisp" ".quicklisp/setup.lisp" "Quicklisp/setup.lisp")))))
+    (cond
+      (ql (load ql))
+      ((not (find-package :asdf))
+       (require :asdf)))))
+
+;; Guess where some ASDF files lives
+(loop for pathname in (list "./src/"
+                            (merge-pathnames ".asdf/systems/"
+                                             (user-homedir-pathname))
+                            (merge-pathnames ".sbcl/systems/"
+                                             (user-homedir-pathname)))
+
+   do (when (probe-file pathname)
+        (pushnew pathname asdf:*central-registry* :test #'equal)))
+
+;; Load it
+(cond
+  ((find-package :quicklisp)
+   (ql:quickload :reflex :silent t))
+  ((find-package :asdf)
+   (asdf:operate 'asdf:load-op :reflex))
+  (t (require :reflex)))
+
+(reflex:write-frame-files "$HEADER_FILE" "$SOURCE_FILE"
+                          (reflex:prefix-frames nil "$ID_PREFIX" (reflex::parse-urdf  "$FILE"))
+                          :frame-max "$FRAME_MAX"
+                          :configuration-max "$CONFIG_MAX"
+                          :relative-function "$REL_FUN"
+                          :absolute-function "$ABS_FUN"
+                          :normalize t
+                          :axes-array "$AXIS_ARRAY"
+                          :parents-array "$PARENT_ARRAY"
+                          :names-array "$NAME_ARRAY"
+                          :dot-file "$DOT_FILE")
+
+EOF

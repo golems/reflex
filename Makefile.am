@@ -4,6 +4,8 @@ SUBDIRS = . doc
 
 EXTRA_DIST = cartpend.gnuplot
 
+bin_SCRIPTS = scripts/rfx-urdfc
+
 include_HEADERS = include/reflex.h include/reflex.hpp
 
 pkginclude_HEADERS = \
