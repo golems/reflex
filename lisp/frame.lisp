@@ -99,7 +99,7 @@
            :configuration q2)))
 
 (defun prefix-frame-1 (prefix frame parent)
-  (labels ((prefix (val) (concatenate 'string prefix (string val))))
+  (labels ((prefix (val) (when val (concatenate 'string prefix (string val)))))
     (append (list :frame
                   :parent (if (and (frame-parent frame)
                                    (not (equal parent (frame-parent frame))))
