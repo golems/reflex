@@ -64,19 +64,24 @@
 
 (defun parse-float (string)
   "Return a float read from string, and the index to the remainder of string."
-  (multiple-value-bind (integer i)
-      (parse-integer string :junk-allowed t)
-    (unless integer (setq integer 0))
-    (cond
-      ((or (<= (length string) i)
-           (not (eq #\. (aref string i))))
-       integer)
-      ((<=  (length string) (1+ i))
-       (coerce integer 'single-float))
-      (t
-       (multiple-value-bind (fraction j)
-           (parse-integer string :start (+ i 1) :junk-allowed t)
-         (values (float (+ integer (/ fraction (expt 10 (- j i 1))))) j))))))
+  (multiple-value-bind (scale start) (if (eq #\- (aref string 0))
+                                         (values -1 1)
+                                         (values 1 0))
+    (multiple-value-bind (integer i)
+        (parse-integer string :junk-allowed t :start start)
+      (unless integer (setq integer 0))
+      (cond
+        ((or (<= (length string) i)
+             (not (eq #\. (aref string i))))
+         integer)
+        ((<=  (length string) (1+ i))
+         (coerce integer 'single-float))
+        (t
+         (multiple-value-bind (fraction j)
+             (parse-integer string :start (+ i 1) :junk-allowed t)
+           (values (float (* scale
+                             (+ integer (/ fraction (expt 10 (- j i 1))))))
+                   j)))))))
 
 (defun parse-string-vector (string)
   (when string
