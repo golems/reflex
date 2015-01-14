@@ -237,7 +237,7 @@
 (defun emit-axes-array (name frames &key (stream t))
   (format stream "~&const double ~A[][3] = {" name )
   (loop for f in frames
-     for a = (frame-axis f)
+     for a = (map 'list #'float-string (frame-axis f))
      when a
      do (format stream "~&    {~{~A~^, ~}}, /* ~A */"
                 a (frame-name f)))
