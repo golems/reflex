@@ -186,13 +186,13 @@
 (defun emit-fixed-frame (frame stream e)
   (let ((q (frame-quaternion frame))
         (v (frame-translation frame))
-        (ptr (format nil "(~A+7*~A)" e (frame-name frame))))
+        (ptr (format nil "(~A+ldE*~A)" e (frame-name frame))))
     (dotimes (i 4)
-      (format stream "~&    ~A[~D] = ~A;"
+      (format stream "~&    ~A[AA_TF_QUTR_Q + ~D] = ~A;"
               ptr i (float-string (elt q i))))
     (dotimes (i 3)
-      (format stream "~&    ~A[~D] = ~A;"
-              ptr (+ 4 i) (float-string (elt v i))))))
+      (format stream "~&    ~A[AA_TF_QUTR_T + ~D] = ~A;"
+              ptr i (float-string (elt v i))))))
 
 (defun emit-quat (stream ptr angle x y z)
   (let* ((n (sqrt (+ (* x x) (* y y) (* z z))))
@@ -222,16 +222,16 @@
           "No configuration variable for frame ~A" (frame-name frame))
   (let ((v (frame-translation frame))
         (axis (frame-axis frame))
-        (ptr (format nil "(~A+7*~A)" e-array (frame-name frame)))
-        (q (format nil "~A[~A]" q-array (frame-configuration frame)))
+        (ptr (format nil "(~A + ldE*~A + AA_TF_QUTR_Q)" e-array (frame-name frame)))
+        (q (format nil "~A[~A*incQ]" q-array (frame-configuration frame)))
         (offset (frame-offset frame)))
     (emit-quat stream ptr (if offset
                               (format nil "(~A+~A)" q offset)
                               q)
                (elt axis 0) (elt axis 1) (elt axis 2))
     (dotimes (i 3)
-      (format stream "~&    ~A[~D] = ~A;"
-              ptr (+ 4 i) (float-string (elt v i))))))
+      (format stream "~&    ~A[AA_TF_QUTR_T + ~D] = ~A;"
+              ptr i (float-string (elt v i))))))
 
 (defun emit-parents-array (name frames &key (stream t))
   (format stream "~&const ssize_t ~A[] = {~&~{~&    ~A~^,~}~&};"
@@ -257,8 +257,20 @@
              for p = (frame-name f)
              collect (if p p -1))))
 
-(defun emit-rel-fun (name frames &key (stream t))
-  (format stream "~&void ~A~&( const double *restrict q, double *restrict e ) ~&{~&" name)
+
+(defun rel-fun-decl (name &key (stream t) block-arrays)
+  (format stream "~&void ~A( ~A )"
+          name
+          (if block-arrays
+              "const double *AA_RESTRICT q, size_t incQ, double *AA_RESTRICT e, size_t ldE"
+              "const double *AA_RESTRICT q, double *AA_RESTRICT e")))
+
+(defun emit-rel-fun (name frames &key (stream t) block-arrays)
+  (rel-fun-decl name :stream stream :block-arrays block-arrays)
+  (format stream "~&{~&")
+  (unless block-arrays
+    (format stream "~&    const size_t incQ = 1;")
+    (format stream "~&    const size_t ldE = 7;"))
   (loop
      for frame in frames
      for i from 0
@@ -279,21 +291,34 @@
 ;;             "size_t n" "const size_t *restrict indices" "const double *restrict pe"
 ;;             "double *restrict J" "size_t ldJ"))
 
+(defun abs-fun-decl (name &key (stream t) block-arrays)
+  (format stream "~&void ~A( ~A )"
+          name
+          (if block-arrays
+              "const double * AA_RESTRICT rel, size_t ldRel, double * AA_RESTRICT abs, size_t ldAbs"
+              "const double * AA_RESTRICT rel, double * AA_RESTRICT abs")))
 
-(defun emit-abs-fun (name frames &key normalize (stream t))
-  (format stream "~&void ~A~&( const double * restrict rel, double * restrict abs ) ~&{~&" name)
+
+(defun emit-abs-fun (name frames &key normalize (stream t) block-arrays)
+  (abs-fun-decl name :stream stream :block-arrays block-arrays)
+  (format stream "~&{~&")
+  (unless block-arrays
+    (format stream "~&    const size_t ldRel = 7;")
+    (format stream "~&    const size_t ldAbs = 7;"))
   (loop
      for f in frames
      for name = (frame-name f)
-     for rel = (format nil "rel + 7*~A" name)
-     for abs = (format nil "abs + 7*~A" name)
+     for rel = (format nil "rel + ldRel*~A" name)
+     for abs = (format nil "abs + ldAbs*~A" name)
      for parent-name = (frame-parent f)
-     for par = (format nil "abs + 7*~A" parent-name)
      do
        (if parent-name
-           (format stream "~&    aa_tf_qutr_~A( ~A, ~A, ~A );"
-                   (if normalize "mulnorm" "mul")
-                   par rel abs)
+           ;; sub frame, chain it
+           (let ((par (format nil "abs + ldAbs*~A" parent-name)))
+             (format stream "~&    aa_tf_qutr_~A( ~A, ~A, ~A );"
+                     (if normalize "mulnorm" "mul")
+                     par rel abs))
+           ;; base frame, copy it
            (format stream "~&    memcpy( ~A, ~A, 7*sizeof(abs[0]) );"
                    abs rel)))
   (format stream "~&}"))
@@ -342,6 +367,7 @@
                           (parents-array "parents")
                           (names-array "names")
                           (axes-array "axes")
+                          block-arrays
                           )
   (check-frames frames)
   ;; header
@@ -359,22 +385,22 @@
     (format f "~&~%/* CONFIGURATION INDICES */")
     (emit-config-indices frames :stream f :max configuration-max)
     (format f "~&~%/* Compute Relative Transforms */")
-    (format f "~&void ~A~&( const double *AA_RESTRICT q, double *AA_RESTRICT e );"
-            relative-function)
+    (rel-fun-decl relative-function :stream f :block-arrays block-arrays)
+    (format f ";~&")
     (format f "~&~%/* Compute Absolute Transforms */")
-    (format f "~&void ~A~&( const double * AA_RESTRICT rel, double * AA_RESTRICT abs );"
-            absolute-function)
+    (abs-fun-decl absolute-function :stream f :block-arrays block-arrays)
+    (format f ";~&")
     (ifdef-c++ f "}"))
   ;; source
   (with-open-file (f source-file :direction :output :if-exists :supersede)
     (format f "~&/* AUTOGENERATED BY REFLEX FRAME GENERATOR */")
     (format f "~{~&#include <~A>~}" (list "amino.h" "reflex.h" header-file))
     (format f "~{~&#include \"~A\"~}" headers)
-    (emit-rel-fun relative-function frames :stream f)
+    (emit-rel-fun relative-function frames :stream f :block-arrays block-arrays)
     (emit-parents-array parents-array frames :stream f)
     (emit-names-array names-array frames :stream f)
     (emit-axes-array axes-array frames :stream f)
-    (emit-abs-fun absolute-function frames :stream f :normalize normalize)
+    (emit-abs-fun absolute-function frames :stream f :normalize normalize :block-arrays block-arrays)
     )
   ;; dot
   (when dot-file

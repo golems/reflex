@@ -58,8 +58,19 @@ int rfx_tf_abs( size_t n,
                 ssize_t *parents,
                 rfx_tf *tf_abs );
 
-/** Compute jacobian for revolute links */
-void rfx_tf_rev_jacobian( const double *AA_RESTRICT tf_abs, const double *axes,
+/** Compute Jacobian for kinematic chain with revolute joints
+ *
+ * \param[in] tf_abs Array of absolute frames in quaternion-translation form
+ * \param[in] ldT Leading dimension of T (typically 7)
+ * \param[in] axes Array of joint axes
+ * \param[in] indices_tf Array of indices for frames
+ * \param[in] indices_axis Array of indices for joint axes
+ * \param[in] pe translational position of the end-effector
+ * \param[out] J Jacobian matrix
+ * \param[in] ldJ Leading dimension of Jacobian matrix (typically 6)
+ */
+void rfx_tf_rev_jacobian( const double *AA_RESTRICT tf_abs, size_t ldT,
+                          const double *axes,
                           size_t n, const size_t *AA_RESTRICT indices_tf,  const size_t *AA_RESTRICT indices_axis,
                           const double *AA_RESTRICT pe,
                           double *AA_RESTRICT J, size_t ldJ );

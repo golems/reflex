@@ -38,6 +38,7 @@ PARENT_ARRAY=urdf_parent
 AXIS_ARRAY=urdf_axis
 FRAME_MAX="URDF_FRAME_MAX"
 CONFIG_MAX="URDF_CONFIG_MAX"
+BLOCK_ARRAYS_ARG="nil"
 
 while test "$1" != x-- -a "x$#" != x0; do
     case "$1" in
@@ -48,17 +49,18 @@ Generates C code from URDF files
 
 Options:
   -h|-?|--help,              display this help and exit
-  --relative-function,       name of relative frame function
-  --absolute-function,       name of absolute frame function
-  --id-prefix,               prefix for C identifiers
-  --axis-array,              array for frame axes
-  --parent-array,            array for frame parents
-  --name-array,              array for frame names
-  --header-file,             output file for header
-  --source-file,             output file for source
-  --dot-file,                output file for dot
-  --frame-max,               identifier for maximum frame index
-  --configuration-max,       identifier for maximum configuration index
+  --relative-function NAME,  name of relative frame function
+  --absolute-function NAME,  name of absolute frame function
+  --id-prefix NAME,          prefix for C identifiers
+  --axis-array NAME,         array for frame axes
+  --parent-array NAME,       array for frame parents
+  --name-array NAME,         array for frame names
+  --header-file NAME,        output file for header
+  --source-file NAME,        output file for source
+  --dot-file NAME,           output file for dot
+  --frame-max NAME,          identifier for maximum frame index
+  --configuration-max NAME,  identifier for maximum configuration index
+  --block-arrays,            use LAPACK-style block arrays
 
 Examples:
   rfx-urdfc myrobot.urdf     Generate myrobot.h and myrobot.c from URDF file
@@ -110,6 +112,9 @@ EOF
         --configuration-max)
             shift
             CONFIG_MAX="$1"
+            ;;
+        --block-arrays)
+            BLOCK_ARRAYS_ARG="t"
             ;;
         -*)
             echo "error: unknown option: $1"
@@ -186,6 +191,7 @@ sbcl --script <<EOF
                           :axes-array "$AXIS_ARRAY"
                           :parents-array "$PARENT_ARRAY"
                           :names-array "$NAME_ARRAY"
+                          :block-arrays "$BLOCK_ARRAYS_ARG"
                           :dot-file "$DOT_FILE")
 
 EOF
