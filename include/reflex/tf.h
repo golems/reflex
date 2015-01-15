@@ -60,7 +60,8 @@ int rfx_tf_abs( size_t n,
 
 /** Compute jacobian for revolute links */
 void rfx_tf_rev_jacobian( const double *AA_RESTRICT tf_abs, const double *axes,
-                          size_t n, const size_t *AA_RESTRICT indices, const double *AA_RESTRICT pe,
+                          size_t n, const size_t *AA_RESTRICT indices_tf,  const size_t *AA_RESTRICT indices_axis,
+                          const double *AA_RESTRICT pe,
                           double *AA_RESTRICT J, size_t ldJ );
 
 /* Generate random tf */

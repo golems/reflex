@@ -93,14 +93,14 @@ subroutine rfx_tf_rev_jacobian_col( T_abs, axis_rel, pe_abs, J )
   call aa_tf_cross( J(4:6), tmp, J(1:3) )
 end subroutine rfx_tf_rev_jacobian_col
 
-subroutine rfx_tf_rev_jacobian( tf_abs, axes, n, indices, pe, J, ldJ ) &
+subroutine rfx_tf_rev_jacobian( tf_abs, axes, n, idx_tf, idx_axis, pe, J, ldJ ) &
      bind(C,name="rfx_tf_rev_jacobian")
   integer(C_SIZE_T), intent(in), value :: ldJ, n
   real(C_DOUBLE), intent(in) :: tf_abs(7,*), axes(3,*), pe(3)
-  integer(C_SIZE_T), intent(in) :: indices(n)
+  integer(C_SIZE_T), intent(in) :: idx_tf(n), idx_axis(n)
   real(C_DOUBLE), intent(inout) :: J(ldJ,n)
   integer(C_SIZE_T) :: i
   do i = 1,n
-     call rfx_tf_rev_jacobian_col( tf_abs(:,indices(i)+1), axes(:,indices(i)+1), pe, J(1:6,i) )
+     call rfx_tf_rev_jacobian_col( tf_abs(:,idx_tf(i)+1), axes(:,idx_axis(i)+1), pe, J(1:6,i) )
   end do
 end subroutine rfx_tf_rev_jacobian
