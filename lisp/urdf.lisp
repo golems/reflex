@@ -1,6 +1,5 @@
 ;;;; -*- mode: lisp -*-
 ;;;;
-;;;; Copyright (c) 2013, Georgia Tech Research Corporation
 ;;;; Copyright (c) 2015, Rice University
 ;;;; All rights reserved.
 ;;;;
