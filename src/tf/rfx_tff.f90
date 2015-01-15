@@ -91,7 +91,7 @@ end subroutine rfx_tf_rev_jacobian_col
 subroutine rfx_tf_rev_jacobian( tf_abs, axes, n, indices, pe, J, ldJ ) &
      bind(C,name="rfx_tf_rev_jacobian")
   integer(C_SIZE_T), intent(in), value :: ldJ, n
-  real(C_DOUBLE), intent(in) :: tf_abs(7,n), axes(3,n), pe(3)
+  real(C_DOUBLE), intent(in) :: tf_abs(7,*), axes(3,*), pe(3)
   integer(C_SIZE_T), intent(in) :: indices(n)
   real(C_DOUBLE), intent(inout) :: J(ldJ,n)
   integer(C_SIZE_T) :: i
