@@ -78,6 +78,8 @@
                    (cond
                      ((string= "revolute" s)
                       :revolute)
+                     ((string= "prismatic" s)
+                      :prismatic)
                      ((string= "fixed" s)
                       :fixed)
                      (t
@@ -217,21 +219,51 @@
              ptr)
      (format stream "~&    }")))))
 
+(defun offset-config (phi offset)
+  (if offset
+      (format nil "(~A+~A)" (float-string phi) (float-string offset))
+      (float-string phi)))
+
 (defun emit-revolute-frame (frame stream q-array e-array)
   (assert (frame-configuration frame) ()
           "No configuration variable for frame ~A" (frame-name frame))
   (let ((v (frame-translation frame))
         (axis (frame-axis frame))
         (ptr (format nil "(~A + ldE*~A + AA_TF_QUTR_Q)" e-array (frame-name frame)))
-        (q (format nil "~A[~A*incQ]" q-array (frame-configuration frame)))
+        (phi (format nil "~A[~A*incQ]" q-array (frame-configuration frame)))
         (offset (frame-offset frame)))
-    (emit-quat stream ptr (if offset
-                              (format nil "(~A+~A)" q offset)
-                              q)
+    (emit-quat stream ptr (offset-config phi offset)
                (elt axis 0) (elt axis 1) (elt axis 2))
     (dotimes (i 3)
       (format stream "~&    ~A[AA_TF_QUTR_T + ~D] = ~A;"
               ptr i (float-string (elt v i))))))
+
+
+(defun emit-prismatic-frame (frame stream q-array e-array)
+  (assert (frame-configuration frame) ()
+          "No configuration variable for frame ~A" (frame-name frame))
+  (let ((v (frame-translation frame))
+        (axis (frame-axis frame))
+        (ptr (format nil "(~A + ldE*~A + AA_TF_QUTR_Q)" e-array (frame-name frame)))
+        (q (frame-quaternion frame))
+        (phi (format nil "~A[~A*incQ]" q-array (frame-configuration frame)))
+        (offset (frame-offset frame)))
+    (dotimes (i 4)
+      (format stream "~&    ~A[AA_TF_QUTR_Q + ~D] = ~A;"
+              ptr i (float-string (elt q i))))
+    (dotimes (i 3)
+      (format stream "~&    ~A[AA_TF_QUTR_T + ~D] = ~A~A;"
+              ptr i
+              (float-string (elt v i))
+              (cond ;;
+                ((zerop (elt axis i)) "")
+                ((= 1 (elt axis i))
+                 (format nil " + ~A"
+                         (offset-config phi offset)))
+                (t
+                 (format nil " + ~A * ~A"
+                         (offset-config phi offset)
+                         (float-string (elt axis i)))))))))
 
 (defun emit-parents-array (name frames &key (stream t))
   (format stream "~&const ssize_t ~A[] = {~&~{~&    ~A~^,~}~&};"
@@ -280,6 +312,7 @@
                (frame-type frame))
        (case (frame-type frame)
          (:revolute (emit-revolute-frame frame stream "q" "e"))
+         (:prismatic (emit-prismatic-frame frame stream "q" "e"))
          (:fixed (emit-fixed-frame frame stream "e"))
          (otherwise (error "Unknown type of frame ~A" (frame-name frame)))))
   (format stream "~&}"))

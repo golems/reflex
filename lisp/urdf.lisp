@@ -136,6 +136,8 @@
     (cond
       ((string= "revolute" s)
        :revolute)
+      ((string= "prismatic" s)
+       :revolute)
       ((string= "fixed" s)
        :fixed)
       (t
