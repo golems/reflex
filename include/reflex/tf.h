@@ -91,7 +91,21 @@ enum rfx_tf_cor_opts {
     RFX_TF_COR_O_ROT_MEDIAN = 0x10
 };
 
-/** Compute fit between corresponding transforms */
+/**
+ * Compute fit between corresponding transforms
+ *
+ * @param[in] opts type of fit to perform (bitmask of enum rfx_tf_cor_opts)
+ * @param[in] qx quaternion array 0
+ * @param[in] ldqx leading dimensions of qx
+ * @param[in] qy quaternion array 1
+ * @param[in] ldqy leading dimensions of qy
+ * @param[in] vx translation array 0
+ * @param[in] ldvx leading dimensions of vx
+ * @param[in] vy translation array 1
+ * @param[in] ldvy leading dimensions of vy
+ * @param[out] Z output transform (quaternion, translation)
+ */
+
 void rfx_tf_cor( int opts, size_t n,
                  const double *qx, size_t ldqx,
                  const double *vx, size_t ldvx,
@@ -148,10 +162,29 @@ int rfx_lqg_qutr_measure( void *cx, const double *x, double *y, double *H );
 int rfx_lqg_qutr_innovate( void *cx, const double *x, const double *z, double *y );
 int rfx_lqg_qutr_update( void *cx, double *x, const double *Ky );
 
-
+/**
+ * Kalman filter prediction step for quaternion-translation pose
+ *
+ * @param dt time step
+ * @param E pose (quaternion, translation)
+ * @param dE pose derivatice (quaternion-derivative, translation-derivative)
+ * @param P convarance (13x13)
+ * @param V process noise (13x13)
+ */
 int rfx_lqg_qutr_predict
 ( double dt, double *E, double *dE, double *P, const double *V );
 
+/**
+ * Kalman filter correction step for quaternion-translation pose
+ *
+ * @param dt time step
+ * @param E_est pose estimate
+ * @param dE_est pose derivative estimate
+ * @param dE_obs pose measurement
+ * @param P covariance
+ * @param W measurement noise (7x7)
+ *
+ */
 int rfx_lqg_qutr_correct
 ( double dt, double *E_est, double *dE_est,
   const double *E_obs,
