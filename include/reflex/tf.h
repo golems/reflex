@@ -47,6 +47,32 @@
 extern "C" {
 #endif //__cplusplus
 
+/**
+ * Descriptor for transform operations.
+ */
+struct rfx_tf_ops {
+    /** Number of configurations */
+    size_t n_config;
+    /** Number of frames */
+    size_t n_frame;
+
+    /** Compute relative transforms. */
+    void (*frame_rel)( const double *AA_RESTRICT config,
+                       size_t incQ,
+                       double *AA_RESTRICT E_rel,
+                       size_t ldE );
+
+    /** Compute absolute transforms. */
+    void (*frame_abs)( const double * AA_RESTRICT E_rel, size_t ldRel,
+                       double * AA_RESTRICT E_abs, size_t ldAbs );
+
+    /** Array of axes */
+    const double *config_axes;
+    /** Array of frame names */
+    const char *frame_name;
+    /** Array of frame parent indices */
+    const ssize_t *frame_parent;
+};
 
 /** Compute absolute tfs from relative tfs.
  *
