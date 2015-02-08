@@ -32,6 +32,7 @@
 
 REL_FUN="frame_rel"
 ABS_FUN="frame_abs"
+FRAMES_FUN="frames"
 ID_PREFIX="URDF_"
 NAME_ARRAY=urdf_name
 PARENT_ARRAY=urdf_parent
@@ -39,6 +40,7 @@ AXIS_ARRAY=urdf_axis
 FRAME_MAX="URDF_FRAME_MAX"
 CONFIG_MAX="URDF_CONFIG_MAX"
 BLOCK_ARRAYS_ARG="nil"
+DESCRIPTOR="desc"
 
 while test "$1" != x-- -a "x$#" != x0; do
     case "$1" in
@@ -51,6 +53,8 @@ Options:
   -h|-?|--help,              display this help and exit
   --relative-function NAME,  name of relative frame function
   --absolute-function NAME,  name of absolute frame function
+  --frames-function NAME,    name of frame generation function
+  --descriptor NAME,         name of frame descriptor struct
   --id-prefix NAME,          prefix for C identifiers
   --axis-array NAME,         array for frame axes
   --parent-array NAME,       array for frame parents
@@ -76,6 +80,10 @@ EOF
         --absolute-function)
             shift
             ABS_FUN="$1"
+            ;;
+        --frames-function)
+            shift
+            FRAMES_FUN="$1"
             ;;
         --id-prefix)
             shift
@@ -112,6 +120,10 @@ EOF
         --configuration-max)
             shift
             CONFIG_MAX="$1"
+            ;;
+        --descriptor)
+            shift
+            DESCRIPTOR="$1"
             ;;
         --block-arrays)
             BLOCK_ARRAYS_ARG="t"
@@ -187,10 +199,12 @@ sbcl --script <<EOF
                           :configuration-max "$CONFIG_MAX"
                           :relative-function "$REL_FUN"
                           :absolute-function "$ABS_FUN"
+                          :frames-function "$FRAMES_FUN"
                           :normalize t
                           :axes-array "$AXIS_ARRAY"
                           :parents-array "$PARENT_ARRAY"
                           :names-array "$NAME_ARRAY"
+                          :descriptor "$DESCRIPTOR"
                           :block-arrays "$BLOCK_ARRAYS_ARG"
                           :dot-file "$DOT_FILE")
 

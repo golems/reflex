@@ -317,6 +317,25 @@
          (otherwise (error "Unknown type of frame ~A" (frame-name frame)))))
   (format stream "~&}"))
 
+(defun frame-fun-decl (name &key (stream t))
+  (format stream "~&void ~A( ~A )"
+          name
+          (concatenate 'string
+                       "const double *AA_RESTRICT q, size_t incQ, "
+                       "double *AA_RESTRICT E_rel, size_t ldRel, "
+                       "double * AA_RESTRICT E_abs, size_t ldAbs,"
+                       "int options")))
+
+(defun emit-frame-fun (name rel-fun abs-fun frames &key (stream t))
+  (frame-fun-decl name :stream stream)
+  ;; TODO: interleave relative and absolute frame computation for more linear memory access
+  ;; TODO: add options to elide recopying fixed frames
+  (format stream "~&{~&")
+  (format stream "~&    (void) options;")
+  (format stream "~&    if(q) ~A(q, incQ, E_rel, ldRel);" rel-fun)
+  (format stream "~&    if(E_abs) ~A(E_rel, ldRel, E_abs, ldAbs);" abs-fun)
+  (format stream "~&}"))
+
 ;; (defun emit-jacobian-fun (name frames &key (stream t))
 ;;   (format stream "~&void ~A~&(~{~A~^, ~}) ~&{~&"
 ;;           name
@@ -397,10 +416,12 @@
                           normalize
                           (relative-function "rel_tf")
                           (absolute-function "abs_tf")
+                          (frames-function "frames")
                           (parents-array "parents")
                           (names-array "names")
                           (axes-array "axes")
-                          block-arrays
+                          descriptor
+                          (block-arrays t)
                           )
   (check-frames frames)
   ;; header
@@ -413,6 +434,8 @@
     (format f "~&extern const char *~A[];" names-array)
     (format f "~&extern const ssize_t ~A[];" parents-array)
     (format f "~&extern const double ~A[][3];" axes-array)
+    (when descriptor
+      (format f "~&extern const struct rfx_tf_desc ~A;" descriptor))
     (format f "~&~%/* NAME INDICES */")
     (emit-name-indices frames :stream f :max frame-max)
     (format f "~&~%/* CONFIGURATION INDICES */")
@@ -422,6 +445,8 @@
     (format f ";~&")
     (format f "~&~%/* Compute Absolute Transforms */")
     (abs-fun-decl absolute-function :stream f :block-arrays block-arrays)
+    (format f ";~&")
+    (frame-fun-decl frames-function :stream f)
     (format f ";~&")
     (ifdef-c++ f "}"))
   ;; source
@@ -434,6 +459,16 @@
     (emit-names-array names-array frames :stream f)
     (emit-axes-array axes-array frames :stream f)
     (emit-abs-fun absolute-function frames :stream f :normalize normalize :block-arrays block-arrays)
+    (emit-frame-fun frames-function relative-function absolute-function frames :stream f)
+    (when descriptor
+      (format f "~&const struct rfx_tf_desc ~A = {" descriptor)
+      (format f "~&    .n_config = ~A," configuration-max)
+      (format f "~&    .n_frame = ~A,"  frame-max)
+      (format f "~&    .frames = ~A,"  frames-function)
+      (format f "~&    .config_axes = ~A[0],"  axes-array)
+      (format f "~&    .frame_name = ~A,"  names-array)
+      (format f "~&    .frame_parent = ~A,"  parents-array)
+      (format f "~&};"))
     )
   ;; dot
   (when dot-file

@@ -49,28 +49,50 @@ extern "C" {
 
 /**
  * Descriptor for transform operations.
+ *
+ * These descriptors are produced by the frame code generator.
  */
-struct rfx_tf_ops {
-    /** Number of configurations */
+struct rfx_tf_desc {
+
+    /**
+     * Number of configurations
+     */
     size_t n_config;
-    /** Number of frames */
+
+    /**
+     * Number of frames
+     */
     size_t n_frame;
 
-    /** Compute relative transforms. */
-    void (*frame_rel)( const double *AA_RESTRICT config,
-                       size_t incQ,
-                       double *AA_RESTRICT E_rel,
-                       size_t ldE );
+    /**
+     * Compute transforms.
+     *
+     * @param[in]  q       the configuration variables
+     * @param[in]  incQ    increment of q array
+     * @param[out] E_rel   the relative frames in quaternion-translation form
+     * @param[in]  ldRel   leading dimension of E_rel
+     * @param[out] E_abs   the absolute frames in quaternion-translation form
+     * @param[in]  ldAbs   leading dimension of E_abs
+     * @param[in]  options reserved for future use
+     */
+    void (*frames)( const double *AA_RESTRICT q, size_t incQ,
+                    double * AA_RESTRICT E_rel, size_t ldRel,
+                    double * AA_RESTRICT E_abs, size_t ldAbs,
+                    int options);
 
-    /** Compute absolute transforms. */
-    void (*frame_abs)( const double * AA_RESTRICT E_rel, size_t ldRel,
-                       double * AA_RESTRICT E_abs, size_t ldAbs );
-
-    /** Array of axes */
+    /**
+     * Array of axes
+     */
     const double *config_axes;
-    /** Array of frame names */
-    const char *frame_name;
-    /** Array of frame parent indices */
+
+    /**
+     * Array of frame names
+     */
+    const char **frame_name;
+
+    /**
+     * Array of frame parent indices
+     */
     const ssize_t *frame_parent;
 };
 
