@@ -210,6 +210,34 @@ typedef struct {
 
 typedef rfx_ctrl_t rfx_ctrl_ws_t;
 
+/**
+ * Update the actual state in the controller.
+ *
+ * @post the controllers joint position, joint velocity, workspace
+ * position, and Jacobian are updated.
+ *
+ * @param G the control struct to udpate
+ * @param idx_q indices of configurations in array q to extract
+ * @param idx_frame indices of frames in array E_abs to extract
+ * @param idx_frame_ee index of end-effector frame
+ * @param q array actual configurations
+ * @param incQ increment of array Q
+ * @param dq array actual configuration velocities
+ * @param increment of array dq
+ * @param E_abs array of absolute transforms in quaternion-translation form
+ * @param ldE leading dimension of array E
+ * @param axes array of axes
+ */
+AA_API void
+rfx_ctrl_update_act( rfx_ctrl_t *G,
+                     const size_t *idx_q, const size_t *idx_frame, int idx_frame_ee,
+                     const double *axes,
+                     const double *q, size_t incQ,
+                     const double *dq, size_t incdQ,
+                     const double *E_abs, size_t ldE
+    );
+
+
 /** Initialize workspace control state structure.
  *  Malloc's arrays for each field
  */

@@ -348,3 +348,35 @@ int rfx_ctrlx_fun_lin_vfwd ( void *cx,
     // result
     return rfx_ctrl_ws_lin_vfwd( ctrlx->ctrl, ctrlx->k, dq_r );
 }
+
+AA_API void
+rfx_ctrl_update_act( rfx_ctrl_t *G,
+                     const size_t *idx_q, const size_t *idx_frame, int idx_frame_ee,
+                     const double *axes,
+                     const double *q, size_t incQ,
+                     const double *dq, size_t incdQ,
+                     const double *E_abs, size_t ldE )
+{
+
+    /* Copy joint state */
+    for( size_t i = 0; i < G->n_q; i++ ) {
+        size_t j = idx_q[i] * incQ;
+        size_t k = idx_q[i] * incdQ;
+        G->act.q[i] = q[j];
+        G->act.dq[i] = dq[k];
+    }
+
+    /* compute end-effector dual quaternion */
+    const double *E_ee = E_abs + 7*idx_frame_ee;
+    aa_tf_qutr2duqu( E_ee, G->act.S );
+
+    const double *pe = & E_ee[AA_TF_QUTR_T];
+
+    /* Compute Jacobian */
+    rfx_tf_rev_jacobian( E_abs, ldE,
+                         axes,
+                         G->n_q,
+                         idx_frame, idx_q,
+                         pe, G->J, 6 );
+
+}
