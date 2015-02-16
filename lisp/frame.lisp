@@ -290,6 +290,15 @@
              collect (if p p -1))))
 
 
+(defun emit-config-names-array (name frames &key (stream t))
+  (format stream "~&const char * ~A[] = {~&~{~&    \"~A\"~^,~}~&};"
+          name
+          (loop for f in frames
+             for config = (frame-configuration f)
+             when config
+             collect config)))
+
+
 (defun rel-fun-decl (name &key (stream t) block-arrays)
   (format stream "~&void ~A( ~A )"
           name
@@ -322,18 +331,17 @@
           name
           (concatenate 'string
                        "const double *AA_RESTRICT q, size_t incQ, "
-                       "double *AA_RESTRICT E_rel, size_t ldRel, "
-                       "double * AA_RESTRICT E_abs, size_t ldAbs,"
-                       "int options")))
+                       "double * AA_RESTRICT E_abs, size_t ldAbs" )))
 
 (defun emit-frame-fun (name rel-fun abs-fun frames &key (stream t))
   (frame-fun-decl name :stream stream)
   ;; TODO: interleave relative and absolute frame computation for more linear memory access
   ;; TODO: add options to elide recopying fixed frames
   (format stream "~&{~&")
-  (format stream "~&    (void) options;")
-  (format stream "~&    if(q) ~A(q, incQ, E_rel, ldRel);" rel-fun)
-  (format stream "~&    if(E_abs) ~A(E_rel, ldRel, E_abs, ldAbs);" abs-fun)
+  (format stream "~&    double *E_rel = (double*)aa_mem_region_local_alloc(7*sizeof(double)*~A);" (length frames))
+  (format stream "~&    ~A(q, incQ, E_rel, 7);" rel-fun)
+  (format stream "~&    ~A(E_rel, 7, E_abs, ldAbs);" abs-fun)
+  (format stream "~&    aa_mem_region_local_pop(E_rel);")
   (format stream "~&}"))
 
 ;; (defun emit-jacobian-fun (name frames &key (stream t))
@@ -418,7 +426,8 @@
                           (absolute-function "abs_tf")
                           (frames-function "frames")
                           (parents-array "parents")
-                          (names-array "names")
+                          (frame-names-array "frame_names")
+                          (config-names-array "config_names")
                           (axes-array "axes")
                           descriptor
                           (block-arrays t)
@@ -431,7 +440,8 @@
     (format f "~{~&#include <~A>~}" system-headers)
     (format f "~{~&#include <~A>~}" system-headers)
     (format f "~{~&#include \"~A\"~}~%" headers)
-    (format f "~&extern const char *~A[];" names-array)
+    (format f "~&extern const char *~A[];" frame-names-array)
+    (format f "~&extern const char *~A[];" config-names-array)
     (format f "~&extern const ssize_t ~A[];" parents-array)
     (format f "~&extern const double ~A[][3];" axes-array)
     (when descriptor
@@ -456,7 +466,8 @@
     (format f "~{~&#include \"~A\"~}" headers)
     (emit-rel-fun relative-function frames :stream f :block-arrays block-arrays)
     (emit-parents-array parents-array frames :stream f)
-    (emit-names-array names-array frames :stream f)
+    (emit-names-array frame-names-array frames :stream f)
+    (emit-config-names-array config-names-array frames :stream f)
     (emit-axes-array axes-array frames :stream f)
     (emit-abs-fun absolute-function frames :stream f :normalize normalize :block-arrays block-arrays)
     (emit-frame-fun frames-function relative-function absolute-function frames :stream f)
@@ -466,7 +477,8 @@
       (format f "~&    .n_frame = ~A,"  frame-max)
       (format f "~&    .frames = ~A,"  frames-function)
       (format f "~&    .config_axes = ~A[0],"  axes-array)
-      (format f "~&    .frame_name = ~A,"  names-array)
+      (format f "~&    .frame_name = ~A,"  frame-names-array)
+      (format f "~&    .config_name = ~A,"  config-names-array)
       (format f "~&    .frame_parent = ~A,"  parents-array)
       (format f "~&};"))
     )

@@ -34,7 +34,8 @@ REL_FUN="frame_rel"
 ABS_FUN="frame_abs"
 FRAMES_FUN="frames"
 ID_PREFIX="URDF_"
-NAME_ARRAY=urdf_name
+FRAME_NAME_ARRAY=urdf_frame_name
+CONFIG_NAME_ARRAY=urdf_config_name
 PARENT_ARRAY=urdf_parent
 AXIS_ARRAY=urdf_axis
 FRAME_MAX="URDF_FRAME_MAX"
@@ -58,7 +59,8 @@ Options:
   --id-prefix NAME,          prefix for C identifiers
   --axis-array NAME,         array for frame axes
   --parent-array NAME,       array for frame parents
-  --name-array NAME,         array for frame names
+  --frame-name-array NAME,   array for frame names
+  --config-name-array NAME,  array for config names
   --header-file NAME,        output file for header
   --source-file NAME,        output file for source
   --dot-file NAME,           output file for dot
@@ -89,9 +91,13 @@ EOF
             shift
             ID_PREFIX="$1"
             ;;
-        --name-array)
+        --frame-name-array)
             shift
-            NAME_ARRAY="$1"
+            FRAME_NAME_ARRAY="$1"
+            ;;
+        --config-name-array)
+            shift
+            CONFIG_NAME_ARRAY="$1"
             ;;
         --parent-array)
             shift
@@ -203,7 +209,8 @@ sbcl --script <<EOF
                           :normalize t
                           :axes-array "$AXIS_ARRAY"
                           :parents-array "$PARENT_ARRAY"
-                          :names-array "$NAME_ARRAY"
+                          :frame-names-array "$FRAME_NAME_ARRAY"
+                          :config-names-array "$CONFIG_NAME_ARRAY"
                           :descriptor "$DESCRIPTOR"
                           :block-arrays "$BLOCK_ARRAYS_ARG"
                           :dot-file "$DOT_FILE")

@@ -168,7 +168,7 @@ void plot_viax() {
 
     double R[5][4];
     double RV[5][3];
-    size_t n = 5;
+    size_t n = 2;
     for( size_t i = 0; i < n; i ++ ) {
         aa_tf_eulerzyx2quat( E[i][0], E[i][1], E[i][2], R[i] );
         aa_tf_quat2rotvec( R[i], RV[i] );
