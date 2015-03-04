@@ -222,44 +222,39 @@
 (defun emit-varying-frame-to-array (frame stream q-array e-array)
   (assert (frame-configuration frame) ()
           "No configuration variable for frame ~A" (frame-name frame))
-  (let ((ptr (format nil "(~A + ldE*~A + AA_TF_QUTR_Q)" e-array (frame-name frame)))
+  (let ((ptr (format nil "(~A + ldE*~A)" e-array (frame-name frame)))
         (phi (format nil "~A[~A*incQ]" q-array (frame-configuration frame))))
-    (emit-varying-frame frame stream phi ptr :partial nil)))
+    (emit-varying-frame frame stream phi :frame-ptr ptr :partial nil)))
 
-(defun emit-varying-frame (frame stream phi ptr &key partial)
+(defun emit-varying-frame (frame stream phi &key
+                                              frame-ptr
+                                              (quat-ptr (format nil "(~A+AA_TF_QUTR_Q)" frame-ptr))
+                                              (vec-ptr (format nil "(~A+AA_TF_QUTR_V)" frame-ptr))
+                                              partial)
   (let ((v (frame-translation frame))
-        (q (frame-quaternion frame))
         (offset (frame-offset frame))
         (axis (frame-axis frame)))
     (ecase (frame-type frame)
       (:prismatic
+       ;; copy quaternion
        (unless partial
-         (dotimes (i 4)
-           (format stream "~&    ~A[AA_TF_QUTR_Q + ~D] = ~A;"
-                   ptr i (float-string (elt q i)))))
+           (format stream "~&    memcpy(~A, quat_~A, 4*sizeof(~A[0]));"
+                   quat-ptr (frame-name frame) quat-ptr))
+       ;; compute vector
        (dotimes (i 3)
-         (format stream "~&    ~A[~A~D] = ~A~A;"
-                 ptr (if partial
-                         ""
-                         "AA_TF_QUTR_T + ")
-                 i
+         (format stream "~&    ~A[~D] = ~A + ~A * ~A;"
+                 vec-ptr i
                  (float-string (elt v i))
-                 (cond ;;
-                   ((zerop (elt axis i)) "")
-                   ((= 1 (elt axis i))
-                    (format nil " + ~A"
-                            (offset-config phi offset)))
-                   (t
-                    (format nil " + ~A * ~A"
-                            (offset-config phi offset)
-                            (float-string (elt axis i))))))))
+                 (float-string (elt axis i))
+                 (offset-config phi offset))))
       (:revolute
-       (emit-quat stream ptr (offset-config phi offset)
+       ;; compute quaternion
+       (emit-quat stream quat-ptr (offset-config phi offset)
                   (elt axis 0) (elt axis 1) (elt axis 2))
+       ;; copy vector
        (unless partial
-         (dotimes (i 3)
-           (format stream "~&    ~A[AA_TF_QUTR_T + ~D] = ~A;"
-                   ptr i (float-string (elt v i)))))))))
+         (format stream "~&    memcpy(~A, vec_~A, 3*sizeof(~A[0]));"
+                 vec-ptr (frame-name frame) vec-ptr))))))
 
 ;; (defun emit-revolute-frame (frame stream q-array e-array &key q-offset)
 ;;   (assert (frame-configuration frame) ()
