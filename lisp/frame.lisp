@@ -386,74 +386,74 @@
                        "const double *AA_RESTRICT q, size_t incQ, "
                        "double * AA_RESTRICT E_abs, size_t ldAbs" )))
 
-;; (defun emit-frame-fun (name rel-fun abs-fun frames &key (stream t))
-;;   (frame-fun-decl name :stream stream)
-;;   ;; TODO: interleave relative and absolute frame computation for more linear memory access
-;;   ;; TODO: add options to elide recopying fixed frames
-;;   (format stream "~&{~&")
-;;   (format stream "~&    double *E_rel = (double*)aa_mem_region_local_alloc(7*sizeof(double)*~A);" (length frames))
-;;   (format stream "~&    ~A(q, incQ, E_rel, 7);" rel-fun)
-;;   (format stream "~&    ~A(E_rel, 7, E_abs, ldAbs);" abs-fun)
-;;   (format stream "~&    aa_mem_region_local_pop(E_rel);")
-;;   (format stream "~&}"))
-
-(defun emit-frame-fun (name frames &key (stream t))
+(defun emit-frame-fun (name rel-fun abs-fun frames &key (stream t))
   (frame-fun-decl name :stream stream)
+  ;; TODO: interleave relative and absolute frame computation for more linear memory access
+  ;; TODO: add options to elide recopying fixed frames
   (format stream "~&{~&")
-  (labels ((parent-abs (parent-name)
-             (format nil "E_abs + ldAbs*~A" parent-name))
-           (compute-abs (rel parent-name abs)
-             (if parent-name
-                 ;; sub frame, chain it
-                 (let ((par (parent-abs parent-name)))
-                   (format stream "~&    aa_tf_qutr_mulnorm( ~A, ~A, ~A );"
-                           par rel abs))
-                 ;; base frame, copy it
-                 (format stream "~&    memcpy( ~A, ~A, 7*sizeof(~A[0]) );"
-                         abs rel "E_abs")))
-           (copy-qv (abs q v )
-             (format stream "~&    memcpy( ~A+AA_TF_QUTR_Q, ~A, 4*sizeof(~A[0]) );" abs q "E_abs")
-             (format stream "~&    memcpy( ~A+AA_TF_QUTR_V, ~A, 3*sizeof(~A[0]) );" abs v "E_abs"))
-           (compute-abs-revolute (rel name parent-name abs)
-             (if parent-name
-                 ;; sub frame, chain it
-                 (let ((par (parent-abs parent-name)))
-                   (format stream "~&    aa_tf_qv_chain( ~A+AA_TF_QUTR_Q, ~A+AA_TF_QUTR_V," par par)
-                   (format stream "~&                    ~A, vec_~A," rel name)
-                   (format stream "~&                    ~A+AA_TF_QUTR_Q, ~A+AA_TF_QUTR_V );" abs abs))
-                 ;; base frame, copy it
-                 (copy-qv abs rel (format nil "vec_~A" name))))
-           (compute-abs-prismatic (rel name parent-name abs)
-             (if parent-name
-                 ;; sub frame, chain it
-                 (let ((par (parent-abs parent-name)))
-                   (format stream "~&    aa_tf_qv_chain( ~A+AA_TF_QUTR_Q, ~A+AA_TF_QUTR_V," par par)
-                   (format stream "~&                    quat_~A, ~A," name rel)
-                   (format stream "~&                    ~A+AA_TF_QUTR_Q, ~A+AA_TF_QUTR_V );" abs abs))
-                 ;; base frame, copy it
-                 (copy-qv abs (format nil "quat_~A" name) rel))))
-    (loop
-       for f in frames
-       for name = (frame-name f)
-       for abs = (format nil "E_abs + ldAbs*~A" name)
-       for parent-name = (frame-parent f)
-       for type = (frame-type f)
-       do
-         (format stream "~&    /* ~A */" name)
-         (if (eq type :fixed)
-             (compute-abs (format nil "fixed_~A" name) parent-name abs)
-             ;; varying frame
-             (progn
-               (format stream "~&    {~&    double tmp[~A];" (ecase type (:revolute 4) (:prismatic 3)))
-               (emit-varying-frame f stream
-                                   (format nil "q[~A*incQ]" name)
-                                   "tmp"
-                                   :partial t)
-               (ecase type
-                 (:prismatic (compute-abs-prismatic "tmp" name parent-name abs))
-                 (:revolute (compute-abs-revolute "tmp" name parent-name abs)))
-               (format stream "~&    }"))))
-    (format stream "~&}")))
+  (format stream "~&    double *E_rel = (double*)aa_mem_region_local_alloc(7*sizeof(double)*~A);" (length frames))
+  (format stream "~&    ~A(q, incQ, E_rel, 7);" rel-fun)
+  (format stream "~&    ~A(E_rel, 7, E_abs, ldAbs);" abs-fun)
+  (format stream "~&    aa_mem_region_local_pop(E_rel);")
+  (format stream "~&}"))
+
+;; (defun emit-frame-fun (name frames &key (stream t))
+;;   (frame-fun-decl name :stream stream)
+;;   (format stream "~&{~&")
+;;   (labels ((parent-abs (parent-name)
+;;              (format nil "E_abs + ldAbs*~A" parent-name))
+;;            (compute-abs (rel parent-name abs)
+;;              (if parent-name
+;;                  ;; sub frame, chain it
+;;                  (let ((par (parent-abs parent-name)))
+;;                    (format stream "~&    aa_tf_qutr_mulnorm( ~A, ~A, ~A );"
+;;                            par rel abs))
+;;                  ;; base frame, copy it
+;;                  (format stream "~&    memcpy( ~A, ~A, 7*sizeof(~A[0]) );"
+;;                          abs rel "E_abs")))
+;;            (copy-qv (abs q v )
+;;              (format stream "~&    memcpy( ~A+AA_TF_QUTR_Q, ~A, 4*sizeof(~A[0]) );" abs q "E_abs")
+;;              (format stream "~&    memcpy( ~A+AA_TF_QUTR_V, ~A, 3*sizeof(~A[0]) );" abs v "E_abs"))
+;;            (compute-abs-revolute (rel name parent-name abs)
+;;              (if parent-name
+;;                  ;; sub frame, chain it
+;;                  (let ((par (parent-abs parent-name)))
+;;                    (format stream "~&    aa_tf_qv_chain( ~A+AA_TF_QUTR_Q, ~A+AA_TF_QUTR_V," par par)
+;;                    (format stream "~&                    ~A, vec_~A," rel name)
+;;                    (format stream "~&                    ~A+AA_TF_QUTR_Q, ~A+AA_TF_QUTR_V );" abs abs))
+;;                  ;; base frame, copy it
+;;                  (copy-qv abs rel (format nil "vec_~A" name))))
+;;            (compute-abs-prismatic (rel name parent-name abs)
+;;              (if parent-name
+;;                  ;; sub frame, chain it
+;;                  (let ((par (parent-abs parent-name)))
+;;                    (format stream "~&    aa_tf_qv_chain( ~A+AA_TF_QUTR_Q, ~A+AA_TF_QUTR_V," par par)
+;;                    (format stream "~&                    quat_~A, ~A," name rel)
+;;                    (format stream "~&                    ~A+AA_TF_QUTR_Q, ~A+AA_TF_QUTR_V );" abs abs))
+;;                  ;; base frame, copy it
+;;                  (copy-qv abs (format nil "quat_~A" name) rel))))
+;;     (loop
+;;        for f in frames
+;;        for name = (frame-name f)
+;;        for abs = (format nil "E_abs + ldAbs*~A" name)
+;;        for parent-name = (frame-parent f)
+;;        for type = (frame-type f)
+;;        do
+;;          (format stream "~&    /* ~A */" name)
+;;          (if (eq type :fixed)
+;;              (compute-abs (format nil "fixed_~A" name) parent-name abs)
+;;              ;; varying frame
+;;              (progn
+;;                (format stream "~&    {~&    double tmp[~A];" (ecase type (:revolute 4) (:prismatic 3)))
+;;                (emit-varying-frame f stream
+;;                                    (format nil "q[~A*incQ]" name)
+;;                                    "tmp"
+;;                                    :partial t)
+;;                (ecase type
+;;                  (:prismatic (compute-abs-prismatic "tmp" name parent-name abs))
+;;                  (:revolute (compute-abs-revolute "tmp" name parent-name abs)))
+;;                (format stream "~&    }"))))
+;;     (format stream "~&}")))
 
 
 ;; (defun emit-jacobian-fun (name frames &key (stream t))
@@ -583,7 +583,7 @@
     (emit-config-names-array config-names-array frames :stream f)
     (emit-axes-array axes-array frames :stream f)
     (emit-abs-fun absolute-function frames :stream f :normalize normalize :block-arrays block-arrays)
-    (emit-frame-fun frames-function frames :stream f)
+    (emit-frame-fun frames-function relative-function absolute-function frames :stream f)
     (when descriptor
       (format f "~&const struct rfx_tf_desc ~A = {" descriptor)
       (format f "~&    .n_config = ~A," configuration-max)
