@@ -142,7 +142,7 @@ struct rfx_trajq_seg_list *
 rfx_trajq_seg_list_alloc( aa_mem_region_t *reg );
 
 /* Add a segment */
-void rfx_trajq_seg_list_add( struct rfx_trajq_seg_list *seglist, struct rfx_trajq_seg*seg );
+void rfx_trajq_seg_list_add( struct rfx_trajq_seg_list *seglist, struct rfx_trajq_seg *seg );
 
 
 int
@@ -171,6 +171,13 @@ void rfx_trajq_seg_plot( struct rfx_trajq_seg_list *cx, double dt );
  */
 struct rfx_trajq_seg_list *
 rfx_trajq_gen_pblend_tm1( aa_mem_region_t *reg, struct rfx_trajq_points *points, double t_blend );
+
+/** Generate a parabolic blend trajectory through all points.
+ *
+ * Given the maximum (absolute) velocity and acceleration
+ */
+struct rfx_trajq_seg_list *
+rfx_trajq_gen_pblend_max( aa_mem_region_t *reg, struct rfx_trajq_points *points, double v_max, double a_max );
 
 
 /*--- LERP Segments (Constant Velocity) ---*/

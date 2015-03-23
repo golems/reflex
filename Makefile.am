@@ -67,6 +67,9 @@ bin_PROGRAMS = rfx-trajgen
 rfx_trajgen_SOURCES = src/demo/rfx-trajgen.c
 rfx_trajgen_LDADD = libreflex.la -lamino -lblas -llapack
 
+bin_PROGRAMS += rfx-qblend
+rfx_qblend_SOURCES = src/demo/rfx-qblend.c
+rfx_qblend_LDADD = libreflex.la -lamino -lblas -llapack
 
 bin_PROGRAMS += rfx-camcal
 rfx_camcal_SOURCES = src/demo/rfx-camcal.c
