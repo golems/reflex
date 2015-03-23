@@ -345,23 +345,73 @@ rfx_trajq_gen_pblend_tm1( aa_mem_region_t *reg, rfx_trajq_points_t *points, doub
         /*         ddq[i] = dq_next[i]  / t_blend; */
         /*     } */
 
+static struct rfx_trajq_seg_list *
+gen_traj(aa_mem_region_t *reg, struct rfx_trajq_points *points, const double * v, const double * dt, const double * tb){
+    struct rfx_trajq_seg_list *list = rfx_trajq_seg_list_alloc(reg);
+    size_t n_q = list->n_q = points->n_q;
+    size_t n_t = points-> n_t;
+    size_t pt_ct = 0;
+    for( aa_mem_cons_t *pcons = points->point->head; pcons; pcons = pcons->next, pt_ct++ ) {
+        double ddq[n_q];
+        if (pt_ct==0) {
+            double dq[n_q];
+            for (size_t j=0; j<n_q; j++){
+                ddq[j] = AA_MATREF(v, n_q, j, 0) / tb[0];
+                dq[j] = 0;
+            }
+            struct rfx_trajq_point *pt = (struct rfx_trajq_point*)pcons->data;
+            rfx_trajq_seg_list_add( list, (rfx_trajq_seg_t *)rfx_trajq_seg_2dq_alloc( reg, n_q,
+                            pt->t, pt->q, dq, ddq, pt->t+tb[0] ));
+            fprintf(stderr, "Para, ct = %d, time = %f\n", pt_ct, tb[0]);
+        } else {
+            if (pt_ct == n_t-1){
+                for (int j=0; j<n_q; j++){
+                    ddq[j] = ( - AA_MATREF(v, n_q, j, pt_ct - 1)) / tb[pt_ct];
+                }
+            }
+            for (size_t j=0; j<n_q; j++){
+                ddq[j] = (AA_MATREF(v, n_q, j, pt_ct) -AA_MATREF(v, n_q, j, pt_ct-1)) / tb[pt_ct];
+            }
+            // Linear segment before the point
+            double segtime = dt[pt_ct] - (tb[pt_ct-1] + tb[pt_ct])/2;
+            if (segtime>0.001) {
+                fprintf(stderr, "Line, ct = %d, time = %f\n", pt_ct, segtime);
+                if( rfx_trajq_seg_dq_link( list, AA_MATCOL(v, n_q, pt_ct-1), list->t_f + segtime ) ){
+                    fprintf(stderr, "Something bad when adding linear segment\n" );
+                    return NULL;
+                }
+            } else if (segtime<-0.001) {
+                fprintf(stderr, "Linear segment time negative, segtime = %f, on i = %d\n" , segtime, pt_ct);
+                    return NULL;
+            }
+            // Parabolic segment at the point
+            fprintf(stderr, "Para, ct = %d, time = %f\n", pt_ct, tb[pt_ct]);
+            if( rfx_trajq_seg_2dq_link( list, ddq, list->t_f + tb[pt_ct])){
+                fprintf(stderr, "Something bad when adding blend segment\n" );
+                return NULL;
+            }
+        }
+    }
+    return list;
+}
+
 
 rfx_trajq_seg_list_t *
 rfx_trajq_gen_pblend_max( aa_mem_region_t *reg, struct rfx_trajq_points *points, double v_max, double a_max ) {
-    struct rfx_trajq_seg_list *list = rfx_trajq_seg_list_alloc(reg);
-    size_t n_q = list->n_q = points->n_q;
+    size_t n_q = points->n_q;
+    size_t n_t = points-> n_t;
     struct rfx_trajq_point *pt_prev = NULL;
 
     double dq_prev[n_q];
     memset(dq_prev, 0, sizeof(dq_prev));
-    double v[points->n_t-1][n_q]; // Only n-1 straight segments
-    double tb[points->n_t]; // blend times
-    double dt[points->n_t+1]; // interval times
-    double fi[points->n_t-1]; // scale factors
+    double v[(n_t-1) * n_q]; // Only n-1 straight segments
+    double tb[n_t]; // blend times
+    double dt[n_t+1]; // interval times
+    double fi[n_t-1]; // scale factors
 
 
     // Find Ti
-    int pt_ct = 0;
+    size_t pt_ct = 0;
     for( aa_mem_cons_t *pcons = points->point->head; pcons; pcons = pcons->next, pt_ct++ ) {
         struct rfx_trajq_point *pt;
         if( pt_prev ) {
@@ -380,33 +430,33 @@ rfx_trajq_gen_pblend_max( aa_mem_region_t *reg, struct rfx_trajq_points *points,
 
         if (!(pt_ct==0)){
             for( size_t j = 0; j < n_q; j++ ) {
-                v[pt_ct-1][j] = (pt->q[j] - pt_prev->q[j]) / ti;
+                AA_MATREF(v,n_q,j,pt_ct-1) = (pt->q[j] - pt_prev->q[j]) / ti;
             }
         }
         dt[pt_ct] = ti;
     }
-    dt[points->n_t] = 0;
+    dt[n_t] = 0;
     while (1) {
         // Find tb
         int checked = 1;
-        for (int i=0; i<points->n_t; i++){
+        for (size_t i=0; i<n_t; i++){
             tb[i] = 0;
-            for (int j=0; j<n_q; j++){
+            for (size_t j=0; j<n_q; j++){
                 double tb_new;
                 if (i==0) {
-                    tb_new = fabs(v[0][j]) / a_max;
-                } else if (i == points->n_t - 1) {
-                    tb_new = fabs(v[i-1][j]) / a_max;
+                    tb_new = fabs(AA_MATREF(v, n_q, j, 0)) / a_max;
+                } else if (i == n_t - 1) {
+                    tb_new = fabs(AA_MATREF(v, n_q, j, i-1)) / a_max;
                 } else {
-                    tb_new = fabs(v[i][j] - v[i-1][j]) / a_max;
+                    tb_new = fabs(AA_MATREF(v, n_q, j, i) - AA_MATREF(v, n_q, j, i-1)) / a_max;
                 }
                 tb[i] = tb[i] > tb_new ? tb[i] : tb_new;
-            } 
-            // the blend times at the boundries are artificially set to be twice as long. 
+            }
+            // the blend times at the boundries are artificially set to be twice as long.
             if (i==0) {
                 dt[0] = tb[i];
-            } else if (i == points->n_t - 1){
-                dt[points->n_t] = tb[i];
+            } else if (i == n_t - 1){
+                dt[n_t] = tb[i];
             }
             fprintf(stderr, "tb[%d] = %f\n", i, tb[i]);
             fprintf(stderr, "dt[i+1] = %f\n", dt[i+1]);
@@ -416,61 +466,19 @@ rfx_trajq_gen_pblend_max( aa_mem_region_t *reg, struct rfx_trajq_points *points,
                 factor = sqrt(((dt[i]>dt[i+1]?dt[i+1]:dt[i]))/tb[i]);
             }
             if (i!=0) fi[i-1] = factor<fi[i-1] ? factor : fi[i-1];
-            if (i!=points->n_t-1) fi[i] =  factor ;
+            if (i!=n_t-1) fi[i] =  factor ;
         }
         // Check if it works. If not, generate fi
         if (checked) {
             fprintf(stderr, "yay!\n" );
             // Create list
-            pt_ct = 0;
-            for( aa_mem_cons_t *pcons = points->point->head; pcons; pcons = pcons->next, pt_ct++ ) {
-                double ddq[n_q];
-                if (pt_ct==0) {
-                    double dq[n_q];
-                    for (int j=0; j<n_q; j++){
-                        ddq[j] = v[0][j] / tb[0];
-                        dq[j] = 0;
-                    }
-                    struct rfx_trajq_point *pt = (struct rfx_trajq_point*)pcons->data;
-                    rfx_trajq_seg_list_add( list, (rfx_trajq_seg_t *)rfx_trajq_seg_2dq_alloc( reg, n_q,
-                                    pt->t, pt->q, dq, ddq, pt->t+tb[0] ));
-                    fprintf(stderr, "Para, ct = %d, time = %f\n", pt_ct, tb[0]);
-                } else {
-                    if (pt_ct == points->n_t-1){
-                        for (int j=0; j<n_q; j++){
-                            ddq[j] = ( - v[pt_ct-1][j]) / tb[pt_ct];
-                        }
-                    }
-                    for (int j=0; j<n_q; j++){
-                        ddq[j] = (v[pt_ct][j] - v[pt_ct-1][j]) / tb[pt_ct];
-                    }
-                    // Linear segment before the point
-                    double segtime = dt[pt_ct] - (tb[pt_ct-1] + tb[pt_ct])/2;
-                    if (segtime>0.001) {
-                        fprintf(stderr, "Line, ct = %d, time = %f\n", pt_ct, segtime);
-                        if( rfx_trajq_seg_dq_link( list, v[pt_ct-1], list->t_f + segtime ) ){
-                            fprintf(stderr, "Something bad when adding linear segment\n" );
-                            return NULL;
-                        }
-                    } else if (segtime<-0.001) {
-                        fprintf(stderr, "Linear segment time negative, segtime = %f, on i = %d\n" , segtime, pt_ct);
-                            return NULL;
-                    }
-                    // Parabolic segment at the point
-                    fprintf(stderr, "Para, ct = %d, time = %f\n", pt_ct, tb[pt_ct]);
-                    if( rfx_trajq_seg_2dq_link( list, ddq, list->t_f + tb[pt_ct])){
-                        fprintf(stderr, "Something bad when adding blend segment\n" );
-                        return NULL;
-                    }
-                }
-            }
-            return list;
-        } 
+            return gen_traj(reg, points, v, dt, tb);
+        }
         fprintf(stderr, "Check failed! Scale and recalculate!\n" );
-        for (int i=0; i<points->n_t-1; i++){
+        for (size_t i=0; i<n_t-1; i++){
             dt[i+1] /= fi[i];
-            for (int j=0; j<n_q; j++){
-                v[i][j] *= fi[i];
+            for (size_t j=0; j<n_q; j++){
+                AA_MATREF(v, n_q, j, i) *= fi[i];
             }
         }
     }
