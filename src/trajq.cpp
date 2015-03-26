@@ -92,8 +92,6 @@ void rfx_trajq_points_add( struct rfx_trajq_points *pts, double t, double *q ) {
 
 
 /*--- Segment List ---*/
-
-
 struct rfx_trajq_seg_vtab {
     int (*get_q)(void *cx, double t, double *q);
     int (*get_dq)(void *cx, double t, double *q, double *dq);
@@ -125,24 +123,7 @@ rfx_trajq_seg_get_ddq( struct rfx_trajq_seg*seg, double t, double *q, double *dq
 
 /** List of trajectory segments.
  */
-
-static int
-seg_list_get_q( void *list, double t, double *q) ;
-
-static int
-seg_list_get_dq( void *list, double t, double *q, double *dq );
-
-static int
-seg_list_get_ddq( void *list, double t, double *q, double *dq, double *ddq );
-
-static struct rfx_trajq_seg_vtab seglist_vtab = {
-    .get_q   = seg_list_get_q,
-    .get_dq  = seg_list_get_dq,
-    .get_ddq = seg_list_get_ddq
-};
-
 struct rfx_trajq_seg_list {
-    struct rfx_trajq_seg_vtab *vtab;
     double t_i;             ///< initial time for this segment
     double t_f;             ///< final time for this segment
     size_t n_q;             ///< number of joints
@@ -152,24 +133,32 @@ struct rfx_trajq_seg_list {
     struct aa_mem_cons *last_seg; ///< pointer to last referenced segment
 
     rfx_trajq_seg_list( aa_mem_region_t *reg ) :
-        reg(reg),
-        vtab(&seglist_vtab)
+        reg(reg)
     {
         this->seg = aa_mem_rlist_alloc( reg );
     }
 } ;
 
+static struct rfx_trajq_seg*
+seg_list_lookup( struct rfx_trajq_seg_list *list, double t );
+
 int
-rfx_trajq_seg_list_get_q( struct rfx_trajq_seg_list *seglist, double t, double *q ) {
-    return seglist->vtab->get_q( seglist, t, q );
+rfx_trajq_seg_list_get_q( struct rfx_trajq_seg_list *seglist, double t, double *q )
+{
+    return rfx_trajq_seg_get_q( seg_list_lookup(seglist,t),
+                                t, q );
 }
 int
-rfx_trajq_seg_list_get_dq(  struct rfx_trajq_seg_list *seglist, double t, double *q, double *dq ) {
-    return seglist->vtab->get_dq( seglist, t, q, dq );
+rfx_trajq_seg_list_get_dq(  struct rfx_trajq_seg_list *seglist, double t, double *q, double *dq )
+{
+    return rfx_trajq_seg_get_dq( seg_list_lookup(seglist,t),
+                                 t, q, dq );
 }
 int
-rfx_trajq_seg_list_get_ddq( struct rfx_trajq_seg_list *seglist, double t, double *q, double *dq, double *ddq ) {
-    return seglist->vtab->get_ddq( seglist, t, q, dq, ddq );
+rfx_trajq_seg_list_get_ddq( struct rfx_trajq_seg_list *seglist, double t, double *q, double *dq, double *ddq )
+{
+    return rfx_trajq_seg_get_ddq( seg_list_lookup(seglist,t),
+                                  t, q, dq, ddq );
 }
 
 double
@@ -217,24 +206,6 @@ seg_list_lookup( struct rfx_trajq_seg_list *list, double t ) {
     return (struct rfx_trajq_seg*)pcons->data;
 }
 
-static int
-seg_list_get_q( void *list, double t, double *q ) {
-    return rfx_trajq_seg_get_q( seg_list_lookup((struct rfx_trajq_seg_list*)list,t),
-                                t, q );
-}
-
-static int
-seg_list_get_dq( void *list, double t, double *q, double *dq ) {
-    return rfx_trajq_seg_get_dq( seg_list_lookup((struct rfx_trajq_seg_list*)list,t),
-                                 t, q, dq );
-}
-
-static int
-seg_list_get_ddq( void *list, double t, double *q, double *dq, double *ddq ) {
-    return rfx_trajq_seg_get_ddq( seg_list_lookup((struct rfx_trajq_seg_list*)list,t),
-                                  t, q, dq, ddq );
-}
-
 struct rfx_trajq_seg_list *
 rfx_trajq_seg_list_alloc( aa_mem_region_t *reg ) {
     return new(reg) rfx_trajq_seg_list(reg);
@@ -250,7 +221,6 @@ void rfx_trajq_seg_list_add( struct rfx_trajq_seg_list *seglist, rfx_trajq_seg_t
     seglist->t_f = seg->t_f;
     seglist->n_t++;
 }
-
 
 struct rfx_trajq_seg_param {
     struct rfx_trajq_seg parent;
