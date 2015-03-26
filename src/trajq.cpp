@@ -40,7 +40,7 @@
  *
  */
 
-#include <amino.h>
+#include <amino.hpp>
 #include "reflex.h"
 
 
@@ -49,28 +49,31 @@ struct rfx_trajq_point {
     double q[1];    ///< points
 };
 
+// TODO: replace rlists with region-allocated STL lists
+
 /** List of via points for a trajectory */
-typedef struct rfx_trajq_points {
+struct rfx_trajq_points {
     aa_mem_region_t *reg;   ///< memory region for allocation
     size_t n_q;             ///< number of joints
     size_t n_t;             ///< number of points
     double t_i, t_f;        ///< initial and final time
     double *q_i, *q_f;      ///< inital and final joint configuration
     aa_mem_rlist_t *point;  ///< list of points
-} rfx_trajq_points_t;
+    rfx_trajq_points( aa_mem_region_t *reg, size_t n_q ) :
+        reg(reg),
+        n_q(n_q)
+     {
+         this->point = aa_mem_rlist_alloc( reg );
+     }
+};
 
 
-rfx_trajq_points_t *
+struct rfx_trajq_points *
 rfx_trajq_points_alloc( aa_mem_region_t *reg, size_t n_q ) {
-    rfx_trajq_points_t *x = AA_MEM_REGION_NEW( reg, rfx_trajq_points_t );
-    memset(x,0,sizeof(*x));
-    x->reg = reg;
-    x->n_q = n_q;
-    x->point = aa_mem_rlist_alloc( reg );
-    return x;
+    return new(reg) rfx_trajq_points(reg, n_q);
 }
 
-void rfx_trajq_points_add( rfx_trajq_points_t *pts, double t, double *q ) {
+void rfx_trajq_points_add( struct rfx_trajq_points *pts, double t, double *q ) {
     //printf("add point: %f\n", t );
     double *qq = AA_MEM_REGION_NEW_N( pts->reg, double, pts->n_q+1 );
     qq[0] = t;
@@ -120,12 +123,25 @@ rfx_trajq_seg_get_ddq( struct rfx_trajq_seg*seg, double t, double *q, double *dq
     return seg->vtab->get_ddq( seg, t, q, dq, ddq );
 }
 
-
-
-
 /** List of trajectory segments.
  */
-typedef struct rfx_trajq_seg_list {
+
+static int
+seg_list_get_q( void *list, double t, double *q) ;
+
+static int
+seg_list_get_dq( void *list, double t, double *q, double *dq );
+
+static int
+seg_list_get_ddq( void *list, double t, double *q, double *dq, double *ddq );
+
+static struct rfx_trajq_seg_vtab seglist_vtab = {
+    .get_q   = seg_list_get_q,
+    .get_dq  = seg_list_get_dq,
+    .get_ddq = seg_list_get_ddq
+};
+
+struct rfx_trajq_seg_list {
     struct rfx_trajq_seg_vtab *vtab;
     double t_i;             ///< initial time for this segment
     double t_f;             ///< final time for this segment
@@ -134,8 +150,14 @@ typedef struct rfx_trajq_seg_list {
     aa_mem_region_t *reg;   ///< memory region for allocation
     aa_mem_rlist_t *seg;    ///< list of segments
     struct aa_mem_cons *last_seg; ///< pointer to last referenced segment
-} rfx_trajq_seg_list_t;
 
+    rfx_trajq_seg_list( aa_mem_region_t *reg ) :
+        reg(reg),
+        vtab(&seglist_vtab)
+    {
+        this->seg = aa_mem_rlist_alloc( reg );
+    }
+} ;
 
 int
 rfx_trajq_seg_list_get_q( struct rfx_trajq_seg_list *seglist, double t, double *q ) {
@@ -213,23 +235,12 @@ seg_list_get_ddq( void *list, double t, double *q, double *dq, double *ddq ) {
                                   t, q, dq, ddq );
 }
 
-static struct rfx_trajq_seg_vtab seglist_vtab = {
-    .get_q   = seg_list_get_q,
-    .get_dq  = seg_list_get_dq,
-    .get_ddq = seg_list_get_ddq
-};
-
 struct rfx_trajq_seg_list *
 rfx_trajq_seg_list_alloc( aa_mem_region_t *reg ) {
-    rfx_trajq_seg_list_t *x = AA_MEM_REGION_NEW( reg, rfx_trajq_seg_list_t );
-    memset(x,0,sizeof(*x));
-    x->reg = reg;
-    x->seg = aa_mem_rlist_alloc( reg );
-    x->vtab = &seglist_vtab;
-    return x;
+    return new(reg) rfx_trajq_seg_list(reg);
 }
 
-void rfx_trajq_seg_list_add( rfx_trajq_seg_list_t *seglist, rfx_trajq_seg_t *seg ) {
+void rfx_trajq_seg_list_add( struct rfx_trajq_seg_list *seglist, rfx_trajq_seg_t *seg ) {
     aa_mem_rlist_enqueue_ptr( seglist->seg, seg );
 
     if( 0 == seglist->n_t ) {
@@ -247,8 +258,8 @@ struct rfx_trajq_seg_param {
 };
 
 /*--- Parabolic Blends ---*/
-rfx_trajq_seg_list_t *
-rfx_trajq_gen_pblend_tm1( aa_mem_region_t *reg, rfx_trajq_points_t *points, double t_blend ) {
+struct rfx_trajq_seg_list *
+rfx_trajq_gen_pblend_tm1( aa_mem_region_t *reg, struct rfx_trajq_points *points, double t_blend ) {
     struct rfx_trajq_seg_list *list = rfx_trajq_seg_list_alloc(reg);
     size_t n_q = list->n_q = points->n_q;
     double tb_2 = t_blend/2;
@@ -396,7 +407,7 @@ gen_traj(aa_mem_region_t *reg, struct rfx_trajq_points *points, const double * v
 }
 
 
-rfx_trajq_seg_list_t *
+struct rfx_trajq_seg_list *
 rfx_trajq_gen_pblend_max( aa_mem_region_t *reg, struct rfx_trajq_points *points, double v_max, double a_max ) {
     size_t n_q = points->n_q;
     size_t n_t = points-> n_t;
@@ -589,7 +600,7 @@ rfx_trajq_seg_dq_alloc2( aa_mem_region_t *reg, size_t n_q,
 }
 
 
-int rfx_trajq_seg_dq_link( rfx_trajq_seg_list_t *seglist, const double *dq, double t_f ) {
+int rfx_trajq_seg_dq_link( struct rfx_trajq_seg_list *seglist, const double *dq, double t_f ) {
     // initial state
     double t_i = seglist->t_f;
     if( t_f <= t_i )  return -1;
@@ -691,7 +702,7 @@ rfx_trajq_seg_2dq_alloc2( aa_mem_region_t *reg, size_t n_q,
                           double t_f, const double *q_f );
 
 
-int rfx_trajq_seg_2dq_link( rfx_trajq_seg_list_t *seglist, const double *ddq, double t_f ) {
+int rfx_trajq_seg_2dq_link( struct rfx_trajq_seg_list *seglist, const double *ddq, double t_f ) {
     // initial state
     double t_i = seglist->t_f;
     if( t_f <= t_i ) return -1;

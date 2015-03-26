@@ -30,8 +30,8 @@ libreflex_la_SOURCES =              \
 	src/tf/rfx_tf.c             \
 	src/tf/dud.c                \
 	src/plot.c                  \
-	src/trajq.c                 \
 	src/kin.c                   \
+	src/trajq.cpp               \
 	src/trajx.cpp               \
 	src/traj.c                  \
 	src/body/body.cpp

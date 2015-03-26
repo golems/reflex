@@ -143,6 +143,7 @@ int main( int argc, char **argv )
     /* Plot */
     rfx_trajq_seg_plot(segs, 0.01);
 
+    aa_mem_region_destroy(&reg);
 }
 
 static void
