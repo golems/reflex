@@ -59,3 +59,5 @@
 /doc/Makefile
 /doc/Makefile.in
 /rfx-camcal
+/rfx-qblend
+/rfx-camcal-test

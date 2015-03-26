@@ -565,7 +565,7 @@ static struct rfx_trajq_seg_vtab seg_dq_vtab = {
 
 struct rfx_trajq_seg *
 rfx_trajq_seg_dq_alloc( aa_mem_region_t *reg, size_t n_q,
-                        double t_i, double *q_i, double *dq,
+                        double t_i, const double *q_i, const double *dq,
                         double t_f ) {
     rfx_trajq_seg_dq_t *x = RFX_TRAJQ_SEG_ALLOC( reg, rfx_trajq_seg_dq_t, &seg_dq_vtab,
                                                  n_q, t_i, t_f, 2*n_q*sizeof(double) );
@@ -578,8 +578,8 @@ rfx_trajq_seg_dq_alloc( aa_mem_region_t *reg, size_t n_q,
 
 struct rfx_trajq_seg *
 rfx_trajq_seg_dq_alloc2( aa_mem_region_t *reg, size_t n_q,
-                         double t_i, double *q_i,
-                         double t_f, double *q_f ) {
+                         double t_i, const double *q_i,
+                         double t_f, const double *q_f ) {
     // compute velocity
     double dq[n_q];
     for( size_t i = 0; i < n_q; i ++ ) {
@@ -589,7 +589,8 @@ rfx_trajq_seg_dq_alloc2( aa_mem_region_t *reg, size_t n_q,
     return rfx_trajq_seg_dq_alloc( reg, n_q, t_i, q_i, dq, t_f );
 }
 
-int rfx_trajq_seg_dq_link( rfx_trajq_seg_list_t *seglist, double *dq, double t_f ) {
+
+int rfx_trajq_seg_dq_link( rfx_trajq_seg_list_t *seglist, const double *dq, double t_f ) {
     // initial state
     double t_i = seglist->t_f;
     if( t_f <= t_i )  return -1;
@@ -669,8 +670,8 @@ static struct rfx_trajq_seg_vtab seg_2dq_vtab = {
 
 struct rfx_trajq_seg *
 rfx_trajq_seg_2dq_alloc( aa_mem_region_t *reg, size_t n_q,
-                         double t_i, double *q_i,
-                         double *dq, double *ddq,
+                         double t_i, const double *q_i,
+                         const double *dq, const double *ddq,
                          double t_f ) {
     rfx_trajq_seg_2dq_t *x = RFX_TRAJQ_SEG_ALLOC( reg, rfx_trajq_seg_2dq_t, &seg_2dq_vtab,
                                                   n_q, t_i, t_f, 3*n_q*sizeof(double) );
@@ -687,11 +688,11 @@ rfx_trajq_seg_2dq_alloc( aa_mem_region_t *reg, size_t n_q,
 
 struct rfx_trajq_seg *
 rfx_trajq_seg_2dq_alloc2( aa_mem_region_t *reg, size_t n_q,
-                          double t_i, double *q_i, double *dq_i,
-                          double t_f, double *q_f );
+                          double t_i, const double *q_i, const double *dq_i,
+                          double t_f, const double *q_f );
 
 
-int rfx_trajq_seg_2dq_link( rfx_trajq_seg_list_t *seglist, double *ddq, double t_f ) {
+int rfx_trajq_seg_2dq_link( rfx_trajq_seg_list_t *seglist, const double *ddq, double t_f ) {
     // initial state
     double t_i = seglist->t_f;
     if( t_f <= t_i ) return -1;
@@ -707,14 +708,17 @@ int rfx_trajq_seg_2dq_link( rfx_trajq_seg_list_t *seglist, double *ddq, double t
 
 /*--- Constant Jerk ---*/
 
-struct rfx_trajq_seg_3dq {
-    struct rfx_trajq_seg parent;
-    size_t n_q;
-    double *q_i;
-    double *dq_i;
-    double *ddq_i;
-    double *dddq;
-};
+// struct rfx_trajq_seg_3dq {
+//     struct rfx_trajq_seg parent;
+//     size_t n_q;
+//     double *q_i;
+//     double *dq_i;
+//     double *ddq_i;
+//     double *dddq;
+// };
+
+typedef struct rfx_trajq_seg_param rfx_trajq_seg_3dq;
+
 
 static struct rfx_trajq_seg_vtab seg_3dq_vtab = {
     .get_q   = NULL,
@@ -724,25 +728,30 @@ static struct rfx_trajq_seg_vtab seg_3dq_vtab = {
 
 struct rfx_trajq_seg *
 rfx_trajq_seg_3dq_alloc( aa_mem_region_t *reg, size_t n_q,
-                         double t_i, double *q_i,
-                         double *dq, double *ddq, double *dddq,
+                         double t_i, const double *q_i,
+                         const double *dq, const double *ddq, const double *dddq,
                          double t_f ) {
-    struct rfx_trajq_seg_3dq *x = RFX_TRAJQ_SEG_ALLOC( reg, struct rfx_trajq_seg_3dq,
+    rfx_trajq_seg_3dq *x = RFX_TRAJQ_SEG_ALLOC( reg, rfx_trajq_seg_3dq,
                                                        &seg_3dq_vtab, n_q, t_i, t_f, 3*n_q*sizeof(double) );
-    x->q_i = q_i;
-    x->dq_i = dq;
-    x->ddq_i = ddq;
-    x->dddq = dddq;
-    // TODO: vtable
+
+    double *p_q_i  = x->p + 0*n_q;
+    double *p_dq   = x->p + 1*n_q;
+    double *p_ddq  = x->p + 2*n_q;
+    double *p_dddq = x->p + 3*n_q;
+    AA_MEM_CPY(p_q_i, q_i, n_q );
+    AA_MEM_CPY(p_dq,  dq,  n_q );
+    AA_MEM_CPY(p_ddq, ddq, n_q );
+    AA_MEM_CPY(p_dddq, dddq, n_q );
+
     return &x->parent;
 }
 
 
 struct rfx_trajq_seg *
 rfx_trajq_seg_3dq_alloc2( aa_mem_region_t *reg, size_t n_q,
-                          double t_i, double *q_i,
-                          double *dq, double *ddq,
-                          double t_f, double *dq_f, double *ddq_f );
+                          double t_i, const double *q_i,
+                          const double *dq, const double *ddq,
+                          double t_f, const double *dq_f, const double *ddq_f );
 
 
 /*--- Dense waypoint segments ---*/

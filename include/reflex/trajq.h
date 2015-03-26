@@ -185,18 +185,18 @@ rfx_trajq_gen_pblend_max( aa_mem_region_t *reg, struct rfx_trajq_points *points,
 /** Allocate segment to LERP from q_i with given velocity */
 struct rfx_trajq_seg *
 rfx_trajq_seg_dq_alloc( aa_mem_region_t *reg, size_t n_q,
-                        double t_i, double *q_i, double *dq,
+                        double t_i, const double *q_i, const double *dq,
                         double t_f );
 
 /** Allocate segment to LERP between q_i and q_f */
 struct rfx_trajq_seg *
 rfx_trajq_seg_dq_alloc2( aa_mem_region_t *reg, size_t n_q,
-                         double t_i, double *q_i,
-                         double t_f, double *q_f );
+                         double t_i, const double *q_i,
+                         double t_f, const double *q_f );
 
 
 /** Add a constant velocity segment to end of trajectory. */
-int rfx_trajq_seg_dq_link( struct rfx_trajq_seg_list *seglist, double *dq, double t_f );
+int rfx_trajq_seg_dq_link( struct rfx_trajq_seg_list *seglist, const double *dq, double t_f );
 
 /*--- Constant Acceleration Segments ---*/
 typedef struct rfx_trajq_seg_param rfx_trajq_seg_2dq_t;
@@ -204,36 +204,36 @@ typedef struct rfx_trajq_seg_param rfx_trajq_seg_2dq_t;
 /** Allocate a constant acceleration segment */
 struct rfx_trajq_seg *
 rfx_trajq_seg_2dq_alloc( aa_mem_region_t *reg, size_t n_q,
-                         double t_i, double *q_i,
-                         double *dq, double *ddq,
+                         double t_i, const double *q_i,
+                         const double *dq, const double *ddq,
                          double t_f );
 
 /** Allocate a constant acceleration segment */
 struct rfx_trajq_seg *
 rfx_trajq_seg_2dq_alloc2( aa_mem_region_t *reg,
                           size_t n_q,
-                          double t_i, double *q_i, double *dq_i,
-                          double t_f, double *q_f );
+                          double t_i, const double *q_i, const double *dq_i,
+                          double t_f, const double *q_f );
 
 /** Add a constant acceleration segment to end of trajectory. */
-int rfx_trajq_seg_2dq_link( struct rfx_trajq_seg_list *seglist, double *ddq, double t_f );
+int rfx_trajq_seg_2dq_link( struct rfx_trajq_seg_list *seglist, const double *ddq, double t_f );
 
 /*--- Constant Jerk Segments ---*/
 
 /** Allocate a constant acceleration segment */
 struct rfx_trajq_seg *
 rfx_trajq_seg_3dq_alloc( aa_mem_region_t *reg, size_t n_q,
-                         double t_i, double *q_i,
-                         double *dq, double *ddq, double *dddq,
+                         double t_i, const double *q_i,
+                         const double *dq, const double *ddq, const double *dddq,
                          double t_f );
 
 
 /** Allocate a constant acceleration segment */
 struct rfx_trajq_seg *
 rfx_trajq_seg_3dq_alloc2( aa_mem_region_t *reg, size_t n_q,
-                          double t_i, double *q_i,
-                          double *dq, double *ddq,
-                          double t_f, double *dq_f, double *ddq_f );
+                          double t_i, const double *q_i,
+                          const double *dq, const double *ddq,
+                          double t_f, const double *dq_f, const double *ddq_f );
 
 
 
