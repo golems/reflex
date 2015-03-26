@@ -60,9 +60,6 @@ size_t n_q = 7; // default number of joints
 static void
 read_points( struct rfx_trajq_points*, FILE *);
 
-static void
-write_traj ( struct rfx_trajx_seg_list*, FILE *);
-
 
 static void posarg( char *arg, int i )
 {
@@ -81,9 +78,9 @@ int main( int argc, char **argv )
     for( int c; -1 != (c = getopt(argc, argv, "q:t:o:dv?")); ) {
         switch(c) {
         case 'q':
-            n_q = atoi(optarg);
+            n_q = (size_t)atoi(optarg);
             if( n_q <= 0 ) {
-                fprintf(stderr, "Invalid number of joints: `%d'\n", n_q );
+                fprintf(stderr, "Invalid number of joints: `%lu'\n", n_q );
                 exit(EXIT_FAILURE);
             }
             break;
@@ -131,20 +128,17 @@ int main( int argc, char **argv )
 
     /* Open */
     FILE *in = opt_file_in ? fopen( opt_file_in, "r" ) : stdin;
-    FILE *out = opt_file_out ? fopen( opt_file_out, "w" ) : stdout;
     struct aa_mem_region reg;
     aa_mem_region_init( &reg, 1024 * 64 ); // ?? Why allocate by this amount?
 
     /* Read */
     struct rfx_trajq_points *points = rfx_trajq_points_alloc( &reg, n_q );
     read_points(points,in);
-    
+
     /* Generate */
     double v_max = 1;
     double a_max = 0.010;
     struct rfx_trajq_seg_list *segs = rfx_trajq_gen_pblend_max( &reg, points, v_max, a_max );
-
-    // struct rfx_trajq_seg_list *segs = rfx_trajq_gen_pblend_tm1( &reg, points, 1.0 );
 
     /* Plot */
     rfx_trajq_seg_plot(segs, 0.01);
@@ -168,7 +162,7 @@ read_points( struct rfx_trajq_points *points, FILE *in)
         char *line2 = aa_io_skipblank(line);
         if('\0' == *line2 || AA_IO_ISCOMMENT(*line2)) continue;
 
-        // TODO: There's gotta be a better way. For now, 20 is enough
+        // TODO: Automatically determine array size
         double x[n_q];
         size_t i = aa_io_parsevector( line2, n_q, x, 1, NULL );
 
@@ -186,47 +180,4 @@ read_points( struct rfx_trajq_points *points, FILE *in)
 
 
     aa_mem_region_destroy(&reg);
-}
-
-static void
-write_traj ( struct rfx_trajx_seg_list *segs, FILE *out)
-{
-    double ti = rfx_trajx_seg_list_get_t_i( segs );
-    double tf = rfx_trajx_seg_list_get_t_f( segs );
-
-    for( double t = ti; t < tf; t+= opt_dt ) {
-        rfx_tf_dx tf_dx;
-        rfx_trajx_seg_list_get_dx_qv( segs,
-                                      t, tf_dx.tf.r.data, tf_dx.tf.v.data,
-                                      tf_dx.dx.data );
-        if( opt_vel ) {
-            fprintf( out, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf  %lf  %lf  %lf  %lf\n",
-                     t,
-                     tf_dx.tf.r.x,
-                     tf_dx.tf.r.y,
-                     tf_dx.tf.r.z,
-                     tf_dx.tf.r.w,
-                     tf_dx.tf.v.x,
-                     tf_dx.tf.v.y,
-                     tf_dx.tf.v.z,
-                     tf_dx.dx.dv[0],
-                     tf_dx.dx.dv[1],
-                     tf_dx.dx.dv[2],
-                     tf_dx.dx.omega[0],
-                     tf_dx.dx.omega[1],
-                     tf_dx.dx.omega[2]
-                );
-        } else {
-            /* print positions */
-            fprintf( out, "%lf %lf %lf %lf %lf %lf %lf %lf\n",
-                     t,
-                     tf_dx.tf.r.x,
-                     tf_dx.tf.r.y,
-                     tf_dx.tf.r.z,
-                     tf_dx.tf.r.w,
-                     tf_dx.tf.v.x,
-                     tf_dx.tf.v.y,
-                     tf_dx.tf.v.z );
-        }
-    }
 }
