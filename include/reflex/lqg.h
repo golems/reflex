@@ -91,14 +91,15 @@ void rfx_lqg_kf_correct_cov
 /* The next few typedefs define functions for computing state updates,
  * expected measurements, and linearizing the system */
 
-/** Function to compute process update and linearization.
+/**
+ * Function to compute process update and linearization.
  *
  * \f[ x \approx F x \f]
  *
- * @param cx context struct
- * @param x state vector
- * @param u input vector
- * @param F linearized process model
+ * @param[in,out] cx context struct
+ * @param[in,out] x state vector
+ * @param[in]     u input vector
+ * @param[out]    F linearized process model
  *
  * @pre
  *  - x contains the prior state estimate
@@ -108,7 +109,8 @@ void rfx_lqg_kf_correct_cov
  */
 typedef int (*rfx_lqg_ekf_process_fun)( void *cx, double *x, const double *u, double *F );
 
-/** Function to compute innovation and linearization.
+/**
+ * Function to compute innovation and linearization.
  *
  * \f[ y = h(x) \f]
  *
@@ -117,7 +119,7 @@ typedef int (*rfx_lqg_ekf_process_fun)( void *cx, double *x, const double *u, do
  * @param cx context struct
  * @param x state vector
  * @param y predicted measurement
- * @param F linearized measurement model
+ * @param H linearized measurement model
  *
  * @post
  *  - y contains the predicted measurement for state x

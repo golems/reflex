@@ -177,26 +177,30 @@ int rfx_lqg_ekf_correct
 {
     int i;
 
-    double y[n_z];
     double H[n_z*n_x];
-    i = measure(cx, x, y, H);
-    if(i) return i;
-
     double K[n_x*n_z];
-    i = rfx_lqg_kf_correct_gain( n_x, n_z, H, P, W, K );
-    if(i) return i;
+    {
+        double y[n_z];
+        i = measure(cx, x, y, H);
+        if(i) return i;
 
-    i = innovate(cx, x, z, y);
-    if(i) return i;
+        i = rfx_lqg_kf_correct_gain( n_x, n_z, H, P, W, K );
+        if(i) return i;
 
-    double Ky[n_x];
-    cblas_dgemv( CblasColMajor, CblasNoTrans,
-                 (int)n_x, (int)n_z,
-                 1.0, K, (int)n_x,
-                 y, 1,
-                 0.0, Ky, 1 );
+        i = innovate(cx, x, z, y);
+        if(i) return i;
 
-    i = update(cx, x, Ky);
+        {
+            double Ky[n_x];
+            cblas_dgemv( CblasColMajor, CblasNoTrans,
+                         (int)n_x, (int)n_z,
+                         1.0, K, (int)n_x,
+                         y, 1,
+                         0.0, Ky, 1 );
+
+            i = update(cx, x, Ky);
+        }
+    }
 
     rfx_lqg_kf_correct_cov( n_x, n_z, H, P, K );
 
