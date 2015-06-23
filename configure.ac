@@ -62,9 +62,13 @@ AS_IF( [test "x$prefix" = xNONE], [prefix=/usr/local] )
 FCFLAGS="$FCFLAGS -I$prefix/include"
 
 # Set LP solve shared library location
-AC_CHECK_FILE([/usr/lib/lp_solve/liblpsolve55.so],
-	      [LDFLAGS="-L/usr/lib/lp_solve $LDFLAGS"],
-	      [])
+AC_SEARCH_LIBS([solve], [lpsolve55],
+	       [],
+	       [LDFLAGS="-L/usr/lib/lp_solve $LDFLAGS"
+		AC_SEARCH_LIBS([make_lp], [lpsolve55],
+			       [],
+			       [AC_MSG_ERROR([unable to find lpsolve])])
+	       ])
 
 # Enable maximum warnings
 AX_CFLAGS_WARN_ALL
