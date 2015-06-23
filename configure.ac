@@ -65,7 +65,8 @@ FCFLAGS="$FCFLAGS -I$prefix/include"
 AC_SEARCH_LIBS([solve], [lpsolve55],
 	       [],
 	       [LDFLAGS="-L/usr/lib/lp_solve $LDFLAGS"
-		AC_SEARCH_LIBS([make_lp], [lpsolve55],
+		$as_unset ac_cv_search_solve
+		AC_SEARCH_LIBS([solve], [lpsolve55],
 			       [],
 			       [AC_MSG_ERROR([unable to find lpsolve])])
 	       ])
