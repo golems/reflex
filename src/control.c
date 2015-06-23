@@ -248,6 +248,232 @@ rfx_status_t rfx_ctrl_ws_lin_vfwd( const rfx_ctrl_ws_t *ws, const rfx_ctrl_ws_li
     return RFX_OK;
 }
 
+void rfx_ctrl_ws_lin_opt_calc( const rfx_ctrl_ws_t *ws,
+                               const rfx_ctrl_ws_lin_k_t *k_t, double dt,
+                               double *tJ_sdt, double *tddx_r,
+                               double *Ndq_rn ) {
+
+    // Calculate error in workspace position
+    double x_e[6];
+    {
+        double twist[8], de[8];
+        aa_tf_duqu_mulc( ws->act.S, ws->ref.S, de );   // de = d*conj(d_r)
+        aa_tf_duqu_minimize( de );
+        aa_tf_duqu_ln( de, twist );                    // twist = log( de )
+        aa_tf_duqu_twist2vel( ws->act.S, twist, x_e );
+    }
+
+    // Calculate sign matrix and ~ddx_r
+    double M[6 * 6];
+    AA_MEM_ZERO( M, 6 * 6 );
+    {
+        size_t idx;
+        for( idx = 0; idx < 6; idx++ ) {
+            // Find current acceleration
+            double dx_r = ws->ref.dx[idx] - k_t->p[idx] * x_e[idx];
+            tddx_r[idx] = (dx_r - ws->act.dx[idx]) / dt;
+
+            // Create bookkeeping matrix of sign and make vector positive
+            double s = (double) RFX_SIGN( tddx_r[idx] );
+            AA_MATREF( M, 6, idx, idx ) = s;
+            tddx_r[idx] *= s;
+        }
+    }
+
+    double J_s[6 * ws->n_q];
+    AA_MEM_ZERO( J_s, 6 * ws->n_q );
+    AA_MEM_ZERO( tJ_sdt, 6 * ws->n_q );
+
+    // Compute a damped pseudo inverse
+    if( k_t->s2min > 0 )
+        aa_la_dzdpinv( 6, ws->n_q, k_t->s2min, ws->J, J_s );
+    else
+        aa_la_dpinv( 6, ws->n_q, k_t->dls, ws->J, J_s );
+
+    // Calculate the sign preserving J_s and multiply in the constant dt.
+    cblas_dgemm( CblasColMajor, CblasNoTrans, CblasNoTrans,
+                 (int) ws->n_q, 6, 6,
+                 dt, J_s, (int) ws->n_q, M, 6,
+                 0, tJ_sdt, (int) ws->n_q );
+
+    // Get change in nullspace velocity to zero joints
+    double dq_rn[ws->n_q];
+    {
+        size_t idx;
+        for( idx = 0; idx < ws->n_q; idx++ ) {
+            double tzero = ( ws->q_max[idx] + ws->q_min[idx] ) / 2;
+            dq_rn[idx] = -ws->act.dq[idx] +
+                    (tzero - ws->act.q[idx]) / (ws->q_max[idx] - tzero);
+        }
+    }
+
+    // Find N dq_rn
+    double zero[6];
+    AA_MEM_ZERO( zero, 6 );
+
+    aa_la_xlsnp( 6, ws->n_q, ws->J, J_s, zero, dq_rn, Ndq_rn );
+}
+
+void rfx_ctrl_ws_lin_opt_cons( const rfx_ctrl_ws_t *ws, double dt,
+                               double *c_max, double *c_min ) {
+    size_t idx;
+    for( idx = 0; idx < ws->n_q; idx++ ) {
+        // Velocity constraint
+        double vel_max = ws->dq_max[idx] - ws->act.dq[idx];
+        double vel_min = ws->dq_min[idx] - ws->act.dq[idx];
+
+        // Acceleration constraint
+        double acc_max = ws->ddq_max[idx] * dt;
+        double acc_min = ws->ddq_min[idx] * dt;
+
+        // Position constraint
+        double pos_max =
+                (ws->q_max[idx] - ws->act.q[idx] - (ws->ddq_min[idx] * dt * dt) / 2.)
+                / dt - ws->act.dq[idx];
+
+        double pos_min =
+                (ws->q_min[idx] - ws->act.q[idx] - (ws->ddq_max[idx] * dt * dt) / 2.)
+                / dt - ws->act.dq[idx];
+
+        c_min[idx] = fmax(vel_min, fmax(pos_min, acc_min));
+        c_max[idx] = fmin(vel_max, fmin(pos_max, acc_max));
+    }
+}
+
+AA_API void rfx_ctrl_ws_lin_opt_lp_init( const rfx_ctrl_ws_t *ws, lprec **lp ) {
+    *lp = make_lp( (int) ws->n_q * 2, 6 + 1 );
+
+    set_maxim(*lp);
+    set_verbose(*lp, IMPORTANT);
+}
+
+AA_API rfx_status_t rfx_ctrl_ws_lin_opt( const rfx_ctrl_ws_t *ws,
+                                         const rfx_ctrl_ws_lin_k_t *k_t,
+                                         lprec *lp, double k_max, double C_u,
+                                         double dt, double *u ) {
+    AA_MEM_ZERO( u, ws->n_q );
+
+    if (dt <= 0)
+        return RFX_OK;
+
+    double tJ_sdt[ws->n_q * 6];
+    double tddx_r[6];
+    double Ndq_rn[ws->n_q];
+    rfx_ctrl_ws_lin_opt_calc( ws, k_t, dt, tJ_sdt, tddx_r, Ndq_rn );
+
+    // Find q constraints
+    double c_max[ws->n_q], c_min[ws->n_q];
+    rfx_ctrl_ws_lin_opt_cons( ws, dt, c_max, c_min );
+
+    // Set up LP problem
+    {
+        double cons[6 + 1 + 1];
+
+        {
+            // Set objective function
+            size_t idx;
+            for( idx = 1; idx <= 6; idx++ )
+                cons[idx] = tddx_r[idx - 1];
+            cons[idx] = C_u;
+
+            set_row( lp, 0, cons );
+        }
+
+        {
+            // Set constraint of tddx_u <= tddx_r
+            int idx;
+            for( idx = 1; idx <= 6; idx++ )
+                set_bounds( lp, idx, 0, tddx_r[idx - 1] );
+
+            // Set constraint of k <= k_max
+            set_bounds( lp, 7, 0, k_max );
+        }
+
+        // Set all joint constraints
+        {
+            size_t idx;
+            for( idx = 0; idx < ws->n_q; idx++) {
+                // Set ~J*dt coeffecient on ~ddx_u
+                size_t jdx;
+                for( jdx = 1; jdx <= 6; jdx++ )
+                    cons[jdx] = AA_MATREF( tJ_sdt, ws->n_q, idx, jdx - 1);
+
+                // Set Ndq_rn coeffecient on k
+                cons[jdx] = Ndq_rn[idx];
+
+                int cdx = (int) idx + 1;
+                int ddx = cdx + (int) ws->n_q;
+
+                // Set coeffecients
+                set_row( lp, cdx, cons );
+                set_row( lp, ddx, cons );
+
+                // Set bounding values
+                set_rh( lp, cdx, c_max[idx] );
+                set_rh( lp, ddx, c_min[idx] );
+
+                // Set constraint type
+                set_constr_type( lp, cdx, LE );
+                set_constr_type( lp, ddx, GE );
+            }
+        }
+    }
+
+    // Solve problem
+    int ret = solve( lp );
+    if( ret != 0 ) {
+        printf("LP Solver returned %d\n", ret);
+        printf("C_max: ");
+        aa_dump_vec(stderr, c_max, ws->n_q);
+        printf("C_min: ");
+        aa_dump_vec(stderr, c_min, ws->n_q);
+        return RFX_INVAL;
+    }
+
+    // Get return value
+    double tddx_uk[6 + 1];
+    AA_MEM_ZERO( tddx_uk, 6 + 1 );
+    get_variables( lp, tddx_uk );
+
+    {
+        double xys = 0;
+        double xs = 0;
+        double ys = 0;
+
+        {
+            size_t idx;
+            for( idx = 0; idx < 6; idx++ ) {
+                xys += tddx_uk[idx] * tddx_r[idx];
+
+                double xt = fabs(tddx_uk[idx]);
+                xs += xt * xt;
+
+                double yt = fabs(tddx_r[idx]);
+                ys += yt * yt;
+            }
+        }
+
+        xys = fabs(xys);
+        xys *= xys;
+
+        if( xys > xs * ys ) {
+            // Not linearly dependent
+        }
+    }
+
+    double Ddq_u[ws->n_q];
+    AA_MEM_ZERO( Ddq_u, ws->n_q );
+    aa_la_mvmul( ws->n_q, 6, tJ_sdt, tddx_uk, Ddq_u );
+
+    {
+        size_t idx;
+        for( idx = 0; idx < ws->n_q; idx++ )
+            u[idx] = ws->act.dq[idx] + Ddq_u[idx] + Ndq_rn[idx] * tddx_uk[6];
+    }
+
+    return RFX_OK;
+}
+
 rfx_status_t rfx_ctrl_ws_sdx( rfx_ctrl_ws_t *ws, double dt ) {
 
     // translation

@@ -14,6 +14,7 @@ pkginclude_HEADERS = \
 	include/reflex/trajx.h \
 	include/reflex/tf.h \
 	include/reflex/lqg.h \
+	include/reflex/control.h \
 	include/reflex/body.h
 
 nodist_include_HEADERS = reflex.mod
@@ -39,45 +40,46 @@ libreflex_la_SOURCES =              \
 reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/tf/lqg_tf_f.f90 src/tf/rfx_tff.f90
 	$(CPP) $(INCLUDES) -x c  $< -o $@
 
+RFX_LIBS = -L/usr/lib/lp_solve/ libreflex.la -lamino -llapack -lopenblas -llpsolve55
+
 noinst_LTLIBRARIES = libreflex_mod.la
 libreflex_mod_la_SOURCES = reflex_mod.f90
 reflex.mod: $(libreflex_mod_la_OBJECTS)
 
-libreflex_la_LIBADD = libreflex_mod.la
+libreflex_la_LIBADD = -L/usr/lib/lp_solve/ libreflex_mod.la -llapack -lblas -llpsolve55
 
 noinst_PROGRAMS = cartpend
 cartpend_SOURCES = src/cartpend.c
-cartpend_LDADD = libreflex.la -lamino -llapack -lblas
+cartpend_LDADD = $(RFX_LIBS)
 
 noinst_PROGRAMS += lqgtest
 lqgtest_SOURCES = src/lqgtest.c
-lqgtest_LDADD = libreflex.la -lamino -llapack -lblas
+lqgtest_LDADD = $(RFX_LIBS)
 
 noinst_PROGRAMS += plot_test
 plot_test_SOURCES = src/plot_test.c
-plot_test_LDADD = libreflex.la -lamino -llapack -lblas
+plot_test_LDADD = $(RFX_LIBS)
 
-
-noinst_PROGRAMS += test-tf-filter
-test_tf_filter_SOURCES = src/test/test-tf-filter.c
-test_tf_filter_LDADD = libreflex.la -lamino -llapack -lblas -lm
+# noinst_PROGRAMS += test-tf-filter
+# test_tf_filter_SOURCES = src/test/test-tf-filter.c
+# test_tf_filter_LDADD = $(RFX_LIBS)
 
 
 bin_PROGRAMS = rfx-trajgen
 rfx_trajgen_SOURCES = src/demo/rfx-trajgen.c
-rfx_trajgen_LDADD = libreflex.la -lamino -lblas -llapack
+rfx_trajgen_LDADD = $(RFX_LIBS)
 
 bin_PROGRAMS += rfx-qblend
 rfx_qblend_SOURCES = src/demo/rfx-qblend.c
-rfx_qblend_LDADD = libreflex.la -lamino -lblas -llapack
+rfx_qblend_LDADD = $(RFX_LIBS)
 
 bin_PROGRAMS += rfx-camcal
 rfx_camcal_SOURCES = src/demo/rfx-camcal.c
-rfx_camcal_LDADD = libreflex.la -lamino -lblas -llapack
+rfx_camcal_LDADD = $(RFX_LIBS)
 
 bin_PROGRAMS += rfx-camcal-test
 rfx_camcal_test_SOURCES = src/demo/rfx-camcal-test.c
-rfx_camcal_test_LDADD = libreflex.la -lamino -lblas -llapack
+rfx_camcal_test_LDADD = $(RFX_LIBS)
 
 
 

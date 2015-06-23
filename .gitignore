@@ -61,3 +61,6 @@
 /rfx-camcal
 /rfx-qblend
 /rfx-camcal-test
+*.o
+.deps
+*.swp
