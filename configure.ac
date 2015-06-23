@@ -61,6 +61,11 @@ AS_IF( [test "x$prefix" = xNONE], [prefix=/usr/local] )
 # Find amino fortran modules
 FCFLAGS="$FCFLAGS -I$prefix/include"
 
+# Set LP solve shared library location
+AC_CHECK_FILE([/usr/lib/lp_solve/liblpsolve55.so],
+	      [LDFLAGS="-L/usr/lib/lp_solve $LDFLAGS"],
+	      [])
+
 # Enable maximum warnings
 AX_CFLAGS_WARN_ALL
 
