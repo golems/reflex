@@ -55,6 +55,9 @@ AC_FUNC_ERROR_AT_LINE
 AC_CHECK_FUNCS([memset])
 
 
+AC_SEARCH_LIBS([dgemm_],[openblas blas])
+AC_SEARCH_LIBS([dgesvd_],[lapack])
+
 # Default Install Prefix
 AS_IF( [test "x$prefix" = xNONE], [prefix=/usr/local] )
 
@@ -178,4 +181,3 @@ AC_MSG_NOTICE([BUILD JAVA LIB:  $BUILD_JAVA])
 AC_MSG_NOTICE([CLASSPATH:       $CLASSPATH])
 AC_MSG_NOTICE([CFLAGS:          $CFLAGS])
 AC_MSG_NOTICE([FCFLAGS:         $FCFLAGS])
-

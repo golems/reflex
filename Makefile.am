@@ -40,13 +40,13 @@ libreflex_la_SOURCES =              \
 reflex_mod.f90: src/reflex_mod.F90 src/kinematics.f90 src/tf/lqg_tf_f.f90 src/tf/rfx_tff.f90
 	$(CPP) $(INCLUDES) -x c  $< -o $@
 
-RFX_LIBS = libreflex.la -lamino -llapack -lblas -llpsolve55
+RFX_LIBS = libreflex.la -lamino -llpsolve55
 
 noinst_LTLIBRARIES = libreflex_mod.la
 libreflex_mod_la_SOURCES = reflex_mod.f90
 reflex.mod: $(libreflex_mod_la_OBJECTS)
 
-libreflex_la_LIBADD = libreflex_mod.la -llapack -lblas -llpsolve55
+libreflex_la_LIBADD = libreflex_mod.la -llpsolve55
 
 noinst_PROGRAMS = cartpend
 cartpend_SOURCES = src/cartpend.c
